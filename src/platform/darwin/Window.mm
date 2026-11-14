@@ -137,6 +137,10 @@ WindowSize Window::clientSize() const {
     return pixelSize(m_impl->m_window);
 }
 
+float Window::devicePixelRatio() const {
+    return static_cast<float>([m_impl->m_window backingScaleFactor]);
+}
+
 void Window::setResizeCallback(std::function<void(WindowSize)> callback) {
     m_impl->m_resize_callback = std::move(callback);
 }

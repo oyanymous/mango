@@ -63,10 +63,35 @@ struct DrawIndexedDesc {
 };
 
 /**
+ * @brief A rectangle of pixels in a render target, origin at the top-left corner.
+ */
+struct ScissorRect {
+    std::int32_t x = 0;       /**< Left edge. */
+    std::int32_t y = 0;       /**< Top edge. */
+    std::uint32_t width = 0;  /**< Width. */
+    std::uint32_t height = 0; /**< Height. */
+    /** @brief Member-wise equality. */
+    friend bool operator==(const ScissorRect&, const ScissorRect&) = default;
+};
+
+/**
+ * @brief The viewport: the rectangle normalized device coordinates map to, origin at the top-left corner.
+ */
+struct Viewport {
+    float x = 0.0f;         /**< Left edge, in pixels. */
+    float y = 0.0f;         /**< Top edge, in pixels. */
+    float width = 0.0f;     /**< Width, in pixels. */
+    float height = 0.0f;    /**< Height, in pixels. */
+    float min_depth = 0.0f; /**< Depth NDC 0 maps to. */
+    float max_depth = 1.0f; /**< Depth NDC 1 maps to. */
+};
+
+/**
  * @brief Records draws inside a render pass. Returned by ICommandBuffer::beginRender.
  *
  * @details
- * The viewport and scissor cover the whole render target. Typical use:
+ * The viewport and scissor start out covering the whole render target and the stencil reference at 0; setViewport,
+ * setScissor and setStencilReference change them for following draws. Typical use:
  *
  * @code
  * auto pass = cmd->beginRender({.render_pass = pass_ref, .target = target, .clear_colors = {{0, 0, 0, 1}}});
@@ -118,6 +143,27 @@ public:
      * @param desc Index and instance ranges.
      */
     virtual void drawIndexed(DrawIndexedDesc desc) = 0;
+    /**
+     * @brief Sets the viewport for following draws.
+     *
+     * @param viewport The viewport, in pixels of the render target.
+     */
+    virtual void setViewport(Viewport viewport) = 0;
+    /**
+     * @brief Restricts following draws to a rectangle of the render target.
+     *
+     * @details
+     * The rectangle is clamped to the render target; a rectangle entirely outside it discards every fragment.
+     *
+     * @param rect The scissor rectangle, in pixels.
+     */
+    virtual void setScissor(ScissorRect rect) = 0;
+    /**
+     * @brief Sets the reference value of the stencil test (DepthStencilState::stencil) for following draws.
+     *
+     * @param reference The reference value; only the low 8 bits are used.
+     */
+    virtual void setStencilReference(std::uint32_t reference) = 0;
     /**
      * @brief Ends the render pass. The encoder must not be used afterwards.
      */

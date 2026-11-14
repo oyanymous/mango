@@ -64,6 +64,11 @@ public:
     [[nodiscard]] WindowSize clientSize() const;
 
     /**
+     * @brief Pixels per logical unit: 2 on a Retina display, the DPI / 96 on Windows, otherwise 1.
+     */
+    [[nodiscard]] float devicePixelRatio() const;
+
+    /**
      * @brief Sets a function called whenever the client area changes size, including minimize (size 0).
      *
      * @note On macOS also called when the window moves to a screen with another scale factor.

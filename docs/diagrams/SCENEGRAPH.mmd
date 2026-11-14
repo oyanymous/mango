@@ -1,0 +1,142 @@
+classDiagram
+    direction LR
+    %% The scene graph (namespace sg, src/scenegraph) and the renderer that draws it through the RHI.
+    %% Nodes own their children; dirty flags travel up to the root, which notifies its observer (the renderer).
+    class Node {
+        -Node* m_parent
+        -vector~unique_ptr~Node~~ m_children
+        -DirtyFlags m_dirty
+        -Transform2D m_world
+        -float m_world_opacity
+        +appendChild(unique_ptr~Node~) Node*
+        +insertChildBefore(unique_ptr~Node~, Node*) Node*
+        +removeChild(Node*) unique_ptr~Node~
+        +markDirty(DirtyFlags) void
+        +worldTransform() Transform2D
+        +worldOpacity() float
+        +clipContext() ClipContext*
+        +layer() LayerNode*
+    }
+    class RootNode {
+        -NodeObserver* m_observer
+        +setObserver(NodeObserver*) void
+    }
+    class TransformNode {
+        -Transform2D m_matrix
+        +setMatrix(Transform2D) void
+    }
+    class OpacityNode {
+        -float m_opacity
+        +setOpacity(float) void
+    }
+    class ClipNode {
+        -RectF m_rect
+        -ClipContext m_context
+        +setRect(RectF) void
+        +usesStencil() bool
+    }
+    class LayerNode
+    class GeometryNode {
+        -Geometry m_geometry
+        -Material m_material
+        +setGeometry(Geometry) void
+        +setMaterial(Material) void
+    }
+    class RectangleNode {
+        +setRect(RectF) void
+        +setColor(ColorF) void
+    }
+    class ImageNode {
+        +setRect(RectF) void
+        +setTexture(shared_ptr~Texture~, bool) void
+    }
+    class Geometry {
+        +DrawMode mode
+        +vector~Vertex~ vertices
+        +vector~uint32_t~ indices
+        +RectF bounds
+        +listIndices() vector~uint32_t~
+    }
+    class Material {
+        +ColorF color
+        +shared_ptr~Texture~ texture
+        +bool smooth
+        +batchesWith(Material) bool
+    }
+    class Texture {
+        +width() uint32_t
+        +height() uint32_t
+        +pixels() vector~uint8_t~
+    }
+    class ClipContext {
+        +RectF scissor
+        +vector~ClipNode*~ stencil_clips
+    }
+    class NodeObserver {
+        <<interface>>
+        +nodeDirty() void
+        +nodeRemoved(Node) void
+        +rootDestroyed() void
+    }
+    class UpdateVisitor {
+        <<interface>>
+        +geometryUpdated(GeometryNode, DirtyFlags, bool) void
+        +clipUpdated(ClipNode) void
+        +layerUpdated(LayerNode, int) void
+        +structureChanged(LayerNode*) void
+    }
+    class UpdatePass {
+        +run(RootNode, float, bool, UpdateVisitor*)$ UpdateStats
+    }
+    class Renderer {
+        +create(RendererDesc)$ Result~unique_ptr~Renderer~~
+        +setRootNode(RootNode*) void
+        +resize(Extent2D, float) void
+        +needsRender() bool
+        +render() Result~FrameStats~
+        +readPixels() Result~vector~uint8_t~~
+    }
+    class RendererImpl {
+        %% Renderer::Impl: GPU pools, batches, damage, layer targets, stencil clips, swapchain.
+        -GpuPool m_vertices
+        -GpuPool m_slots
+        -Target m_canvas
+        -map~LayerNode, Target~ m_layers
+        -DamageRegion m_damage
+    }
+    class DamageRegion {
+        +add(IntRect) void
+        +addAll() void
+        +rects() vector~IntRect~
+        +isFull() bool
+    }
+    class RangeAllocator {
+        +allocate(uint32_t) optional~uint32_t~
+        +free(uint32_t, uint32_t) void
+        +grow(uint32_t) void
+    }
+    class IDevice {
+        <<external>>
+    }
+    Node <|-- RootNode
+    Node <|-- TransformNode
+    Node <|-- OpacityNode
+    Node <|-- ClipNode
+    Node <|-- LayerNode
+    Node <|-- GeometryNode
+    GeometryNode <|-- RectangleNode
+    GeometryNode <|-- ImageNode
+    Node *-- Node : children
+    GeometryNode *-- Geometry
+    GeometryNode *-- Material
+    Material --> Texture : shared
+    ClipNode *-- ClipContext
+    RootNode --> NodeObserver : notifies
+    NodeObserver <|.. RendererImpl
+    UpdateVisitor <|.. RendererImpl
+    Renderer *-- RendererImpl
+    RendererImpl ..> UpdatePass : runs per frame
+    UpdatePass ..> UpdateVisitor : reports changes
+    RendererImpl *-- DamageRegion
+    RendererImpl *-- RangeAllocator
+    RendererImpl --> IDevice : draws through the RHI

@@ -12,6 +12,8 @@ Mermaid diagrams documenting the proposed rendering hardware interface (RHI): an
 - `RHI_COMMANDS.mmd`: command recording and scoped encoders.
 - `RHI_PRESENTATION.mmd`: surfaces and swapchains.
 - `RHI_SUBMISSION_SYNC.mmd`: queues and synchronization.
+- `SCENEGRAPH.mmd`: the scene graph (`sg` nodes, geometry, materials) and the renderer built on the RHI. Unlike the
+  RHI files it describes implemented code, so keep it in sync with `src/scenegraph/`.
 
 Keep detailed API relationships in their owning subsystem file, and update `RHI_DESIGN.mmd` when subsystem dependencies change. Before changing a type's API, find every file that repeats it (e.g. `rg -n ITextureView docs/diagrams`).
 

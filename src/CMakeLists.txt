@@ -6,6 +6,7 @@ endif ()
 add_subdirectory(core)
 add_subdirectory(platform)
 add_subdirectory(rhi)
+add_subdirectory(scenegraph)
 add_subdirectory(ui)
 
 add_executable(main main.cpp)

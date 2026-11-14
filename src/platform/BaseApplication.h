@@ -13,6 +13,14 @@
 
 
 /**
+ * @brief When the event loop calls the frame callback.
+ */
+enum class FrameMode {
+    Continuous, /**< Every loop iteration; the loop polls instead of blocking (games, benchmarks). */
+    OnDemand,   /**< Only after BaseApplication::requestFrame(); the loop sleeps until an event or a request. */
+};
+
+/**
  * @brief OS-independent application state: the list of top-level widgets and the event-loop interface.
  *
  * @details
@@ -35,15 +43,30 @@ public:
     [[nodiscard]] std::vector<IWidget*> topLevelWidgets() { return m_top_level_widgets; }
 
     /**
-     * @brief Sets a function the event loop calls once per iteration, after pending events are handled.
+     * @brief Sets a function the event loop calls after pending events are handled.
      *
      * @details
-     * With a frame callback the loop polls instead of blocking, so the callback runs continuously (e.g. to
-     * render). Pass an empty function to go back to a blocking loop.
+     * In FrameMode::Continuous the loop polls instead of blocking, so the callback runs every iteration (e.g. to
+     * render). In FrameMode::OnDemand it runs once per requestFrame() (requests before it runs coalesce), and the
+     * loop blocks for events in between, so an idle application uses no CPU. Pass an empty function to go back to a
+     * blocking loop without callback.
      *
      * @param callback Called on the thread that runs the event loop.
+     * @param mode When the callback runs.
      */
-    void setFrameCallback(std::function<void()> callback) { m_frame_callback = std::move(callback); }
+    void setFrameCallback(std::function<void()> callback, FrameMode mode = FrameMode::Continuous) {
+        m_frame_callback = std::move(callback);
+        m_frame_mode = mode;
+    }
+
+    /**
+     * @brief Asks for one call of the frame callback in FrameMode::OnDemand (no effect in Continuous mode).
+     *
+     * @details
+     * Call on the event-loop thread, e.g. from an event handler or from the frame callback itself (to animate).
+     * The callback runs at the end of the current loop iteration, after pending events.
+     */
+    void requestFrame() { m_frame_requested = true; }
 
     /**
      * @brief Runs the native event loop. Blocks until the application quits.
@@ -55,7 +78,26 @@ public:
      */
     virtual void quit() = 0;
 protected:
-    std::function<void()> m_frame_callback; /**< Called once per loop iteration; may be empty. */
+    /**
+     * @brief Whether the frame callback should run at the end of this loop iteration.
+     */
+    [[nodiscard]] bool frameDue() const {
+        return m_frame_callback && (m_frame_mode == FrameMode::Continuous || m_frame_requested);
+    }
+
+    /**
+     * @brief Runs the frame callback if it is due, clearing the pending request first (so it may request again).
+     */
+    void runFrameIfDue() {
+        if (frameDue()) {
+            m_frame_requested = false;
+            m_frame_callback();
+        }
+    }
+
+    std::function<void()> m_frame_callback;         /**< Called after events; may be empty. */
+    FrameMode m_frame_mode = FrameMode::Continuous; /**< When m_frame_callback runs. */
+    bool m_frame_requested = false;                 /**< A requestFrame() is pending (OnDemand). */
 private:
     std::vector<IWidget*> m_top_level_widgets;
 };

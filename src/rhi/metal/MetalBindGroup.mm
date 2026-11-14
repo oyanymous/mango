@@ -11,6 +11,7 @@
 #include "IBindGroupLayout.h"
 #include "MetalBuffer.h"
 #include "MetalPipeline.h"
+#include "MetalRenderEncoder.h"
 #include "MetalTexture.h"
 
 namespace rhi::metal {
@@ -108,40 +109,24 @@ BindGroupDesc MetalBindGroup::getDesc() const {
     return m_desc;
 }
 
-void MetalBindGroup::bind(id<MTLRenderCommandEncoder> encoder, const MetalPipelineLayout& layout,
-                          std::uint32_t set) const {
-    forEachBinding(m_resources, layout, set, ShaderStage::Vertex,
-                   [&](const MetalBoundResource& resource, NSUInteger index) {
-                       switch (resource.type) {
-                       case BindingType::UniformBuffer:
-                       case BindingType::StorageBuffer:
-                           [encoder setVertexBuffer:resource.buffer offset:resource.offset atIndex:index];
-                           break;
-                       case BindingType::SampledTexture:
-                       case BindingType::StorageTexture:
-                           [encoder setVertexTexture:textureOf(resource) atIndex:index];
-                           break;
-                       case BindingType::Sampler:
-                           [encoder setVertexSamplerState:resource.sampler atIndex:index];
-                           break;
-                       }
-                   });
-    forEachBinding(m_resources, layout, set, ShaderStage::Fragment,
-                   [&](const MetalBoundResource& resource, NSUInteger index) {
-                       switch (resource.type) {
-                       case BindingType::UniformBuffer:
-                       case BindingType::StorageBuffer:
-                           [encoder setFragmentBuffer:resource.buffer offset:resource.offset atIndex:index];
-                           break;
-                       case BindingType::SampledTexture:
-                       case BindingType::StorageTexture:
-                           [encoder setFragmentTexture:textureOf(resource) atIndex:index];
-                           break;
-                       case BindingType::Sampler:
-                           [encoder setFragmentSamplerState:resource.sampler atIndex:index];
-                           break;
-                       }
-                   });
+void MetalBindGroup::bind(MetalRenderState& state, const MetalPipelineLayout& layout, std::uint32_t set) const {
+    for (ShaderStage stage : {ShaderStage::Vertex, ShaderStage::Fragment}) {
+        forEachBinding(m_resources, layout, set, stage, [&](const MetalBoundResource& resource, NSUInteger index) {
+            switch (resource.type) {
+            case BindingType::UniformBuffer:
+            case BindingType::StorageBuffer:
+                state.setBuffer(stage, resource.buffer, resource.offset, index);
+                break;
+            case BindingType::SampledTexture:
+            case BindingType::StorageTexture:
+                state.setTexture(stage, textureOf(resource), index);
+                break;
+            case BindingType::Sampler:
+                state.setSampler(stage, resource.sampler, index);
+                break;
+            }
+        });
+    }
 }
 
 void MetalBindGroup::bind(id<MTLComputeCommandEncoder> encoder, const MetalPipelineLayout& layout,

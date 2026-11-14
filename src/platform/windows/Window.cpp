@@ -93,6 +93,12 @@ WindowSize Window::clientSize() const {
     return {static_cast<int>(rect.right - rect.left), static_cast<int>(rect.bottom - rect.top)};
 }
 
+float Window::devicePixelRatio() const {
+    // GetDpiForWindow needs Windows 10 1607; the process is DPI-unaware without a manifest, which reports 96.
+    const UINT dpi = GetDpiForWindow(m_impl->m_hwnd);
+    return dpi == 0 ? 1.0f : static_cast<float>(dpi) / 96.0f;
+}
+
 void Window::setResizeCallback(std::function<void(WindowSize)> callback) {
     m_impl->m_resize_callback = std::move(callback);
 }

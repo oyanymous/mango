@@ -15,6 +15,7 @@
 namespace rhi::metal {
 
 class MetalPipelineLayout;
+class MetalRenderState;
 
 /**
  * @brief One resource of a bind group, ready to bind.
@@ -60,9 +61,9 @@ public:
     BindGroupDesc getDesc() const override;
 
     /**
-     * @brief Binds the group as set @p set of @p layout on a render encoder.
+     * @brief Binds the group as set @p set of @p layout on a render encoder, through its redundancy filter.
      */
-    void bind(id<MTLRenderCommandEncoder> encoder, const MetalPipelineLayout& layout, std::uint32_t set) const;
+    void bind(MetalRenderState& state, const MetalPipelineLayout& layout, std::uint32_t set) const;
 
     /**
      * @brief Binds the group as set @p set of @p layout on a compute encoder.

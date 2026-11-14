@@ -74,6 +74,34 @@ VkPipelineColorBlendAttachmentState toVkBlend(const BlendState& blend) {
     return state;
 }
 
+/** @brief Whether @p format has a stencil plane. */
+bool hasStencil(Format format) {
+    return format == Format::D24UnormS8Uint || format == Format::D32FloatS8Uint;
+}
+
+/** @brief The Vulkan stencil operation of a StencilOp. */
+VkStencilOp toVkStencilOp(StencilOp op) {
+    switch (op) {
+    case StencilOp::Keep:
+        return VK_STENCIL_OP_KEEP;
+    case StencilOp::Zero:
+        return VK_STENCIL_OP_ZERO;
+    case StencilOp::Replace:
+        return VK_STENCIL_OP_REPLACE;
+    case StencilOp::IncrementClamp:
+        return VK_STENCIL_OP_INCREMENT_AND_CLAMP;
+    case StencilOp::DecrementClamp:
+        return VK_STENCIL_OP_DECREMENT_AND_CLAMP;
+    case StencilOp::Invert:
+        return VK_STENCIL_OP_INVERT;
+    case StencilOp::IncrementWrap:
+        return VK_STENCIL_OP_INCREMENT_AND_WRAP;
+    case StencilOp::DecrementWrap:
+        return VK_STENCIL_OP_DECREMENT_AND_WRAP;
+    }
+    return VK_STENCIL_OP_KEEP;
+}
+
 /**
  * @brief The shader stage create info for @p shader, which must be a VulkanShader.
  */
@@ -238,6 +266,20 @@ Result<PipelineRef> VulkanPipeline::createGraphics(std::shared_ptr<VulkanDeviceH
     depth.depthTestEnable = desc.depth_stencil.depth_test ? VK_TRUE : VK_FALSE;
     depth.depthWriteEnable = desc.depth_stencil.depth_write ? VK_TRUE : VK_FALSE;
     depth.depthCompareOp = toVkCompareOp(desc.depth_stencil.depth_compare);
+    if (desc.depth_stencil.stencil_test && pass.depth_stencil_attachment &&
+        hasStencil(pass.depth_stencil_attachment->format)) {
+        const StencilFaceState& face = desc.depth_stencil.stencil;
+        VkStencilOpState state{};
+        state.failOp = toVkStencilOp(face.fail_op);
+        state.passOp = toVkStencilOp(face.pass_op);
+        state.depthFailOp = toVkStencilOp(face.depth_fail_op);
+        state.compareOp = toVkCompareOp(face.compare);
+        state.compareMask = desc.depth_stencil.stencil_read_mask;
+        state.writeMask = desc.depth_stencil.stencil_write_mask;
+        depth.stencilTestEnable = VK_TRUE;
+        depth.front = state;
+        depth.back = state;
+    }
 
     std::vector<VkPipelineColorBlendAttachmentState> blends;
     for (std::size_t i = 0; i < pass.color_attachments.size(); ++i) {
@@ -248,7 +290,8 @@ Result<PipelineRef> VulkanPipeline::createGraphics(std::shared_ptr<VulkanDeviceH
     blend.attachmentCount = static_cast<std::uint32_t>(blends.size());
     blend.pAttachments = blends.data();
 
-    const std::array<VkDynamicState, 2> dynamic_states = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    const std::array<VkDynamicState, 3> dynamic_states = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR,
+                                                          VK_DYNAMIC_STATE_STENCIL_REFERENCE};
     VkPipelineDynamicStateCreateInfo dynamic{};
     dynamic.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     dynamic.dynamicStateCount = static_cast<std::uint32_t>(dynamic_states.size());
