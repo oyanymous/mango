@@ -1,9 +1,13 @@
+/// @file
+/// macOS (AppKit) implementation of Window.
+
 #include "Window.h"
 
 #include <AppKit/AppKit.h>
 #include <Foundation/Foundation.h>
 #include <memory>
 
+/// The NSWindow delegate. Empty for now; window events will be handled here.
 @interface WindowDelegate : NSObject <NSWindowDelegate>
 @end
 
@@ -11,9 +15,10 @@
 @end
 
 
+/// Native AppKit state of a Window.
 struct Window::Impl {
-    NSWindow* m_window;
-    WindowDelegate* m_window_delegate;
+    NSWindow* m_window;                ///< The window; retained (manual reference counting).
+    WindowDelegate* m_window_delegate; ///< Its delegate; retained.
 };
 
 Window::Window(const std::string& title) : m_window_title(title), m_impl(std::make_unique<Impl>()) {
