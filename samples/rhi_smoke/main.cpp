@@ -693,6 +693,11 @@ void testBackend(rhi::Backend backend) {
         for (const rhi::AdapterRef& adapter : adapters) {
             rhi::Capabilities caps = adapter->getCapabilities();
             auto device = adapter->createDevice({.features = caps.features, .label = "smoke device"});
+            // Metal is built step by step (docs/RHI_METAL_PLAN.md); devices arrive in step 3.
+            if (backend == rhi::Backend::Metal && !device && device.error().code == rhi::ErrorCode::Unsupported) {
+                std::printf("[SKIP] device checks: %s\n", device.error().message.c_str());
+                continue;
+            }
             check(static_cast<bool>(device),
                   device ? "device created with every supported feature" : device.error().message.c_str());
             if (!device) {
@@ -725,6 +730,11 @@ void testBackend(rhi::Backend backend) {
         check(devices.empty() && (adapters.empty() || queue), "queues outlive their device");
     }
 
+    if (backend == rhi::Backend::Metal) {
+        check(layer_in_use == "using Metal API validation", "Metal API validation is active");
+        check(problems == 0, "no validation warnings or errors");
+        return;
+    }
     if (backend != rhi::Backend::Vulkan) {
         check(problems == 0, "no validation warnings or errors");
         return;

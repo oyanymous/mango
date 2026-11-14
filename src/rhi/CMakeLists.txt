@@ -111,8 +111,14 @@ endif ()
 
 if (MANGO_RHI_METAL)
     set(RHI_METAL_SOURCES
+        metal/MetalCommon.h
+        metal/MetalCommon.mm
         metal/MetalDeviceFactory.h
         metal/MetalDeviceFactory.mm
+        metal/MetalInstance.h
+        metal/MetalInstance.mm
+        metal/MetalAdapter.h
+        metal/MetalAdapter.mm
     )
     target_sources(RHI PRIVATE ${RHI_METAL_SOURCES})
 

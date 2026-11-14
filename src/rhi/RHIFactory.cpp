@@ -63,8 +63,11 @@ bool hasDriver(Backend backend) {
         return false;
 #endif
     case Backend::Metal:
-        // Not usable yet: MetalDeviceFactory cannot create instances (docs/RHI_METAL_PLAN.md, step 2).
+#if defined(MANGO_RHI_METAL)
+        return metal::MetalDeviceFactory::isAvailable();
+#else
         return false;
+#endif
     case Backend::GL:
         return false;
     }

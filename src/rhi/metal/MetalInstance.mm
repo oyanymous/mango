@@ -1,0 +1,38 @@
+/**
+ * @file
+ * @brief MetalInstance: adapter enumeration.
+ */
+
+#include "MetalInstance.h"
+
+#include <utility>
+
+#include "MetalAdapter.h"
+
+namespace rhi::metal {
+
+MetalInstance::MetalInstance(InstanceDesc desc, std::shared_ptr<MetalDebugReporter> reporter)
+    : m_desc(std::move(desc)), m_reporter(std::move(reporter)) {
+}
+
+AdapterList MetalInstance::enumerateAdapters() {
+    if (m_adapters_enumerated) {
+        return m_adapters;
+    }
+    m_adapters_enumerated = true;
+
+    // MTLCopyAllDevices lists every GPU (MTLCreateSystemDefaultDevice only the one driving the main display).
+    NSArray<id<MTLDevice>>* devices = MTLCopyAllDevices();
+    for (id<MTLDevice> device in devices) {
+        if (auto adapter = MetalAdapter::create(m_reporter, device)) {
+            m_adapters.push_back(std::move(*adapter));
+        }
+    }
+    return m_adapters;
+}
+
+Result<SurfaceRef> MetalInstance::createSurface(SurfaceDesc) {
+    return Error{ErrorCode::Unsupported, "the Metal backend cannot create surfaces yet"};
+}
+
+} // namespace rhi::metal
