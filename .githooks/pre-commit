@@ -18,12 +18,20 @@ find_clang_format() {
         command -v clang-format
         return 0
     fi
+    # CLion ships clang-format for every OS and CPU (DotFiles/linux-arm64, macos-x64, ...); try the one for this
+    # machine first.
+    case "$(uname -m)" in
+        arm64 | aarch64) clion_arch=arm64 ;;
+        *) clion_arch=x64 ;;
+    esac
+    # Only a binary that actually runs counts, so builds for another platform are skipped.
     for candidate in \
         "/c/Program Files/JetBrains/CLion"*/plugins/clion-radler/DotFiles/windows-x64/clang-format.exe \
-        "/Applications/CLion"*.app/Contents/plugins/clion-radler/DotFiles/*/clang-format \
+        "/Applications/CLion"*.app/Contents/plugins/clion-radler/DotFiles/macos-$clion_arch/clang-format \
+        "/Applications/CLion"*.app/Contents/plugins/clion-radler/DotFiles/macos-*/clang-format \
         /opt/homebrew/opt/llvm/bin/clang-format \
         /usr/local/opt/llvm/bin/clang-format; do
-        if [ -x "$candidate" ]; then
+        if [ -x "$candidate" ] && "$candidate" --version >/dev/null 2>&1; then
             printf '%s\n' "$candidate"
             return 0
         fi
