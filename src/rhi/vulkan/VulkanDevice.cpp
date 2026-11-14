@@ -10,6 +10,7 @@
 #include "VulkanBuffer.h"
 #include "VulkanCommandBuffer.h"
 #include "VulkanFence.h"
+#include "VulkanPipeline.h"
 #include "VulkanQueue.h"
 #include "VulkanRenderPass.h"
 #include "VulkanSemaphore.h"
@@ -70,16 +71,16 @@ Result<SamplerRef> VulkanDevice::createSampler(SamplerDesc desc) {
     return VulkanSampler::create(m_device, std::move(desc), m_desc.features.sampler_anisotropy);
 }
 
-Result<ShaderRef> VulkanDevice::createShader(ShaderDesc) {
-    return notImplemented("createShader", 10);
+Result<ShaderRef> VulkanDevice::createShader(ShaderDesc desc) {
+    return VulkanShader::create(m_device, std::move(desc));
 }
 
-Result<PipelineLayoutRef> VulkanDevice::createPipelineLayout(PipelineLayoutDesc) {
-    return notImplemented("createPipelineLayout", 10);
+Result<PipelineLayoutRef> VulkanDevice::createPipelineLayout(PipelineLayoutDesc desc) {
+    return VulkanPipelineLayout::create(m_device, std::move(desc));
 }
 
-Result<PipelineRef> VulkanDevice::createGraphicsPipeline(GraphicsPipelineDesc) {
-    return notImplemented("createGraphicsPipeline", 10);
+Result<PipelineRef> VulkanDevice::createGraphicsPipeline(GraphicsPipelineDesc desc) {
+    return VulkanPipeline::createGraphics(m_device, std::move(desc), m_desc.features.fill_mode_wireframe);
 }
 
 Result<PipelineRef> VulkanDevice::createComputePipeline(ComputePipelineDesc) {

@@ -19,8 +19,8 @@ class VulkanCommandBuffer;
  * render pass.
  *
  * @details
- * Only end() works so far: pipelines and draws come in step 10 of docs/RHI_VULKAN_PLAN.md and bind groups in
- * step 11; until then those calls record nothing.
+ * Pipelines, vertex and index buffers bound here are retained by the command buffer. setBindGroup() records
+ * nothing until step 11 of docs/RHI_VULKAN_PLAN.md.
  */
 class VulkanRenderEncoder final : public IRenderEncoder {
 public:

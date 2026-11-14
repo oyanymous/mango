@@ -1,6 +1,7 @@
 /**
  * @file
- * @brief rhi_triangle: a window rendered with the RHI. For now it presents an animated clear colour.
+ * @brief rhi_triangle: a window rendered with the RHI: a coloured triangle and an indexed quad over an animated
+ * clear colour.
  *
  * Validation is on; every validation warning or error is printed, and the program exits non-zero if there was
  * any. Resizing and minimizing the window recreate the swapchain.
@@ -9,8 +10,12 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+#include <span>
 #include <thread>
 #include <type_traits>
 #include <vector>
@@ -18,11 +23,33 @@
 #include "Application.h"
 #include "RHI.h"
 #include "Window.h"
+#include "triangle.frag.h"
+#include "triangle.vert.h"
 
 namespace {
 
 constexpr std::size_t kFramesInFlight = 2;
 constexpr rhi::Format kBackbufferFormat = rhi::Format::BGRA8Unorm;
+
+/** @brief One interleaved vertex: clip-space position (y points down in Vulkan) and colour. */
+struct Vertex {
+    float x, y;    /**< Position. */
+    float r, g, b; /**< Colour. */
+};
+
+/** @brief A triangle on the left (vertices 0-2), then a quad on the right (vertices 3-6). */
+constexpr std::array<Vertex, 7> kVertices = {{
+    {-0.5f, -0.5f, 1.0f, 0.0f, 0.0f},
+    {-0.1f, 0.5f, 0.0f, 1.0f, 0.0f},
+    {-0.9f, 0.5f, 0.0f, 0.0f, 1.0f},
+    {0.1f, -0.5f, 1.0f, 1.0f, 0.0f},
+    {0.9f, -0.5f, 0.0f, 1.0f, 1.0f},
+    {0.9f, 0.5f, 1.0f, 0.0f, 1.0f},
+    {0.1f, 0.5f, 1.0f, 1.0f, 1.0f},
+}};
+
+/** @brief The quad's two triangles, relative to its first vertex. */
+constexpr std::array<std::uint16_t, 6> kQuadIndices = {0, 1, 2, 2, 3, 0};
 
 /** @brief Per-frame-in-flight objects; a frame's fence guards all of them. */
 struct Frame {
@@ -37,6 +64,9 @@ struct Renderer {
     rhi::QueueRef queue;
     rhi::SwapchainRef swapchain;
     rhi::RenderPassRef render_pass;
+    rhi::PipelineRef pipeline;
+    rhi::BufferRef vertices;
+    rhi::BufferRef indices;
     std::array<Frame, kFramesInFlight> frames;
     std::size_t frame_index = 0;
     // Indexed by swapchain image. A present's wait semaphore may only be reused once that image is acquired
@@ -57,6 +87,40 @@ T orExit(rhi::Result<T> result, const char* what) {
     if constexpr (!std::is_void_v<T>) {
         return std::move(result).value();
     }
+}
+
+/** @brief A host-visible buffer holding @p bytes. */
+rhi::BufferRef createFilledBuffer(rhi::IDevice& device, std::span<const std::byte> bytes, rhi::BufferUsage usage) {
+    rhi::BufferRef buffer =
+        orExit(device.createBuffer({.size = bytes.size(), .usage = usage, .memory = rhi::MemoryLocation::CpuToGpu}),
+               "createBuffer");
+    std::span<std::byte> mapped = orExit(buffer->map({}), "map");
+    std::memcpy(mapped.data(), bytes.data(), bytes.size());
+    buffer->unmap();
+    return buffer;
+}
+
+/** @brief The pipeline drawing Vertex data with the triangle shaders into @p render_pass. */
+rhi::PipelineRef createPipeline(rhi::IDevice& device, const rhi::RenderPassRef& render_pass) {
+    auto vertex_shader =
+        orExit(device.createShader({.stage = rhi::ShaderStage::Vertex,
+                                    .spirv = {std::begin(triangle_vert_spv), std::end(triangle_vert_spv)}}),
+               "createShader(vertex)");
+    auto fragment_shader =
+        orExit(device.createShader({.stage = rhi::ShaderStage::Fragment,
+                                    .spirv = {std::begin(triangle_frag_spv), std::end(triangle_frag_spv)}}),
+               "createShader(fragment)");
+    auto layout = orExit(device.createPipelineLayout({}), "createPipelineLayout");
+    return orExit(device.createGraphicsPipeline({
+                      .layout = layout,
+                      .vertex_shader = vertex_shader,
+                      .fragment_shader = fragment_shader,
+                      .vertex_buffers = {{.stride = sizeof(Vertex),
+                                          .attributes = {{0, rhi::Format::RG32Float, offsetof(Vertex, x)},
+                                                         {1, rhi::Format::RGB32Float, offsetof(Vertex, r)}}}},
+                      .render_pass = render_pass,
+                  }),
+                  "createGraphicsPipeline");
 }
 
 /** @brief Recreates the swapchain at the window's size and drops everything built on the old images. */
@@ -131,8 +195,8 @@ void renderFrame(Renderer& r, const Window& window) {
 
     // Cycle the hue slowly so a stuck frame is obvious.
     const float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - r.start).count();
-    const std::array<float, 4> color = {0.5f + 0.5f * std::sin(t), 0.5f + 0.5f * std::sin(t + 2.094f),
-                                        0.5f + 0.5f * std::sin(t + 4.189f), 1.0f};
+    const std::array<float, 4> color = {0.2f + 0.2f * std::sin(t), 0.2f + 0.2f * std::sin(t + 2.094f),
+                                        0.2f + 0.2f * std::sin(t + 4.189f), 1.0f};
 
     orExit(frame.fence->reset(), "fence reset");
     rhi::ICommandBuffer& cmd = *frame.command_buffer;
@@ -144,6 +208,11 @@ void renderFrame(Renderer& r, const Window& window) {
         rhi::RenderEncoderRef pass = cmd.beginRender({.render_pass = r.render_pass,
                                                       .target = targetFor(r, acquired.image_index, acquired.texture),
                                                       .clear_colors = {color}});
+        pass->setPipeline(r.pipeline);
+        pass->setVertexBuffers({.buffers = {{r.vertices}}});
+        pass->draw({.vertex_count = 3});
+        pass->setIndexBuffer({.buffer = r.indices, .format = rhi::IndexFormat::Uint16});
+        pass->drawIndexed({.index_count = static_cast<std::uint32_t>(kQuadIndices.size()), .vertex_offset = 3});
         pass->end();
     }
     cmd.barrier({.textures = {{.texture = acquired.texture,
@@ -222,6 +291,9 @@ int main() {
                              "createSwapchain");
         r.render_pass = orExit(r.device->createRenderPass({.color_attachments = {{.format = kBackbufferFormat}}}),
                                "createRenderPass");
+        r.pipeline = createPipeline(*r.device, r.render_pass);
+        r.vertices = createFilledBuffer(*r.device, std::as_bytes(std::span(kVertices)), rhi::BufferUsage::Vertex);
+        r.indices = createFilledBuffer(*r.device, std::as_bytes(std::span(kQuadIndices)), rhi::BufferUsage::Index);
         for (Frame& frame : r.frames) {
             frame.command_buffer = orExit(r.device->createCommandBuffer({}), "createCommandBuffer");
             frame.fence = orExit(r.device->createFence({.signaled = true}), "createFence");
