@@ -12,6 +12,7 @@
 #include <string_view>
 
 #include "IInstance.h"
+#include "RHITypes.h"
 
 /**
  * @brief The Metal implementation of the RHI.
@@ -70,5 +71,36 @@ struct MetalDeviceContext {
  * @return The string, or nil if @p text is empty (Metal treats a nil label as "no label").
  */
 NSString* toNSString(const std::string& text);
+
+/**
+ * @brief The Metal pixel format of a Format; `MTLPixelFormatInvalid` for Format::Undefined or a format without a
+ * Metal pixel format (RGB32Float, which exists only as a vertex format).
+ */
+MTLPixelFormat toMTLPixelFormat(Format format);
+
+/**
+ * @brief The Format of a Metal pixel format; Format::Undefined if the RHI has none.
+ */
+Format fromMTLPixelFormat(MTLPixelFormat format);
+
+/**
+ * @brief Bytes per texel in buffer copies; for depth/stencil formats, of the depth plane only (as copied).
+ */
+std::uint32_t bytesPerTexel(Format format);
+
+/**
+ * @brief True for D16Unorm, D24UnormS8Uint, D32Float and D32FloatS8Uint.
+ */
+bool isDepthFormat(Format format);
+
+/**
+ * @brief True for D24UnormS8Uint and D32FloatS8Uint.
+ */
+bool hasStencil(Format format);
+
+/**
+ * @brief The Metal compare function of a CompareOp.
+ */
+MTLCompareFunction toMTLCompareFunction(CompareOp op);
 
 } // namespace rhi::metal

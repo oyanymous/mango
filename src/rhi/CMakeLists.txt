@@ -133,6 +133,8 @@ if (MANGO_RHI_METAL)
         metal/MetalCommandBuffer.mm
         metal/MetalCopyEncoder.h
         metal/MetalCopyEncoder.mm
+        metal/MetalTexture.h
+        metal/MetalTexture.mm
     )
     target_sources(RHI PRIVATE ${RHI_METAL_SOURCES})
 

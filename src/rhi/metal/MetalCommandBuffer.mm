@@ -20,8 +20,9 @@ Result<void> MetalCommandBuffer::begin() {
     if (m_state == RecordingState::Encoding) {
         return Error{ErrorCode::InvalidArgument, "ICommandBuffer::begin: an encoder is still open"};
     }
-    // A previous submission may still be running: its MTLCommandBuffer retains its own Metal objects, and the queue
-    // retains this object until it completes, so dropping the retained RHI resources here is safe.
+    if (m_pending) {
+        return Error{ErrorCode::InvalidArgument, "ICommandBuffer::begin: the previous submission is still executing"};
+    }
     m_retained_resources.clear();
     m_command_buffer = [m_queue commandBuffer];
     if (m_command_buffer == nil) {

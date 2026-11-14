@@ -126,16 +126,29 @@ Result<void> MetalQueue::submit(SubmitDesc desc) {
 
     // Every command buffer reports its own failure and keeps its RHI object alive until it completes. The fence waits
     // for all of them, so it does not depend on the order completion handlers run in.
+    // The semaphores stay alive until the last command buffer completes, like everything else the submission uses.
     auto remaining = std::make_shared<std::atomic<std::size_t>>(sequence.size());
+    auto semaphores = std::make_shared<std::vector<SemaphoreRef>>();
+    for (const SemaphoreWait& wait : desc.waits) {
+        semaphores->push_back(wait.semaphore);
+    }
+    for (const SemaphoreSignal& signal : desc.signals) {
+        semaphores->push_back(signal.semaphore);
+    }
     std::shared_ptr<MetalDebugReporter> reporter = m_context->reporter;
     for (std::size_t i = 0; i < sequence.size(); ++i) {
         std::shared_ptr<MetalCommandBuffer> owner = owners[i];
         [sequence[i] addCompletedHandler:^(id<MTLCommandBuffer> completed) {
             reportFailure(*reporter, completed);
-            if (remaining->fetch_sub(1) == 1 && fence) {
-                fence->signal();
+            if (owner) {
+                owner->markCompleted();
             }
-            (void)owner; // captured to keep the RHI command buffer and its resources alive until here
+            if (remaining->fetch_sub(1) == 1) {
+                semaphores->clear();
+                if (fence) {
+                    fence->signal();
+                }
+            }
         }];
     }
     for (id<MTLCommandBuffer> command_buffer : sequence) {

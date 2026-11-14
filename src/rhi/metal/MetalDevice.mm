@@ -13,6 +13,7 @@
 #include "MetalFence.h"
 #include "MetalQueue.h"
 #include "MetalSemaphore.h"
+#include "MetalTexture.h"
 
 namespace rhi::metal {
 
@@ -61,16 +62,16 @@ Result<BufferRef> MetalDevice::createBuffer(BufferDesc desc) {
     return MetalBuffer::create(m_context, std::move(desc));
 }
 
-Result<TextureRef> MetalDevice::createTexture(TextureDesc) {
-    return notImplemented("createTexture");
+Result<TextureRef> MetalDevice::createTexture(TextureDesc desc) {
+    return MetalTexture::create(m_context, std::move(desc));
 }
 
-Result<TextureViewRef> MetalDevice::createTextureView(TextureViewDesc) {
-    return notImplemented("createTextureView");
+Result<TextureViewRef> MetalDevice::createTextureView(TextureViewDesc desc) {
+    return MetalTextureView::create(m_context, std::move(desc));
 }
 
-Result<SamplerRef> MetalDevice::createSampler(SamplerDesc) {
-    return notImplemented("createSampler");
+Result<SamplerRef> MetalDevice::createSampler(SamplerDesc desc) {
+    return MetalSampler::create(m_context, std::move(desc), m_desc.features.sampler_anisotropy);
 }
 
 Result<ShaderRef> MetalDevice::createShader(ShaderDesc) {

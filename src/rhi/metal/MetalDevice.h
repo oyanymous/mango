@@ -17,8 +17,8 @@ namespace rhi::metal {
  * @brief A Metal device: the shared MetalDeviceContext plus one MetalQueue per QueueType.
  *
  * @details
- * Being built step by step (docs/RHI_METAL_PLAN.md): fences, semaphores, buffers and command buffers work; every other
- * `create*` returns ErrorCode::Unsupported for now.
+ * Being built step by step (docs/RHI_METAL_PLAN.md): fences, semaphores, buffers, command buffers, textures, views and
+ * samplers work; every other `create*` returns ErrorCode::Unsupported for now.
  */
 class MetalDevice final : public IDevice {
 public:

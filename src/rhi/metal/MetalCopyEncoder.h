@@ -29,14 +29,11 @@ public:
     ~MetalCopyEncoder() override;
 
     void copyBuffer(BufferCopyDesc desc) override;
-
-    /**
-     * @brief Not implemented yet; reports an error through the debug callback and records nothing.
-     */
     void copyTexture(TextureCopyDesc desc) override;
 
     /**
-     * @brief Not implemented yet; reports an error through the debug callback and records nothing.
+     * @brief Copies between a buffer and one mip level / array layer of a texture. For depth/stencil formats only
+     * the depth plane is copied, as 32-bit words for D24UnormS8Uint and D32FloatS8Uint.
      */
     void copyBufferTexture(BufferTextureCopyDesc desc) override;
 
