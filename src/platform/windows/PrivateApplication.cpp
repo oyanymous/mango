@@ -23,16 +23,17 @@ void PrivateApplication::quit() {
 
 void PrivateApplication::run() {
     MSG msg = {};
-    if (!m_frame_callback) {
-        // Standard Win32 message pump; GetMessage returns 0 once WM_QUIT (posted on WM_DESTROY) arrives.
-        while (GetMessage(&msg, NULL, 0, 0) > 0) {
+    for (;;) {
+        if (!frameDue()) {
+            // Nothing to render: block for the next message. GetMessage returns 0 once WM_QUIT (posted on
+            // WM_DESTROY) arrives.
+            if (GetMessage(&msg, NULL, 0, 0) <= 0) {
+                return;
+            }
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
-        return;
-    }
-    // With a frame callback, drain pending messages without blocking, then run one frame.
-    for (;;) {
+        // Drain pending messages without blocking, then run the frame if one is due.
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
             if (msg.message == WM_QUIT) {
                 return;
@@ -40,6 +41,6 @@ void PrivateApplication::run() {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
-        m_frame_callback();
+        runFrameIfDue();
     }
 }

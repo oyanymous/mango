@@ -49,16 +49,22 @@ public:
     static void quit() { PrivateApplication::instance().quit(); }
 
     /**
-     * @brief Sets a function the event loop calls once per iteration; see BaseApplication::setFrameCallback.
+     * @brief Sets a function the event loop calls after events; see BaseApplication::setFrameCallback.
      *
      * @note On macOS the callback does not run while the user drags the window edge (AppKit runs its own loop for
      *       live resizing); it resumes, and the resize callback fires, when the drag ends.
      *
      * @param callback Called on the event-loop thread; an empty function restores the blocking loop.
+     * @param mode Every iteration (Continuous, the default) or once per requestFrame() (OnDemand).
      */
-    static void setFrameCallback(std::function<void()> callback) {
-        PrivateApplication::instance().setFrameCallback(std::move(callback));
+    static void setFrameCallback(std::function<void()> callback, FrameMode mode = FrameMode::Continuous) {
+        PrivateApplication::instance().setFrameCallback(std::move(callback), mode);
     }
+
+    /**
+     * @brief Asks for one frame callback in FrameMode::OnDemand; see BaseApplication::requestFrame.
+     */
+    static void requestFrame() { PrivateApplication::instance().requestFrame(); }
 
     /**
      * @brief Runs the native event loop. Blocks until the application quits, i.e. until a window is closed.

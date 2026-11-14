@@ -97,7 +97,7 @@ void PrivateApplication::run() {
         // Drained every iteration: Metal drawables and other per-frame objects are autoreleased.
         @autoreleasepool {
             // Block for the first event only when there is no frame to render; then drain the rest.
-            NSDate* until = m_frame_callback ? [NSDate distantPast] : [NSDate distantFuture];
+            NSDate* until = frameDue() ? [NSDate distantPast] : [NSDate distantFuture];
             while (NSEvent* event = [m_impl->m_app nextEventMatchingMask:NSEventMaskAny
                                                                untilDate:until
                                                                   inMode:NSDefaultRunLoopMode
@@ -106,8 +106,8 @@ void PrivateApplication::run() {
                 until = [NSDate distantPast];
             }
             [m_impl->m_app updateWindows];
-            if (m_frame_callback && !g_quit_requested) {
-                m_frame_callback();
+            if (!g_quit_requested) {
+                runFrameIfDue();
             }
         }
     }
