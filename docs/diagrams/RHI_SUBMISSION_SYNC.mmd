@@ -6,59 +6,59 @@ classDiagram
     %% External references mirror the public APIs in their owning RHI files.
     class IQueue {
         <<interface>>
-        +submit(SubmitDesc) Result
-        +present(PresentDesc) Result
+        +submit(SubmitDesc) Result~void~
+        +present(PresentDesc) Result~void~
     }
     class MetalQueue {
         -QueueType m_queue_type
         -CommandBufferList m_pending_submissions
         -MTLCommandQueue m_queue
-        +submit(SubmitDesc) Result
-        +present(PresentDesc) Result
+        +submit(SubmitDesc) Result~void~
+        +present(PresentDesc) Result~void~
     }
     class VulkanQueue {
         -QueueType m_queue_type
         -CommandBufferList m_pending_submissions
         -VkQueue m_queue
-        +submit(SubmitDesc) Result
-        +present(PresentDesc) Result
+        +submit(SubmitDesc) Result~void~
+        +present(PresentDesc) Result~void~
     }
     class GLQueue {
         -QueueType m_queue_type
         -CommandBufferList m_pending_submissions
         -GLContext m_context
-        +submit(SubmitDesc) Result
-        +present(PresentDesc) Result
+        +submit(SubmitDesc) Result~void~
+        +present(PresentDesc) Result~void~
     }
     class IFence {
         <<interface>>
-        +wait(Timeout) Result
+        +wait(Timeout) Result~void~
         +isSignaled() bool
-        +reset() Result
+        +reset() Result~void~
     }
     class MetalFence {
         -FenceDesc m_desc
         -uint64 m_submission_value
         -MetalCompletionState m_completion
-        +wait(Timeout) Result
+        +wait(Timeout) Result~void~
         +isSignaled() bool
-        +reset() Result
+        +reset() Result~void~
     }
     class VulkanFence {
         -FenceDesc m_desc
         -uint64 m_submission_value
         -VkFence m_fence
-        +wait(Timeout) Result
+        +wait(Timeout) Result~void~
         +isSignaled() bool
-        +reset() Result
+        +reset() Result~void~
     }
     class GLFence {
         -FenceDesc m_desc
         -uint64 m_submission_value
         -GLsync m_sync
-        +wait(Timeout) Result
+        +wait(Timeout) Result~void~
         +isSignaled() bool
-        +reset() Result
+        +reset() Result~void~
     }
     class ISemaphore {
         <<interface>>
@@ -84,17 +84,17 @@ classDiagram
     }
     class ICommandBuffer {
         <<external>>
-        +begin() Result
+        +begin() Result~void~
         +barrier(BarrierBatch) void
         +beginRender(RenderBeginDesc) RenderEncoderRef
         +beginCompute() ComputeEncoderRef
         +beginCopy() CopyEncoderRef
-        +end() Result
+        +end() Result~void~
     }
     class ISwapchain {
         <<external>>
         +acquire(AcquireDesc) AcquireResult
-        +resize(Extent) Result
+        +resize(Extent) Result~void~
     }
     IQueue <|.. MetalQueue
     IQueue <|.. VulkanQueue

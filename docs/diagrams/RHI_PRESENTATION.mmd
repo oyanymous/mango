@@ -26,7 +26,7 @@ classDiagram
     class ISwapchain {
         <<interface>>
         +acquire(AcquireDesc) AcquireResult
-        +resize(Extent) Result
+        +resize(Extent) Result~void~
     }
     class MetalSwapchain {
         -SwapchainDesc m_desc
@@ -35,7 +35,7 @@ classDiagram
         -uint32 m_current_image
         -CAMetalDrawable m_drawable
         +acquire(AcquireDesc) AcquireResult
-        +resize(Extent) Result
+        +resize(Extent) Result~void~
     }
     class VulkanSwapchain {
         -SwapchainDesc m_desc
@@ -44,7 +44,7 @@ classDiagram
         -uint32 m_current_image
         -VkSwapchainKHR m_swapchain
         +acquire(AcquireDesc) AcquireResult
-        +resize(Extent) Result
+        +resize(Extent) Result~void~
     }
     class GLSwapchain {
         -SwapchainDesc m_desc
@@ -53,7 +53,7 @@ classDiagram
         -uint32 m_current_image
         -GLWindowSurface m_window_surface
         +acquire(AcquireDesc) AcquireResult
-        +resize(Extent) Result
+        +resize(Extent) Result~void~
     }
     class ITexture {
         <<external>>

@@ -5,159 +5,159 @@ classDiagram
     %% Factories, instances, adapters and the complete device API
     %% External references mirror the public APIs in their owning RHI files.
     class RHIFactory {
-        +createInstance(Backend, InstanceDesc) Result
+        +createInstance(Backend, InstanceDesc) Result~InstanceRef~
         +availableBackends() BackendList
     }
     class IDeviceFactory {
         <<interface>>
-        +createInstance(InstanceDesc) Result
+        +createInstance(InstanceDesc) Result~InstanceRef~
     }
     class MetalDeviceFactory {
         -Backend m_backend = Metal
-        +createInstance(InstanceDesc) Result
+        +createInstance(InstanceDesc) Result~InstanceRef~
     }
     class VulkanDeviceFactory {
         -Backend m_backend = Vulkan
-        +createInstance(InstanceDesc) Result
+        +createInstance(InstanceDesc) Result~InstanceRef~
     }
     class GLDeviceFactory {
         -Backend m_backend = GL
-        +createInstance(InstanceDesc) Result
+        +createInstance(InstanceDesc) Result~InstanceRef~
     }
     class IInstance {
         <<interface>>
         +enumerateAdapters() AdapterList
-        +createSurface(SurfaceDesc) Result
+        +createSurface(SurfaceDesc) Result~SurfaceRef~
     }
     class MetalInstance {
         -InstanceDesc m_desc
         -AdapterList m_adapters
         -MetalRuntime m_runtime
         +enumerateAdapters() AdapterList
-        +createSurface(SurfaceDesc) Result
+        +createSurface(SurfaceDesc) Result~SurfaceRef~
     }
     class VulkanInstance {
         -InstanceDesc m_desc
         -AdapterList m_adapters
         -VkInstance m_instance
         +enumerateAdapters() AdapterList
-        +createSurface(SurfaceDesc) Result
+        +createSurface(SurfaceDesc) Result~SurfaceRef~
     }
     class GLInstance {
         -InstanceDesc m_desc
         -AdapterList m_adapters
         -GLContextFactory m_context_factory
         +enumerateAdapters() AdapterList
-        +createSurface(SurfaceDesc) Result
+        +createSurface(SurfaceDesc) Result~SurfaceRef~
     }
     class IAdapter {
         <<interface>>
         +getCapabilities() Capabilities
-        +createDevice(DeviceDesc) Result
+        +createDevice(DeviceDesc) Result~DeviceRef~
     }
     class MetalAdapter {
         -Capabilities m_capabilities
         -MTLDevice m_device
         +getCapabilities() Capabilities
-        +createDevice(DeviceDesc) Result
+        +createDevice(DeviceDesc) Result~DeviceRef~
     }
     class VulkanAdapter {
         -Capabilities m_capabilities
         -VkPhysicalDevice m_physical_device
         +getCapabilities() Capabilities
-        +createDevice(DeviceDesc) Result
+        +createDevice(DeviceDesc) Result~DeviceRef~
     }
     class GLAdapter {
         -Capabilities m_capabilities
         -GLAdapterInfo m_adapter_info
         +getCapabilities() Capabilities
-        +createDevice(DeviceDesc) Result
+        +createDevice(DeviceDesc) Result~DeviceRef~
     }
     class IDevice {
         <<interface>>
         +getQueue(QueueType) QueueRef
-        +createBuffer(BufferDesc) Result
-        +createTexture(TextureDesc) Result
-        +createTextureView(TextureViewDesc) Result
-        +createSampler(SamplerDesc) Result
-        +createShader(ShaderDesc) Result
-        +createPipelineLayout(PipelineLayoutDesc) Result
-        +createGraphicsPipeline(GraphicsPipelineDesc) Result
-        +createComputePipeline(ComputePipelineDesc) Result
-        +createRenderPass(RenderPassDesc) Result
-        +createRenderTarget(RenderTargetDesc) Result
-        +createBindGroupLayout(BindGroupLayoutDesc) Result
-        +createBindGroup(BindGroupDesc) Result
-        +createCommandBuffer(CommandBufferDesc) Result
-        +createSwapchain(SwapchainDesc) Result
-        +createFence(FenceDesc) Result
-        +createSemaphore(SemaphoreDesc) Result
+        +createBuffer(BufferDesc) Result~BufferRef~
+        +createTexture(TextureDesc) Result~TextureRef~
+        +createTextureView(TextureViewDesc) Result~TextureViewRef~
+        +createSampler(SamplerDesc) Result~SamplerRef~
+        +createShader(ShaderDesc) Result~ShaderRef~
+        +createPipelineLayout(PipelineLayoutDesc) Result~PipelineLayoutRef~
+        +createGraphicsPipeline(GraphicsPipelineDesc) Result~PipelineRef~
+        +createComputePipeline(ComputePipelineDesc) Result~PipelineRef~
+        +createRenderPass(RenderPassDesc) Result~RenderPassRef~
+        +createRenderTarget(RenderTargetDesc) Result~RenderTargetRef~
+        +createBindGroupLayout(BindGroupLayoutDesc) Result~BindGroupLayoutRef~
+        +createBindGroup(BindGroupDesc) Result~BindGroupRef~
+        +createCommandBuffer(CommandBufferDesc) Result~CommandBufferRef~
+        +createSwapchain(SwapchainDesc) Result~SwapchainRef~
+        +createFence(FenceDesc) Result~FenceRef~
+        +createSemaphore(SemaphoreDesc) Result~SemaphoreRef~
     }
     class MetalDevice {
         -DeviceDesc m_desc
         -QueueList m_queues
         -MTLDevice m_device
         +getQueue(QueueType) QueueRef
-        +createBuffer(BufferDesc) Result
-        +createTexture(TextureDesc) Result
-        +createTextureView(TextureViewDesc) Result
-        +createSampler(SamplerDesc) Result
-        +createShader(ShaderDesc) Result
-        +createPipelineLayout(PipelineLayoutDesc) Result
-        +createGraphicsPipeline(GraphicsPipelineDesc) Result
-        +createComputePipeline(ComputePipelineDesc) Result
-        +createRenderPass(RenderPassDesc) Result
-        +createRenderTarget(RenderTargetDesc) Result
-        +createBindGroupLayout(BindGroupLayoutDesc) Result
-        +createBindGroup(BindGroupDesc) Result
-        +createCommandBuffer(CommandBufferDesc) Result
-        +createSwapchain(SwapchainDesc) Result
-        +createFence(FenceDesc) Result
-        +createSemaphore(SemaphoreDesc) Result
+        +createBuffer(BufferDesc) Result~BufferRef~
+        +createTexture(TextureDesc) Result~TextureRef~
+        +createTextureView(TextureViewDesc) Result~TextureViewRef~
+        +createSampler(SamplerDesc) Result~SamplerRef~
+        +createShader(ShaderDesc) Result~ShaderRef~
+        +createPipelineLayout(PipelineLayoutDesc) Result~PipelineLayoutRef~
+        +createGraphicsPipeline(GraphicsPipelineDesc) Result~PipelineRef~
+        +createComputePipeline(ComputePipelineDesc) Result~PipelineRef~
+        +createRenderPass(RenderPassDesc) Result~RenderPassRef~
+        +createRenderTarget(RenderTargetDesc) Result~RenderTargetRef~
+        +createBindGroupLayout(BindGroupLayoutDesc) Result~BindGroupLayoutRef~
+        +createBindGroup(BindGroupDesc) Result~BindGroupRef~
+        +createCommandBuffer(CommandBufferDesc) Result~CommandBufferRef~
+        +createSwapchain(SwapchainDesc) Result~SwapchainRef~
+        +createFence(FenceDesc) Result~FenceRef~
+        +createSemaphore(SemaphoreDesc) Result~SemaphoreRef~
     }
     class VulkanDevice {
         -DeviceDesc m_desc
         -QueueList m_queues
         -VkDevice m_device
         +getQueue(QueueType) QueueRef
-        +createBuffer(BufferDesc) Result
-        +createTexture(TextureDesc) Result
-        +createTextureView(TextureViewDesc) Result
-        +createSampler(SamplerDesc) Result
-        +createShader(ShaderDesc) Result
-        +createPipelineLayout(PipelineLayoutDesc) Result
-        +createGraphicsPipeline(GraphicsPipelineDesc) Result
-        +createComputePipeline(ComputePipelineDesc) Result
-        +createRenderPass(RenderPassDesc) Result
-        +createRenderTarget(RenderTargetDesc) Result
-        +createBindGroupLayout(BindGroupLayoutDesc) Result
-        +createBindGroup(BindGroupDesc) Result
-        +createCommandBuffer(CommandBufferDesc) Result
-        +createSwapchain(SwapchainDesc) Result
-        +createFence(FenceDesc) Result
-        +createSemaphore(SemaphoreDesc) Result
+        +createBuffer(BufferDesc) Result~BufferRef~
+        +createTexture(TextureDesc) Result~TextureRef~
+        +createTextureView(TextureViewDesc) Result~TextureViewRef~
+        +createSampler(SamplerDesc) Result~SamplerRef~
+        +createShader(ShaderDesc) Result~ShaderRef~
+        +createPipelineLayout(PipelineLayoutDesc) Result~PipelineLayoutRef~
+        +createGraphicsPipeline(GraphicsPipelineDesc) Result~PipelineRef~
+        +createComputePipeline(ComputePipelineDesc) Result~PipelineRef~
+        +createRenderPass(RenderPassDesc) Result~RenderPassRef~
+        +createRenderTarget(RenderTargetDesc) Result~RenderTargetRef~
+        +createBindGroupLayout(BindGroupLayoutDesc) Result~BindGroupLayoutRef~
+        +createBindGroup(BindGroupDesc) Result~BindGroupRef~
+        +createCommandBuffer(CommandBufferDesc) Result~CommandBufferRef~
+        +createSwapchain(SwapchainDesc) Result~SwapchainRef~
+        +createFence(FenceDesc) Result~FenceRef~
+        +createSemaphore(SemaphoreDesc) Result~SemaphoreRef~
     }
     class GLDevice {
         -DeviceDesc m_desc
         -QueueList m_queues
         -GLContext m_context
         +getQueue(QueueType) QueueRef
-        +createBuffer(BufferDesc) Result
-        +createTexture(TextureDesc) Result
-        +createTextureView(TextureViewDesc) Result
-        +createSampler(SamplerDesc) Result
-        +createShader(ShaderDesc) Result
-        +createPipelineLayout(PipelineLayoutDesc) Result
-        +createGraphicsPipeline(GraphicsPipelineDesc) Result
-        +createComputePipeline(ComputePipelineDesc) Result
-        +createRenderPass(RenderPassDesc) Result
-        +createRenderTarget(RenderTargetDesc) Result
-        +createBindGroupLayout(BindGroupLayoutDesc) Result
-        +createBindGroup(BindGroupDesc) Result
-        +createCommandBuffer(CommandBufferDesc) Result
-        +createSwapchain(SwapchainDesc) Result
-        +createFence(FenceDesc) Result
-        +createSemaphore(SemaphoreDesc) Result
+        +createBuffer(BufferDesc) Result~BufferRef~
+        +createTexture(TextureDesc) Result~TextureRef~
+        +createTextureView(TextureViewDesc) Result~TextureViewRef~
+        +createSampler(SamplerDesc) Result~SamplerRef~
+        +createShader(ShaderDesc) Result~ShaderRef~
+        +createPipelineLayout(PipelineLayoutDesc) Result~PipelineLayoutRef~
+        +createGraphicsPipeline(GraphicsPipelineDesc) Result~PipelineRef~
+        +createComputePipeline(ComputePipelineDesc) Result~PipelineRef~
+        +createRenderPass(RenderPassDesc) Result~RenderPassRef~
+        +createRenderTarget(RenderTargetDesc) Result~RenderTargetRef~
+        +createBindGroupLayout(BindGroupLayoutDesc) Result~BindGroupLayoutRef~
+        +createBindGroup(BindGroupDesc) Result~BindGroupRef~
+        +createCommandBuffer(CommandBufferDesc) Result~CommandBufferRef~
+        +createSwapchain(SwapchainDesc) Result~SwapchainRef~
+        +createFence(FenceDesc) Result~FenceRef~
+        +createSemaphore(SemaphoreDesc) Result~SemaphoreRef~
     }
     class ISurface {
         <<external>>
@@ -165,13 +165,13 @@ classDiagram
     }
     class IQueue {
         <<external>>
-        +submit(SubmitDesc) Result
-        +present(PresentDesc) Result
+        +submit(SubmitDesc) Result~void~
+        +present(PresentDesc) Result~void~
     }
     class ISwapchain {
         <<external>>
         +acquire(AcquireDesc) AcquireResult
-        +resize(Extent) Result
+        +resize(Extent) Result~void~
     }
     class IBuffer {
         <<external>>
@@ -221,18 +221,18 @@ classDiagram
     }
     class ICommandBuffer {
         <<external>>
-        +begin() Result
+        +begin() Result~void~
         +barrier(BarrierBatch) void
         +beginRender(RenderBeginDesc) RenderEncoderRef
         +beginCompute() ComputeEncoderRef
         +beginCopy() CopyEncoderRef
-        +end() Result
+        +end() Result~void~
     }
     class IFence {
         <<external>>
-        +wait(Timeout) Result
+        +wait(Timeout) Result~void~
         +isSignaled() bool
-        +reset() Result
+        +reset() Result~void~
     }
     class ISemaphore {
         <<external>>
