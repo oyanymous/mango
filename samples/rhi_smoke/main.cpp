@@ -3,9 +3,9 @@
 #include <memory>
 #include <string>
 
-#include "Backend.h"
-#include "RHITypes.h"
-#include "Result.h"
+#include <type_traits>
+
+#include "RHI.h"
 
 #if defined(MANGO_RHI_VULKAN)
 #include <volk.h>
@@ -59,6 +59,64 @@ void testTypes() {
     check(rhi::Extent3D{4, 4}.depth == 1, "Extent3D depth defaults to 1");
 }
 
+// Every RHI interface must be abstract and safe to delete through a base pointer.
+template <typename... Interfaces>
+constexpr bool allAreInterfaces() {
+    return ((std::is_abstract_v<Interfaces> && std::has_virtual_destructor_v<Interfaces>) && ...);
+}
+static_assert(
+    allAreInterfaces<rhi::IDeviceFactory, rhi::IInstance, rhi::IAdapter, rhi::IDevice, rhi::IQueue, rhi::ISurface,
+                     rhi::ISwapchain, rhi::IBuffer, rhi::ITexture, rhi::ITextureView, rhi::ISampler, rhi::IShader,
+                     rhi::IPipelineLayout, rhi::IPipeline, rhi::IBindGroupLayout, rhi::IBindGroup, rhi::IRenderPass,
+                     rhi::IRenderTarget, rhi::ICommandBuffer, rhi::IRenderEncoder, rhi::IComputeEncoder,
+                     rhi::ICopyEncoder, rhi::IFence, rhi::ISemaphore>());
+
+// A minimal backend-free implementation, to prove the interfaces can be implemented and passed around.
+class FakeFence final : public rhi::IFence {
+public:
+    rhi::Result<void> wait(rhi::Timeout) override {
+        if (!m_signaled) {
+            return rhi::Error{rhi::ErrorCode::Timeout, "never signaled"};
+        }
+        return {};
+    }
+    bool isSignaled() const override { return m_signaled; }
+    rhi::Result<void> reset() override {
+        m_signaled = false;
+        return {};
+    }
+
+    bool m_signaled = true;
+};
+
+rhi::Result<rhi::FenceRef> createFakeFence(rhi::FenceDesc desc) {
+    auto fence = std::make_shared<FakeFence>();
+    fence->m_signaled = desc.signaled;
+    return rhi::FenceRef(fence);
+}
+
+void testInterfaces() {
+    auto fence = createFakeFence({.signaled = true, .label = "frame fence"});
+    check(fence && (*fence)->isSignaled(), "interface implemented and returned through Result<FenceRef>");
+    check((*fence)->reset() && !(*fence)->wait(rhi::Timeout(0)), "fake fence times out after reset");
+
+    rhi::BufferDesc buffer{
+        .size = 256,
+        .usage = rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst,
+        .memory = rhi::MemoryLocation::GpuOnly,
+        .label = "vertices",
+    };
+    check(rhi::hasFlag(buffer.usage, rhi::BufferUsage::Vertex) && !rhi::hasFlag(buffer.usage, rhi::BufferUsage::Index),
+          "flag operators");
+    check(rhi::hasFlag(rhi::ShaderStage::AllGraphics, rhi::ShaderStage::Fragment), "ShaderStage::AllGraphics");
+
+    rhi::TextureViewDesc view{};
+    check(!view.format && view.range.mip_level_count == rhi::kRemaining, "texture view defaults follow the texture");
+
+    rhi::SurfaceDesc surface{.window = rhi::Win32WindowHandle{.hinstance = nullptr, .hwnd = nullptr}};
+    check(std::holds_alternative<rhi::Win32WindowHandle>(surface.window), "native window handle variant");
+}
+
 void testBackends() {
     std::printf("Compiled backends:");
     for (rhi::Backend backend : rhi::compiledBackends()) {
@@ -98,6 +156,7 @@ void testBackends() {
 int main() {
     testResult();
     testTypes();
+    testInterfaces();
     testBackends();
 
     if (g_failures != 0) {

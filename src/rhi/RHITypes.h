@@ -1,8 +1,37 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
+#include <limits>
+#include <type_traits>
 
 namespace rhi {
+
+// Bitwise operators for `enum class` flag types. Use: MANGO_RHI_FLAGS(BufferUsage).
+#define MANGO_RHI_FLAGS(Type)                                                                                          \
+    constexpr Type operator|(Type a, Type b) {                                                                         \
+        return static_cast<Type>(static_cast<std::underlying_type_t<Type>>(a) |                                        \
+                                 static_cast<std::underlying_type_t<Type>>(b));                                        \
+    }                                                                                                                  \
+    constexpr Type operator&(Type a, Type b) {                                                                         \
+        return static_cast<Type>(static_cast<std::underlying_type_t<Type>>(a) &                                        \
+                                 static_cast<std::underlying_type_t<Type>>(b));                                        \
+    }                                                                                                                  \
+    constexpr Type& operator|=(Type& a, Type b) {                                                                      \
+        return a = a | b;                                                                                              \
+    }                                                                                                                  \
+    constexpr bool hasFlag(Type value, Type flag) {                                                                    \
+        return (value & flag) == flag;                                                                                 \
+    }
+
+// Pass as a size to mean "from the offset to the end of the resource".
+inline constexpr std::uint64_t kWholeSize = std::numeric_limits<std::uint64_t>::max();
+// Pass as a mip or layer count to mean "all remaining mips / layers".
+inline constexpr std::uint32_t kRemaining = std::numeric_limits<std::uint32_t>::max();
+
+// How long a CPU wait may block.
+using Timeout = std::chrono::nanoseconds;
+inline constexpr Timeout kWaitForever = Timeout::max();
 
 struct Extent2D {
     std::uint32_t width = 0;
@@ -57,6 +86,53 @@ enum class Format {
     D24UnormS8Uint,
     D32Float,
     D32FloatS8Uint,
+};
+
+enum class IndexFormat {
+    Uint16,
+    Uint32,
+};
+
+enum class CompareOp {
+    Never,
+    Less,
+    Equal,
+    LessOrEqual,
+    Greater,
+    NotEqual,
+    GreaterOrEqual,
+    Always,
+};
+
+enum class ShaderStage : std::uint32_t {
+    None = 0,
+    Vertex = 1u << 0,
+    Fragment = 1u << 1,
+    Compute = 1u << 2,
+    AllGraphics = Vertex | Fragment,
+};
+MANGO_RHI_FLAGS(ShaderStage)
+
+// GPU pipeline stages, used where a queue submission waits on a semaphore.
+enum class PipelineStage : std::uint32_t {
+    None = 0,
+    VertexInput = 1u << 0,
+    VertexShader = 1u << 1,
+    FragmentShader = 1u << 2,
+    ComputeShader = 1u << 3,
+    RenderTargetOutput = 1u << 4,
+    DepthStencil = 1u << 5,
+    Copy = 1u << 6,
+    AllCommands = 1u << 7,
+};
+MANGO_RHI_FLAGS(PipelineStage)
+
+// The part of a texture a view or a barrier covers.
+struct TextureSubresourceRange {
+    std::uint32_t base_mip_level = 0;
+    std::uint32_t mip_level_count = kRemaining;
+    std::uint32_t base_array_layer = 0;
+    std::uint32_t array_layer_count = kRemaining;
 };
 
 } // namespace rhi
