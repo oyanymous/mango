@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <type_traits>
 
@@ -229,9 +230,35 @@ void testInstance() {
             check(!caps.name.empty() && caps.limits.max_texture_dimension_2d >= 4096, "adapter capabilities filled in");
         }
 
+        std::vector<rhi::DeviceRef> devices;
+        for (const rhi::AdapterRef& adapter : adapters) {
+            rhi::Capabilities caps = adapter->getCapabilities();
+            auto device = adapter->createDevice({.features = caps.features, .label = "smoke device"});
+            check(static_cast<bool>(device),
+                  device ? "device created with every supported feature" : device.error().message.c_str());
+            if (!device) {
+                continue;
+            }
+            rhi::QueueRef graphics = (*device)->getQueue(rhi::QueueType::Graphics);
+            rhi::QueueRef compute = (*device)->getQueue(rhi::QueueType::Compute);
+            rhi::QueueRef transfer = (*device)->getQueue(rhi::QueueType::Transfer);
+            check(graphics && compute && transfer, "device has graphics, compute and transfer queues");
+            check((*device)->getQueue(rhi::QueueType::Graphics) == graphics, "getQueue returns the same queue");
+            std::printf("  queues: compute %s, transfer %s\n",
+                        compute == graphics ? "shared with graphics" : "dedicated",
+                        transfer == graphics ? "shared with graphics" : "dedicated");
+            devices.push_back(*device);
+        }
+
         // Adapters keep the VkInstance alive on their own; dropping the instance first must be safe.
         instance = rhi::Error{};
         check(adapters.empty() || !adapters[0]->getCapabilities().name.empty(), "adapters outlive their instance");
+
+        // Devices and queues keep the VkDevice and VkInstance alive; validation reports leaks on destruction.
+        adapters.clear();
+        rhi::QueueRef queue = devices.empty() ? nullptr : devices[0]->getQueue(rhi::QueueType::Graphics);
+        devices.clear();
+        check(devices.empty() && (adapters.empty() || queue), "queues outlive their device");
     }
 
 #if defined(MANGO_VULKAN_VALIDATION)

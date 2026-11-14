@@ -31,7 +31,8 @@ public:
 
     Capabilities getCapabilities() const override;
 
-    /// Not implemented yet (step 4 of docs/RHI_VULKAN_PLAN.md); returns ErrorCode::Unsupported.
+    /// Creates a VulkanDevice: one graphics queue plus dedicated compute/transfer queues where the adapter has
+    /// such families, timeline semaphores, VK_KHR_swapchain (if available) and a VMA allocator.
     Result<DeviceRef> createDevice(DeviceDesc desc) override;
 private:
     Capabilities m_capabilities;
