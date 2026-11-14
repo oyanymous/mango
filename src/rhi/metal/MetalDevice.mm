@@ -12,6 +12,7 @@
 #include "MetalCommandBuffer.h"
 #include "MetalFence.h"
 #include "MetalQueue.h"
+#include "MetalRenderPass.h"
 #include "MetalSemaphore.h"
 #include "MetalTexture.h"
 
@@ -90,12 +91,12 @@ Result<PipelineRef> MetalDevice::createComputePipeline(ComputePipelineDesc) {
     return notImplemented("createComputePipeline");
 }
 
-Result<RenderPassRef> MetalDevice::createRenderPass(RenderPassDesc) {
-    return notImplemented("createRenderPass");
+Result<RenderPassRef> MetalDevice::createRenderPass(RenderPassDesc desc) {
+    return MetalRenderPass::create(std::move(desc));
 }
 
-Result<RenderTargetRef> MetalDevice::createRenderTarget(RenderTargetDesc) {
-    return notImplemented("createRenderTarget");
+Result<RenderTargetRef> MetalDevice::createRenderTarget(RenderTargetDesc desc) {
+    return MetalRenderTarget::create(std::move(desc));
 }
 
 Result<BindGroupLayoutRef> MetalDevice::createBindGroupLayout(BindGroupLayoutDesc) {

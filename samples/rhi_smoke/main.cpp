@@ -751,13 +751,13 @@ void testBackend(rhi::Backend backend) {
             testBufferRoundTrip(**device);
             testTextureRoundTrip(**device, caps);
             testLifetime(**device);
+            testOffscreenClear(**device);
             // Metal is built step by step (docs/RHI_METAL_PLAN.md): skip the checks whose objects it cannot create yet.
-            if (auto probe = (*device)->createRenderPass({.color_attachments = {{.format = rhi::Format::RGBA8Unorm}}});
+            if (auto probe = (*device)->createShader({.stage = rhi::ShaderStage::Compute});
                 backend == rhi::Backend::Metal && !probe && probe.error().code == rhi::ErrorCode::Unsupported) {
-                std::printf("[SKIP] render and compute checks: %s\n", probe.error().message.c_str());
+                std::printf("[SKIP] compute checks: %s\n", probe.error().message.c_str());
                 continue;
             }
-            testOffscreenClear(**device);
             testCompute(**device);
         }
 

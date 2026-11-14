@@ -50,7 +50,8 @@ public:
     void barrier(BarrierBatch batch) override;
 
     /**
-     * @brief Not implemented yet; returns null.
+     * @brief Opens an `MTLRenderCommandEncoder` on an `MTLRenderPassDescriptor` built from the pass and target, with
+     * the viewport and scissor set to the target's extent.
      */
     RenderEncoderRef beginRender(RenderBeginDesc desc) override;
 
