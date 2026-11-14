@@ -145,6 +145,8 @@ if (MANGO_RHI_METAL)
         metal/MetalShader.mm
         metal/MetalPipeline.h
         metal/MetalPipeline.mm
+        metal/MetalBindGroup.h
+        metal/MetalBindGroup.mm
     )
     target_sources(RHI PRIVATE ${RHI_METAL_SOURCES})
 

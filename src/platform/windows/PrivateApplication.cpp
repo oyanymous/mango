@@ -17,6 +17,10 @@ PrivateApplication::PrivateApplication() : m_impl(std::make_unique<Impl>()) {
 
 PrivateApplication::~PrivateApplication() = default;
 
+void PrivateApplication::quit() {
+    PostQuitMessage(0);
+}
+
 void PrivateApplication::run() {
     MSG msg = {};
     if (!m_frame_callback) {

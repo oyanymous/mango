@@ -7,6 +7,7 @@
 
 #include <utility>
 
+#include "MetalBindGroup.h"
 #include "MetalBuffer.h"
 #include "MetalCommandBuffer.h"
 #include "MetalPipeline.h"
@@ -41,8 +42,16 @@ void MetalRenderEncoder::setPipeline(PipelineRef pipeline) {
     m_command_buffer->retain(std::move(pipeline));
 }
 
-void MetalRenderEncoder::setBindGroup(BindGroupBinding) {
-    m_command_buffer->reportError("MetalRenderEncoder::setBindGroup is not implemented yet");
+void MetalRenderEncoder::setBindGroup(BindGroupBinding binding) {
+    if (m_ended || !binding.bind_group) {
+        return;
+    }
+    if (!m_pipeline) {
+        m_command_buffer->reportError("IRenderEncoder::setBindGroup: set a pipeline first");
+        return;
+    }
+    static_cast<const MetalBindGroup&>(*binding.bind_group).bind(m_encoder, m_pipeline->layout(), binding.index);
+    m_command_buffer->retain(std::move(binding.bind_group));
 }
 
 void MetalRenderEncoder::setVertexBuffers(VertexBufferBindings bindings) {

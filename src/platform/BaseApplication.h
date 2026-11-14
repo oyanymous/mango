@@ -49,6 +49,11 @@ public:
      * @brief Runs the native event loop. Blocks until the application quits.
      */
     virtual void run() = 0;
+
+    /**
+     * @brief Makes run() return once the current loop iteration is done. Call on the event-loop thread.
+     */
+    virtual void quit() = 0;
 protected:
     std::function<void()> m_frame_callback; /**< Called once per loop iteration; may be empty. */
 private:

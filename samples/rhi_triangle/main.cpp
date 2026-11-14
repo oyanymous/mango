@@ -8,7 +8,8 @@
  * Validation is on; every validation warning or error is printed, and the program exits non-zero if there was
  * any. Resizing and minimizing the window recreate the swapchain.
  *
- * Usage: `rhi_triangle [--backend vulkan|metal]`; without the option it uses the first available backend.
+ * Usage: `rhi_triangle [--backend vulkan|metal] [--frames N]`. Without `--backend` it uses the first available
+ * backend; `--frames N` quits after N frames (for unattended runs), otherwise it runs until the window is closed.
  */
 
 #include <array>
@@ -336,6 +337,16 @@ rhi::Backend chooseBackend(int argc, char** argv, const rhi::RHIFactory& factory
     return available[0];
 }
 
+/** @brief The value of `--frames`, or 0 (run until the window is closed). */
+std::uint64_t frameLimit(int argc, char** argv) {
+    for (int i = 1; i + 1 < argc; ++i) {
+        if (std::string_view(argv[i]) == "--frames") {
+            return std::strtoull(argv[i + 1], nullptr, 10);
+        }
+    }
+    return 0;
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -424,9 +435,12 @@ int main(int argc, char** argv) {
 
         window.setResizeCallback([&r](WindowSize) { r.needs_resize = true; });
         std::uint64_t frames = 0;
+        const std::uint64_t frame_limit = frameLimit(argc, argv);
         Application::setFrameCallback([&] {
             renderFrame(r, window);
-            ++frames;
+            if (++frames == frame_limit) {
+                Application::quit();
+            }
         });
         app.run();
 

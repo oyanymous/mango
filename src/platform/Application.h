@@ -42,6 +42,13 @@ public:
     static void addTopLevelWidget(IWidget* widget) { PrivateApplication::instance().addTopLevelWidget(widget); }
 
     /**
+     * @brief Makes run() return once the current loop iteration is done, as closing a window does.
+     *
+     * @note Call on the event-loop thread, e.g. from the frame callback.
+     */
+    static void quit() { PrivateApplication::instance().quit(); }
+
+    /**
      * @brief Sets a function the event loop calls once per iteration; see BaseApplication::setFrameCallback.
      *
      * @note On macOS the callback does not run while the user drags the window edge (AppKit runs its own loop for

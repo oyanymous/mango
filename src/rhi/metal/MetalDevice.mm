@@ -8,6 +8,7 @@
 #include <string>
 #include <utility>
 
+#include "MetalBindGroup.h"
 #include "MetalBuffer.h"
 #include "MetalCommandBuffer.h"
 #include "MetalFence.h"
@@ -106,8 +107,8 @@ Result<BindGroupLayoutRef> MetalDevice::createBindGroupLayout(BindGroupLayoutDes
     return MetalBindGroupLayout::create(std::move(desc));
 }
 
-Result<BindGroupRef> MetalDevice::createBindGroup(BindGroupDesc) {
-    return notImplemented("createBindGroup");
+Result<BindGroupRef> MetalDevice::createBindGroup(BindGroupDesc desc) {
+    return MetalBindGroup::create(std::move(desc));
 }
 
 Result<CommandBufferRef> MetalDevice::createCommandBuffer(CommandBufferDesc desc) {

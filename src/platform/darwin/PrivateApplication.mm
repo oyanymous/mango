@@ -83,6 +83,10 @@ void darwinRequestQuit() {
     [NSApp postEvent:wake atStart:NO];
 }
 
+void PrivateApplication::quit() {
+    darwinRequestQuit();
+}
+
 void PrivateApplication::run() {
     // A hand-written loop instead of [NSApp run], so the frame callback can run between events (like the Win32
     // PeekMessage loop) and run() returns when a window closes.

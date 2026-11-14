@@ -37,6 +37,11 @@ public:
      * @brief Runs the native event loop (Cocoa run loop / Win32 message loop). Blocks until the application quits.
      */
     void run() override;
+
+    /**
+     * @brief Makes run() return (posts WM_QUIT on Win32; stops the hand-written loop on macOS).
+     */
+    void quit() override;
 private:
     struct Impl;
     std::unique_ptr<Impl> m_impl;
