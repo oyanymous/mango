@@ -8,6 +8,8 @@
 #include <string>
 #include <utility>
 
+#include "MetalBuffer.h"
+#include "MetalCommandBuffer.h"
 #include "MetalFence.h"
 #include "MetalQueue.h"
 #include "MetalSemaphore.h"
@@ -55,8 +57,8 @@ QueueRef MetalDevice::getQueue(QueueType type) {
     return m_queues[static_cast<std::size_t>(type)];
 }
 
-Result<BufferRef> MetalDevice::createBuffer(BufferDesc) {
-    return notImplemented("createBuffer");
+Result<BufferRef> MetalDevice::createBuffer(BufferDesc desc) {
+    return MetalBuffer::create(m_context, std::move(desc));
 }
 
 Result<TextureRef> MetalDevice::createTexture(TextureDesc) {
@@ -103,8 +105,9 @@ Result<BindGroupRef> MetalDevice::createBindGroup(BindGroupDesc) {
     return notImplemented("createBindGroup");
 }
 
-Result<CommandBufferRef> MetalDevice::createCommandBuffer(CommandBufferDesc) {
-    return notImplemented("createCommandBuffer");
+Result<CommandBufferRef> MetalDevice::createCommandBuffer(CommandBufferDesc desc) {
+    id<MTLCommandQueue> queue = static_cast<const MetalQueue&>(*getQueue(desc.queue)).handle();
+    return CommandBufferRef(std::make_shared<MetalCommandBuffer>(m_context, std::move(desc), queue));
 }
 
 Result<SwapchainRef> MetalDevice::createSwapchain(SwapchainDesc) {

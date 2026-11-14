@@ -33,8 +33,11 @@ public:
     MetalQueue(std::shared_ptr<MetalDeviceContext> context, QueueType type, id<MTLCommandQueue> queue);
 
     /**
-     * @brief Submits semaphore waits/signals and a fence. Command buffers are not supported yet
-     * (ErrorCode::Unsupported).
+     * @brief Commits the command buffers between the semaphore waits and signals.
+     *
+     * @return Success, or ErrorCode::InvalidArgument for a command buffer that is not ended, was already submitted, or
+     *         was created for another queue type, a binary wait no earlier submission signals, or a fence that is
+     *         signaled or pending.
      */
     Result<void> submit(SubmitDesc desc) override;
 

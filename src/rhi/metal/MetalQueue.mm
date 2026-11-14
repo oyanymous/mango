@@ -5,11 +5,14 @@
 
 #include "MetalQueue.h"
 
+#include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "MetalCommandBuffer.h"
 #include "MetalFence.h"
 #include "MetalSemaphore.h"
 
@@ -45,8 +48,18 @@ MetalQueue::MetalQueue(std::shared_ptr<MetalDeviceContext> context, QueueType ty
 }
 
 Result<void> MetalQueue::submit(SubmitDesc desc) {
-    if (!desc.command_buffers.empty()) {
-        return Error{ErrorCode::Unsupported, "MetalQueue::submit: command buffers are not implemented yet"};
+    std::vector<std::shared_ptr<MetalCommandBuffer>> command_buffers;
+    for (const CommandBufferRef& ref : desc.command_buffers) {
+        auto command_buffer = std::static_pointer_cast<MetalCommandBuffer>(ref);
+        if (!command_buffer || command_buffer->state() != MetalCommandBuffer::RecordingState::Executable) {
+            return Error{ErrorCode::InvalidArgument,
+                         "MetalQueue::submit: command buffer is null, not ended, or already submitted"};
+        }
+        if (command_buffer->queue() != m_queue) {
+            return Error{ErrorCode::InvalidArgument,
+                         "MetalQueue::submit: command buffer was created for another queue type"};
+        }
+        command_buffers.push_back(std::move(command_buffer));
     }
     for (const SemaphoreWait& wait : desc.waits) {
         if (!wait.semaphore) {
@@ -81,27 +94,56 @@ Result<void> MetalQueue::submit(SubmitDesc desc) {
         signals.push_back({semaphore.event(), semaphore.nextSignalValue(signal.value)});
     }
 
-    if (waits.empty() && signals.empty() && !fence) {
+    // The queue runs command buffers in commit order: semaphore waits in a leading internal command buffer, then the
+    // caller's, then signals in a trailing one. Without command buffers of the caller's, one internal buffer does both.
+    std::vector<id<MTLCommandBuffer>> sequence;
+    std::vector<std::shared_ptr<MetalCommandBuffer>> owners; // parallel to sequence; null for internal ones
+    const auto addInternal = [&](NSString* label) {
+        id<MTLCommandBuffer> internal = [m_queue commandBuffer];
+        internal.label = label;
+        sequence.push_back(internal);
+        owners.push_back(nullptr);
+        return internal;
+    };
+    id<MTLCommandBuffer> waits_buffer = waits.empty() ? nil : addInternal(@"MetalQueue::submit waits");
+    for (const EventValue& wait : waits) {
+        [waits_buffer encodeWaitForEvent:wait.event value:wait.value];
+    }
+    for (const std::shared_ptr<MetalCommandBuffer>& command_buffer : command_buffers) {
+        sequence.push_back(command_buffer->handle());
+        owners.push_back(command_buffer);
+    }
+    if (!signals.empty() || (sequence.empty() && fence)) {
+        id<MTLCommandBuffer> signals_buffer =
+            command_buffers.empty() && waits_buffer != nil ? waits_buffer : addInternal(@"MetalQueue::submit signals");
+        for (const EventValue& signal : signals) {
+            [signals_buffer encodeSignalEvent:signal.event value:signal.value];
+        }
+    }
+    if (sequence.empty()) {
         return {};
     }
 
-    // Waits and signals go into internal command buffers; with no command buffers of the caller's, one is enough.
-    id<MTLCommandBuffer> sync = [m_queue commandBuffer];
-    sync.label = @"MetalQueue::submit sync";
-    for (const EventValue& wait : waits) {
-        [sync encodeWaitForEvent:wait.event value:wait.value];
-    }
-    for (const EventValue& signal : signals) {
-        [sync encodeSignalEvent:signal.event value:signal.value];
-    }
+    // Every command buffer reports its own failure and keeps its RHI object alive until it completes. The fence waits
+    // for all of them, so it does not depend on the order completion handlers run in.
+    auto remaining = std::make_shared<std::atomic<std::size_t>>(sequence.size());
     std::shared_ptr<MetalDebugReporter> reporter = m_context->reporter;
-    [sync addCompletedHandler:^(id<MTLCommandBuffer> completed) {
-        reportFailure(*reporter, completed);
-        if (fence) {
-            fence->signal();
-        }
-    }];
-    [sync commit];
+    for (std::size_t i = 0; i < sequence.size(); ++i) {
+        std::shared_ptr<MetalCommandBuffer> owner = owners[i];
+        [sequence[i] addCompletedHandler:^(id<MTLCommandBuffer> completed) {
+            reportFailure(*reporter, completed);
+            if (remaining->fetch_sub(1) == 1 && fence) {
+                fence->signal();
+            }
+            (void)owner; // captured to keep the RHI command buffer and its resources alive until here
+        }];
+    }
+    for (id<MTLCommandBuffer> command_buffer : sequence) {
+        [command_buffer commit];
+    }
+    for (const std::shared_ptr<MetalCommandBuffer>& command_buffer : command_buffers) {
+        command_buffer->markSubmitted();
+    }
     return {};
 }
 

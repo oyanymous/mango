@@ -127,6 +127,12 @@ if (MANGO_RHI_METAL)
         metal/MetalFence.mm
         metal/MetalSemaphore.h
         metal/MetalSemaphore.mm
+        metal/MetalBuffer.h
+        metal/MetalBuffer.mm
+        metal/MetalCommandBuffer.h
+        metal/MetalCommandBuffer.mm
+        metal/MetalCopyEncoder.h
+        metal/MetalCopyEncoder.mm
     )
     target_sources(RHI PRIVATE ${RHI_METAL_SOURCES})
 
