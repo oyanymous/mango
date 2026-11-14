@@ -7,9 +7,11 @@
  */
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <memory>
 #include <string>
 #include <vector>
@@ -420,6 +422,120 @@ void testTextureRoundTrip(rhi::IDevice& device, const rhi::Capabilities& caps) {
     (*readback)->unmap();
 }
 
+// Clears an offscreen colour + depth target in a render pass, reads both back and checks every pixel.
+void testOffscreenClear(rhi::IDevice& device) {
+    constexpr std::uint32_t kSize = 32;
+    constexpr std::array<float, 4> kClear = {0.25f, 0.5f, 0.75f, 1.0f};
+    constexpr float kDepth = 0.5f;
+
+    auto color = device.createTexture({.format = rhi::Format::RGBA8Unorm,
+                                       .extent = {kSize, kSize},
+                                       .usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::CopySrc});
+    auto depth = device.createTexture({.format = rhi::Format::D32Float,
+                                       .extent = {kSize, kSize},
+                                       .usage = rhi::TextureUsage::DepthStencil | rhi::TextureUsage::CopySrc});
+    auto color_readback = device.createBuffer(
+        {.size = kSize * kSize * 4, .usage = rhi::BufferUsage::CopyDst, .memory = rhi::MemoryLocation::GpuToCpu});
+    auto depth_readback = device.createBuffer({.size = kSize * kSize * sizeof(float),
+                                               .usage = rhi::BufferUsage::CopyDst,
+                                               .memory = rhi::MemoryLocation::GpuToCpu});
+    if (!color || !depth || !color_readback || !depth_readback) {
+        check(false, "offscreen textures and buffers created");
+        return;
+    }
+    auto color_view = device.createTextureView({.texture = *color});
+    auto depth_view = device.createTextureView({.texture = *depth});
+
+    check(!device.createRenderPass({}), "render pass without attachments is rejected");
+    auto pass = device.createRenderPass({
+        .color_attachments = {{.format = rhi::Format::RGBA8Unorm}},
+        .depth_stencil_attachment = rhi::AttachmentDesc{.format = rhi::Format::D32Float},
+    });
+    check(static_cast<bool>(pass), "render pass created");
+    if (!pass || !color_view || !depth_view) {
+        return;
+    }
+    check(!device.createRenderTarget({.render_pass = *pass, .extent = {kSize, kSize}}),
+          "render target with missing attachments is rejected");
+    auto target = device.createRenderTarget({.render_pass = *pass,
+                                             .color_attachments = {*color_view},
+                                             .depth_stencil_attachment = *depth_view,
+                                             .extent = {kSize, kSize}});
+    check(static_cast<bool>(target), "render target created");
+    if (!target) {
+        return;
+    }
+
+    auto cmd = device.createCommandBuffer({});
+    if (!cmd || !(*cmd)->begin()) {
+        check(false, "render command buffer begins");
+        return;
+    }
+    (*cmd)->barrier(
+        {.textures = {
+             {.texture = *color, .before = rhi::ResourceState::Undefined, .after = rhi::ResourceState::RenderTarget},
+             {.texture = *depth,
+              .before = rhi::ResourceState::Undefined,
+              .after = rhi::ResourceState::DepthStencilWrite},
+         }});
+    {
+        rhi::RenderEncoderRef render = (*cmd)->beginRender({.render_pass = *pass,
+                                                            .target = *target,
+                                                            .clear_colors = {kClear},
+                                                            .clear_depth_stencil = {.depth = kDepth}});
+        check(render && !(*cmd)->beginCopy(), "render encoder open; no other encoder meanwhile");
+        if (render) {
+            render->end();
+        }
+    }
+    (*cmd)->barrier(
+        {.textures = {
+             {.texture = *color, .before = rhi::ResourceState::RenderTarget, .after = rhi::ResourceState::CopySrc},
+             {.texture = *depth, .before = rhi::ResourceState::DepthStencilWrite, .after = rhi::ResourceState::CopySrc},
+         }});
+    {
+        rhi::CopyEncoderRef copy = (*cmd)->beginCopy();
+        copy->copyBufferTexture({.direction = rhi::CopyDirection::TextureToBuffer,
+                                 .buffer = {.buffer = *color_readback},
+                                 .texture = {.texture = *color},
+                                 .extent = {kSize, kSize}});
+        copy->copyBufferTexture({.direction = rhi::CopyDirection::TextureToBuffer,
+                                 .buffer = {.buffer = *depth_readback},
+                                 .texture = {.texture = *depth},
+                                 .extent = {kSize, kSize}});
+        copy->end();
+    }
+    check(static_cast<bool>((*cmd)->end()), "render pass recorded");
+
+    auto fence = device.createFence({});
+    if (!fence) {
+        return;
+    }
+    check(device.getQueue(rhi::QueueType::Graphics)->submit({.command_buffers = {*cmd}, .fence = *fence}) &&
+              (*fence)->wait(std::chrono::seconds(5)),
+          "render pass finished");
+
+    // UNORM conversion may round either way, so allow one step of difference.
+    auto pixels = (*color_readback)->map({});
+    bool color_ok = static_cast<bool>(pixels);
+    for (std::size_t i = 0; color_ok && i < pixels->size(); ++i) {
+        const int expected = static_cast<int>(kClear[i % 4] * 255.0f + 0.5f);
+        color_ok = std::abs(static_cast<int>((*pixels)[i]) - expected) <= 1;
+    }
+    check(color_ok, "colour attachment cleared to the clear colour");
+    (*color_readback)->unmap();
+
+    auto depths = (*depth_readback)->map({});
+    bool depth_ok = static_cast<bool>(depths);
+    for (std::size_t i = 0; depth_ok && i < kSize * kSize; ++i) {
+        float value = 0.0f;
+        std::memcpy(&value, depths->data() + i * sizeof(float), sizeof(float));
+        depth_ok = value == kDepth;
+    }
+    check(depth_ok, "depth attachment cleared to the clear depth");
+    (*depth_readback)->unmap();
+}
+
 void testInstance() {
 #if defined(MANGO_RHI_VULKAN)
     rhi::RHIFactory factory;
@@ -495,6 +611,7 @@ void testInstance() {
             testSync(**device);
             testBufferRoundTrip(**device);
             testTextureRoundTrip(**device, caps);
+            testOffscreenClear(**device);
             devices.push_back(*device);
         }
 

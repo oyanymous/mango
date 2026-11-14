@@ -72,6 +72,10 @@ if (MANGO_RHI_VULKAN)
         vulkan/VulkanCopyEncoder.cpp
         vulkan/VulkanTexture.h
         vulkan/VulkanTexture.cpp
+        vulkan/VulkanRenderPass.h
+        vulkan/VulkanRenderPass.cpp
+        vulkan/VulkanRenderEncoder.h
+        vulkan/VulkanRenderEncoder.cpp
     )
 
     # Backend headers are private to RHI and included bare ("VulkanInstance.h").

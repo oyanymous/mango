@@ -11,6 +11,7 @@
 #include "VulkanCommandBuffer.h"
 #include "VulkanFence.h"
 #include "VulkanQueue.h"
+#include "VulkanRenderPass.h"
 #include "VulkanSemaphore.h"
 #include "VulkanTexture.h"
 
@@ -84,12 +85,12 @@ Result<PipelineRef> VulkanDevice::createComputePipeline(ComputePipelineDesc) {
     return notImplemented("createComputePipeline", 12);
 }
 
-Result<RenderPassRef> VulkanDevice::createRenderPass(RenderPassDesc) {
-    return notImplemented("createRenderPass", 8);
+Result<RenderPassRef> VulkanDevice::createRenderPass(RenderPassDesc desc) {
+    return VulkanRenderPass::create(m_device, std::move(desc));
 }
 
-Result<RenderTargetRef> VulkanDevice::createRenderTarget(RenderTargetDesc) {
-    return notImplemented("createRenderTarget", 8);
+Result<RenderTargetRef> VulkanDevice::createRenderTarget(RenderTargetDesc desc) {
+    return VulkanRenderTarget::create(m_device, std::move(desc));
 }
 
 Result<BindGroupLayoutRef> VulkanDevice::createBindGroupLayout(BindGroupLayoutDesc) {

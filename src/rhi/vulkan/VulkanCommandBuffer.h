@@ -69,7 +69,10 @@ public:
      */
     void barrier(BarrierBatch batch) override;
     /**
-     * @brief Not implemented yet (step 8); returns null.
+     * @brief Begins the render pass, sets a viewport and scissor covering the target, and opens a
+     * VulkanRenderEncoder.
+     *
+     * @return The encoder, or null unless recording with no encoder open and both pass and target are set.
      */
     RenderEncoderRef beginRender(RenderBeginDesc desc) override;
     /**

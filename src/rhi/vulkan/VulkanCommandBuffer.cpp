@@ -8,6 +8,8 @@
 #include "VulkanBuffer.h"
 #include "VulkanCopyEncoder.h"
 #include "VulkanDevice.h"
+#include "VulkanRenderEncoder.h"
+#include "VulkanRenderPass.h"
 #include "VulkanTexture.h"
 
 namespace rhi::vulkan {
@@ -213,8 +215,49 @@ void VulkanCommandBuffer::barrier(BarrierBatch batch) {
                          static_cast<std::uint32_t>(image_barriers.size()), image_barriers.data());
 }
 
-RenderEncoderRef VulkanCommandBuffer::beginRender(RenderBeginDesc) {
-    return nullptr;
+RenderEncoderRef VulkanCommandBuffer::beginRender(RenderBeginDesc desc) {
+    if (m_state != RecordingState::Recording || !desc.render_pass || !desc.target) {
+        return nullptr;
+    }
+    const RenderPassDesc pass_desc = desc.render_pass->getDesc();
+    const Extent2D extent = desc.target->getDesc().extent;
+
+    // Vulkan indexes clear values by attachment; RenderBeginDesc lists colours only for clearing attachments.
+    std::vector<VkClearValue> clear_values;
+    std::size_t next_color = 0;
+    for (const AttachmentDesc& attachment : pass_desc.color_attachments) {
+        VkClearValue value{};
+        if (attachment.load_op == LoadOp::Clear && next_color < desc.clear_colors.size()) {
+            const std::array<float, 4>& color = desc.clear_colors[next_color++];
+            value.color = {{color[0], color[1], color[2], color[3]}};
+        }
+        clear_values.push_back(value);
+    }
+    if (pass_desc.depth_stencil_attachment) {
+        VkClearValue value{};
+        value.depthStencil = {desc.clear_depth_stencil.depth, desc.clear_depth_stencil.stencil};
+        clear_values.push_back(value);
+    }
+
+    VkRenderPassBeginInfo begin_info{};
+    begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    begin_info.renderPass = static_cast<const VulkanRenderPass&>(*desc.render_pass).handle();
+    begin_info.framebuffer = static_cast<const VulkanRenderTarget&>(*desc.target).handle();
+    begin_info.renderArea = {{0, 0}, {extent.width, extent.height}};
+    begin_info.clearValueCount = static_cast<std::uint32_t>(clear_values.size());
+    begin_info.pClearValues = clear_values.data();
+    vkCmdBeginRenderPass(m_command_buffer, &begin_info, VK_SUBPASS_CONTENTS_INLINE);
+
+    // IRenderEncoder promises a viewport and scissor covering the whole target; pipelines make them dynamic.
+    const VkViewport viewport{0.0f, 0.0f, static_cast<float>(extent.width), static_cast<float>(extent.height),
+                              0.0f, 1.0f};
+    vkCmdSetViewport(m_command_buffer, 0, 1, &viewport);
+    vkCmdSetScissor(m_command_buffer, 0, 1, &begin_info.renderArea);
+
+    retain(std::move(desc.render_pass));
+    retain(std::move(desc.target));
+    m_state = RecordingState::Encoding;
+    return std::make_unique<VulkanRenderEncoder>(shared_from_this());
 }
 
 ComputeEncoderRef VulkanCommandBuffer::beginCompute() {
