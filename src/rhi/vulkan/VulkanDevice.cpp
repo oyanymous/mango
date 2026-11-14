@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "VulkanBindGroup.h"
 #include "VulkanBuffer.h"
 #include "VulkanCommandBuffer.h"
 #include "VulkanFence.h"
@@ -95,12 +96,12 @@ Result<RenderTargetRef> VulkanDevice::createRenderTarget(RenderTargetDesc desc) 
     return VulkanRenderTarget::create(m_device, std::move(desc));
 }
 
-Result<BindGroupLayoutRef> VulkanDevice::createBindGroupLayout(BindGroupLayoutDesc) {
-    return notImplemented("createBindGroupLayout", 11);
+Result<BindGroupLayoutRef> VulkanDevice::createBindGroupLayout(BindGroupLayoutDesc desc) {
+    return VulkanBindGroupLayout::create(m_device, std::move(desc));
 }
 
-Result<BindGroupRef> VulkanDevice::createBindGroup(BindGroupDesc) {
-    return notImplemented("createBindGroup", 11);
+Result<BindGroupRef> VulkanDevice::createBindGroup(BindGroupDesc desc) {
+    return VulkanBindGroup::create(m_device, std::move(desc));
 }
 
 Result<CommandBufferRef> VulkanDevice::createCommandBuffer(CommandBufferDesc desc) {

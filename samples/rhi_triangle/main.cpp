@@ -1,7 +1,9 @@
 /**
  * @file
- * @brief rhi_triangle: a window rendered with the RHI: a coloured triangle and an indexed quad over an animated
- * clear colour.
+ * @brief rhi_triangle: a window rendered with the RHI: a rotating textured quad over an animated clear colour.
+ *
+ * The quad is an indexed draw; its rotation comes from a per-frame uniform buffer, its texture is a checkerboard
+ * uploaded through a staging buffer, and both reach the shaders through one bind group per frame in flight.
  *
  * Validation is on; every validation warning or error is printed, and the program exits non-zero if there was
  * any. Resizing and minimizing the window recreate the swapchain.
@@ -31,31 +33,39 @@ namespace {
 constexpr std::size_t kFramesInFlight = 2;
 constexpr rhi::Format kBackbufferFormat = rhi::Format::BGRA8Unorm;
 
-/** @brief One interleaved vertex: clip-space position (y points down in Vulkan) and colour. */
+/** @brief One interleaved vertex: clip-space position (y points down in Vulkan) and texture coordinate. */
 struct Vertex {
-    float x, y;    /**< Position. */
-    float r, g, b; /**< Colour. */
+    float x, y; /**< Position. */
+    float u, v; /**< Texture coordinate. */
 };
 
-/** @brief A triangle on the left (vertices 0-2), then a quad on the right (vertices 3-6). */
-constexpr std::array<Vertex, 7> kVertices = {{
-    {-0.5f, -0.5f, 1.0f, 0.0f, 0.0f},
-    {-0.1f, 0.5f, 0.0f, 1.0f, 0.0f},
-    {-0.9f, 0.5f, 0.0f, 0.0f, 1.0f},
-    {0.1f, -0.5f, 1.0f, 1.0f, 0.0f},
-    {0.9f, -0.5f, 0.0f, 1.0f, 1.0f},
-    {0.9f, 0.5f, 1.0f, 0.0f, 1.0f},
-    {0.1f, 0.5f, 1.0f, 1.0f, 1.0f},
+constexpr std::array<Vertex, 4> kVertices = {{
+    {-0.6f, -0.6f, 0.0f, 0.0f},
+    {0.6f, -0.6f, 1.0f, 0.0f},
+    {0.6f, 0.6f, 1.0f, 1.0f},
+    {-0.6f, 0.6f, 0.0f, 1.0f},
 }};
 
-/** @brief The quad's two triangles, relative to its first vertex. */
-constexpr std::array<std::uint16_t, 6> kQuadIndices = {0, 1, 2, 2, 3, 0};
+/** @brief The quad's two triangles. */
+constexpr std::array<std::uint16_t, 6> kIndices = {0, 1, 2, 2, 3, 0};
+
+/** @brief The vertex shader's uniform block (std140: one vec4). */
+struct Transform {
+    float cos_angle, sin_angle; /**< Rotation. */
+    float x_scale;              /**< Height / width, so the quad stays square. */
+    float padding;              /**< Fills the vec4. */
+};
+
+/** @brief Initial uniform contents: no rotation, no scale. */
+constexpr Transform kNoTransform = {1.0f, 0.0f, 1.0f, 0.0f};
 
 /** @brief Per-frame-in-flight objects; a frame's fence guards all of them. */
 struct Frame {
     rhi::CommandBufferRef command_buffer;
     rhi::FenceRef fence;           /**< Signaled when the frame's submit finished; created signaled. */
     rhi::SemaphoreRef image_ready; /**< Signaled by acquire, waited by the submit. */
+    rhi::BufferRef uniforms;       /**< This frame's Transform; rewritten once the fence says the GPU is done. */
+    rhi::BindGroupRef bind_group;  /**< uniforms, the texture and the sampler. */
 };
 
 /** @brief The renderer's state: device objects plus everything that depends on the swapchain images. */
@@ -64,7 +74,10 @@ struct Renderer {
     rhi::QueueRef queue;
     rhi::SwapchainRef swapchain;
     rhi::RenderPassRef render_pass;
+    rhi::BindGroupLayoutRef bind_group_layout;
     rhi::PipelineRef pipeline;
+    rhi::TextureViewRef texture_view;
+    rhi::SamplerRef sampler;
     rhi::BufferRef vertices;
     rhi::BufferRef indices;
     std::array<Frame, kFramesInFlight> frames;
@@ -100,8 +113,9 @@ rhi::BufferRef createFilledBuffer(rhi::IDevice& device, std::span<const std::byt
     return buffer;
 }
 
-/** @brief The pipeline drawing Vertex data with the triangle shaders into @p render_pass. */
-rhi::PipelineRef createPipeline(rhi::IDevice& device, const rhi::RenderPassRef& render_pass) {
+/** @brief The pipeline drawing Vertex data with the sample's shaders into @p render_pass. */
+rhi::PipelineRef createPipeline(rhi::IDevice& device, const rhi::RenderPassRef& render_pass,
+                                const rhi::BindGroupLayoutRef& bind_group_layout) {
     auto vertex_shader =
         orExit(device.createShader({.stage = rhi::ShaderStage::Vertex,
                                     .spirv = {std::begin(triangle_vert_spv), std::end(triangle_vert_spv)}}),
@@ -110,17 +124,59 @@ rhi::PipelineRef createPipeline(rhi::IDevice& device, const rhi::RenderPassRef& 
         orExit(device.createShader({.stage = rhi::ShaderStage::Fragment,
                                     .spirv = {std::begin(triangle_frag_spv), std::end(triangle_frag_spv)}}),
                "createShader(fragment)");
-    auto layout = orExit(device.createPipelineLayout({}), "createPipelineLayout");
+    auto layout =
+        orExit(device.createPipelineLayout({.bind_group_layouts = {bind_group_layout}}), "createPipelineLayout");
     return orExit(device.createGraphicsPipeline({
                       .layout = layout,
                       .vertex_shader = vertex_shader,
                       .fragment_shader = fragment_shader,
                       .vertex_buffers = {{.stride = sizeof(Vertex),
                                           .attributes = {{0, rhi::Format::RG32Float, offsetof(Vertex, x)},
-                                                         {1, rhi::Format::RGB32Float, offsetof(Vertex, r)}}}},
+                                                         {1, rhi::Format::RG32Float, offsetof(Vertex, u)}}}},
                       .render_pass = render_pass,
                   }),
                   "createGraphicsPipeline");
+}
+
+/** @brief A 64x64 checkerboard with a red/green gradient, uploaded and left in ResourceState::ShaderRead. */
+rhi::TextureRef createCheckerTexture(rhi::IDevice& device, rhi::IQueue& queue) {
+    constexpr std::uint32_t kSize = 64;
+    std::vector<std::uint8_t> texels(kSize * kSize * 4);
+    for (std::uint32_t y = 0; y < kSize; ++y) {
+        for (std::uint32_t x = 0; x < kSize; ++x) {
+            const bool light = ((x / 8) + (y / 8)) % 2 == 0;
+            std::uint8_t* texel = &texels[(y * kSize + x) * 4];
+            texel[0] = static_cast<std::uint8_t>(x * 4);
+            texel[1] = static_cast<std::uint8_t>(y * 4);
+            texel[2] = light ? 255 : 40;
+            texel[3] = 255;
+        }
+    }
+    auto staging = createFilledBuffer(device, std::as_bytes(std::span(texels)), rhi::BufferUsage::CopySrc);
+    auto texture = orExit(device.createTexture({.format = rhi::Format::RGBA8Unorm,
+                                                .extent = {kSize, kSize},
+                                                .usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst}),
+                          "createTexture");
+
+    auto cmd = orExit(device.createCommandBuffer({}), "createCommandBuffer");
+    orExit(cmd->begin(), "upload begin");
+    cmd->barrier(
+        {.textures = {
+             {.texture = texture, .before = rhi::ResourceState::Undefined, .after = rhi::ResourceState::CopyDst}}});
+    {
+        rhi::CopyEncoderRef copy = cmd->beginCopy();
+        copy->copyBufferTexture(
+            {.buffer = {.buffer = staging}, .texture = {.texture = texture}, .extent = {kSize, kSize}});
+        copy->end();
+    }
+    cmd->barrier(
+        {.textures = {
+             {.texture = texture, .before = rhi::ResourceState::CopyDst, .after = rhi::ResourceState::ShaderRead}}});
+    orExit(cmd->end(), "upload end");
+    auto fence = orExit(device.createFence({}), "createFence");
+    orExit(queue.submit({.command_buffers = {cmd}, .fence = fence}), "upload submit");
+    orExit(fence->wait(rhi::kWaitForever), "upload wait");
+    return texture;
 }
 
 /** @brief Recreates the swapchain at the window's size and drops everything built on the old images. */
@@ -198,6 +254,13 @@ void renderFrame(Renderer& r, const Window& window) {
     const std::array<float, 4> color = {0.2f + 0.2f * std::sin(t), 0.2f + 0.2f * std::sin(t + 2.094f),
                                         0.2f + 0.2f * std::sin(t + 4.189f), 1.0f};
 
+    // The fence wait above means the GPU no longer reads this frame's uniforms.
+    const Transform transform{std::cos(t * 0.8f), std::sin(t * 0.8f),
+                              static_cast<float>(size.height) / static_cast<float>(size.width), 0.0f};
+    std::span<std::byte> mapped = orExit(frame.uniforms->map({}), "map uniforms");
+    std::memcpy(mapped.data(), &transform, sizeof(transform));
+    frame.uniforms->unmap();
+
     orExit(frame.fence->reset(), "fence reset");
     rhi::ICommandBuffer& cmd = *frame.command_buffer;
     orExit(cmd.begin(), "command buffer begin");
@@ -209,10 +272,10 @@ void renderFrame(Renderer& r, const Window& window) {
                                                       .target = targetFor(r, acquired.image_index, acquired.texture),
                                                       .clear_colors = {color}});
         pass->setPipeline(r.pipeline);
+        pass->setBindGroup({.index = 0, .bind_group = frame.bind_group});
         pass->setVertexBuffers({.buffers = {{r.vertices}}});
-        pass->draw({.vertex_count = 3});
         pass->setIndexBuffer({.buffer = r.indices, .format = rhi::IndexFormat::Uint16});
-        pass->drawIndexed({.index_count = static_cast<std::uint32_t>(kQuadIndices.size()), .vertex_offset = 3});
+        pass->drawIndexed({.index_count = static_cast<std::uint32_t>(kIndices.size())});
         pass->end();
     }
     cmd.barrier({.textures = {{.texture = acquired.texture,
@@ -291,13 +354,34 @@ int main() {
                              "createSwapchain");
         r.render_pass = orExit(r.device->createRenderPass({.color_attachments = {{.format = kBackbufferFormat}}}),
                                "createRenderPass");
-        r.pipeline = createPipeline(*r.device, r.render_pass);
+        r.bind_group_layout = orExit(
+            r.device->createBindGroupLayout({.entries =
+                                                 {
+                                                     {0, rhi::BindingType::UniformBuffer, rhi::ShaderStage::Vertex},
+                                                     {1, rhi::BindingType::SampledTexture, rhi::ShaderStage::Fragment},
+                                                     {2, rhi::BindingType::Sampler, rhi::ShaderStage::Fragment},
+                                                 }}),
+            "createBindGroupLayout");
+        r.pipeline = createPipeline(*r.device, r.render_pass, r.bind_group_layout);
         r.vertices = createFilledBuffer(*r.device, std::as_bytes(std::span(kVertices)), rhi::BufferUsage::Vertex);
-        r.indices = createFilledBuffer(*r.device, std::as_bytes(std::span(kQuadIndices)), rhi::BufferUsage::Index);
+        r.indices = createFilledBuffer(*r.device, std::as_bytes(std::span(kIndices)), rhi::BufferUsage::Index);
+        r.texture_view = orExit(r.device->createTextureView({.texture = createCheckerTexture(*r.device, *r.queue)}),
+                                "createTextureView");
+        r.sampler = orExit(r.device->createSampler({}), "createSampler");
         for (Frame& frame : r.frames) {
             frame.command_buffer = orExit(r.device->createCommandBuffer({}), "createCommandBuffer");
             frame.fence = orExit(r.device->createFence({.signaled = true}), "createFence");
             frame.image_ready = orExit(r.device->createSemaphore({}), "createSemaphore");
+            frame.uniforms =
+                createFilledBuffer(*r.device, std::as_bytes(std::span(&kNoTransform, 1)), rhi::BufferUsage::Uniform);
+            frame.bind_group = orExit(r.device->createBindGroup({.layout = r.bind_group_layout,
+                                                                 .entries =
+                                                                     {
+                                                                         {.binding = 0, .buffer = frame.uniforms},
+                                                                         {.binding = 1, .texture_view = r.texture_view},
+                                                                         {.binding = 2, .sampler = r.sampler},
+                                                                     }}),
+                                      "createBindGroup");
         }
 
         window.setResizeCallback([&r](WindowSize) { r.needs_resize = true; });

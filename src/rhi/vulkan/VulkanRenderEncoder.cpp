@@ -7,6 +7,7 @@
 
 #include <vector>
 
+#include "VulkanBindGroup.h"
 #include "VulkanBuffer.h"
 #include "VulkanCommandBuffer.h"
 #include "VulkanPipeline.h"
@@ -28,8 +29,15 @@ void VulkanRenderEncoder::setPipeline(PipelineRef pipeline) {
     m_command_buffer->retain(std::move(pipeline));
 }
 
-// shortcut: a no-op until bind groups exist (step 11).
-void VulkanRenderEncoder::setBindGroup(BindGroupBinding) {
+void VulkanRenderEncoder::setBindGroup(BindGroupBinding binding) {
+    if (!m_pipeline) {
+        return; // Vulkan binds sets through a pipeline layout; see the header.
+    }
+    const VkDescriptorSet set = static_cast<const VulkanBindGroup&>(*binding.bind_group).handle();
+    vkCmdBindDescriptorSets(m_native_commands, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            static_cast<const VulkanPipeline&>(*m_pipeline).layoutHandle(), binding.index, 1, &set, 0,
+                            nullptr);
+    m_command_buffer->retain(std::move(binding.bind_group));
 }
 
 void VulkanRenderEncoder::setVertexBuffers(VertexBufferBindings bindings) {

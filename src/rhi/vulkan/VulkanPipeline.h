@@ -69,7 +69,7 @@ public:
      *
      * @param device Owner of the VkDevice; kept alive by the layout.
      * @param desc Bind group layouts, in set order.
-     * @return The layout; Unsupported when @p desc lists bind group layouts (they arrive in step 11).
+     * @return The layout; InvalidArgument when a bind group layout is null.
      */
     static Result<PipelineLayoutRef> create(std::shared_ptr<VulkanDeviceHandle> device, PipelineLayoutDesc desc);
 
@@ -147,6 +147,10 @@ public:
      * @brief The VkPipeline, for vkCmdBindPipeline.
      */
     VkPipeline handle() const { return m_pipeline; }
+    /**
+     * @brief The VkPipelineLayout the pipeline was compiled against, for vkCmdBindDescriptorSets.
+     */
+    VkPipelineLayout layoutHandle() const { return static_cast<const VulkanPipelineLayout&>(*m_layout).handle(); }
 private:
     PipelineKind m_kind;
     PipelineLayoutRef m_layout;

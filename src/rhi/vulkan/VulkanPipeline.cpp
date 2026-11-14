@@ -8,6 +8,7 @@
 #include <array>
 #include <vector>
 
+#include "VulkanBindGroup.h"
 #include "VulkanDevice.h"
 #include "VulkanRenderPass.h"
 
@@ -129,12 +130,18 @@ ShaderReflection VulkanShader::getReflection() const {
 
 Result<PipelineLayoutRef> VulkanPipelineLayout::create(std::shared_ptr<VulkanDeviceHandle> device,
                                                        PipelineLayoutDesc desc) {
-    if (!desc.bind_group_layouts.empty()) {
-        return Error{ErrorCode::Unsupported, "createPipelineLayout: bind group layouts are implemented in step 11"};
+    std::vector<VkDescriptorSetLayout> set_layouts;
+    for (const BindGroupLayoutRef& layout : desc.bind_group_layouts) {
+        if (!layout) {
+            return Error{ErrorCode::InvalidArgument, "createPipelineLayout: a bind group layout is null"};
+        }
+        set_layouts.push_back(static_cast<const VulkanBindGroupLayout&>(*layout).handle());
     }
 
     VkPipelineLayoutCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    info.setLayoutCount = static_cast<std::uint32_t>(set_layouts.size());
+    info.pSetLayouts = set_layouts.data();
     VkPipelineLayout layout = VK_NULL_HANDLE;
     if (VkResult result = vkCreatePipelineLayout(device->m_device, &info, nullptr, &layout); result != VK_SUCCESS) {
         return toError(result, "vkCreatePipelineLayout");

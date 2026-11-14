@@ -19,8 +19,8 @@ class VulkanCommandBuffer;
  * render pass.
  *
  * @details
- * Pipelines, vertex and index buffers bound here are retained by the command buffer. setBindGroup() records
- * nothing until step 11 of docs/RHI_VULKAN_PLAN.md.
+ * Pipelines, bind groups, vertex and index buffers bound here are retained by the command buffer.
+ * setBindGroup() binds through the current pipeline's layout, so it records nothing before setPipeline().
  */
 class VulkanRenderEncoder final : public IRenderEncoder {
 public:

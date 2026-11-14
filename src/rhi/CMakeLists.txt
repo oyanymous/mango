@@ -74,6 +74,8 @@ if (MANGO_RHI_VULKAN)
         vulkan/VulkanTexture.cpp
         vulkan/VulkanRenderPass.h
         vulkan/VulkanRenderPass.cpp
+        vulkan/VulkanBindGroup.h
+        vulkan/VulkanBindGroup.cpp
         vulkan/VulkanPipeline.h
         vulkan/VulkanPipeline.cpp
         vulkan/VulkanRenderEncoder.h
