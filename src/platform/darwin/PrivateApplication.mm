@@ -5,6 +5,8 @@
 
 #include "PrivateApplication.h"
 
+#include "DarwinEventLoop.h"
+
 #include <AppKit/AppKit.h>
 #include <memory>
 
@@ -60,6 +62,49 @@ PrivateApplication::PrivateApplication() : m_impl(std::make_unique<Impl>()) {
 
 PrivateApplication::~PrivateApplication() = default;
 
+namespace {
+
+bool g_quit_requested = false; // set by darwinRequestQuit(); main thread only
+
+} // namespace
+
+void darwinRequestQuit() {
+    g_quit_requested = true;
+    // Wake a loop blocked in nextEventMatchingMask so it sees the flag.
+    NSEvent* wake = [NSEvent otherEventWithType:NSEventTypeApplicationDefined
+                                       location:NSZeroPoint
+                                  modifierFlags:0
+                                      timestamp:0
+                                   windowNumber:0
+                                        context:nil
+                                        subtype:0
+                                          data1:0
+                                          data2:0];
+    [NSApp postEvent:wake atStart:NO];
+}
+
 void PrivateApplication::run() {
-    [m_impl->m_app run];
+    // A hand-written loop instead of [NSApp run], so the frame callback can run between events (like the Win32
+    // PeekMessage loop) and run() returns when a window closes.
+    [m_impl->m_app finishLaunching];
+    [m_impl->m_app activateIgnoringOtherApps:YES];
+    g_quit_requested = false;
+    while (!g_quit_requested) {
+        // Drained every iteration: Metal drawables and other per-frame objects are autoreleased.
+        @autoreleasepool {
+            // Block for the first event only when there is no frame to render; then drain the rest.
+            NSDate* until = m_frame_callback ? [NSDate distantPast] : [NSDate distantFuture];
+            while (NSEvent* event = [m_impl->m_app nextEventMatchingMask:NSEventMaskAny
+                                                               untilDate:until
+                                                                  inMode:NSDefaultRunLoopMode
+                                                                 dequeue:YES]) {
+                [m_impl->m_app sendEvent:event];
+                until = [NSDate distantPast];
+            }
+            [m_impl->m_app updateWindows];
+            if (m_frame_callback && !g_quit_requested) {
+                m_frame_callback();
+            }
+        }
+    }
 }

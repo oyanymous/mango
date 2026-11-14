@@ -51,7 +51,7 @@ public:
     /**
      * @brief The OS handles, e.g. to create a GPU surface. Valid until the window is destroyed.
      *
-     * @note On macOS all handles are null for now (no CAMetalLayer yet).
+     * @note On macOS `metal_layer` is the content view's `CAMetalLayer`; its `drawableSize` is left to the renderer.
      */
     [[nodiscard]] NativeWindow nativeWindow() const;
 
@@ -63,7 +63,7 @@ public:
     /**
      * @brief Sets a function called whenever the client area changes size, including minimize (size 0).
      *
-     * @note Not called on macOS yet.
+     * @note On macOS also called when the window moves to a screen with another scale factor.
      *
      * @param callback Called on the event-loop thread with the new size; may be empty.
      */

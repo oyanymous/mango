@@ -44,7 +44,8 @@ public:
     /**
      * @brief Sets a function the event loop calls once per iteration; see BaseApplication::setFrameCallback.
      *
-     * @note Not called on macOS yet (the Cocoa loop has no frame hook); only the Win32 loop supports it.
+     * @note On macOS the callback does not run while the user drags the window edge (AppKit runs its own loop for
+     *       live resizing); it resumes, and the resize callback fires, when the drag ends.
      *
      * @param callback Called on the event-loop thread; an empty function restores the blocking loop.
      */
@@ -53,7 +54,7 @@ public:
     }
 
     /**
-     * @brief Runs the native event loop. Blocks until the application quits.
+     * @brief Runs the native event loop. Blocks until the application quits, i.e. until a window is closed.
      */
     void run();
 };
