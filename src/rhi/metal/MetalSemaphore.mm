@@ -52,6 +52,12 @@ std::uint64_t MetalSemaphore::nextSignalValue(std::uint64_t requested) {
     return ++m_binary_signals;
 }
 
+void MetalSemaphore::signalFromHost() {
+    if (m_kind == SemaphoreKind::Binary) {
+        m_event.signaledValue = ++m_binary_signals;
+    }
+}
+
 Result<std::uint64_t> MetalSemaphore::nextWaitValue(std::uint64_t requested) {
     if (m_kind == SemaphoreKind::Timeline) {
         return requested;

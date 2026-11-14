@@ -32,7 +32,7 @@ public:
     AdapterList enumerateAdapters() override;
 
     /**
-     * @brief Not implemented yet; returns ErrorCode::Unsupported.
+     * @brief Creates a MetalSurface for a MetalLayerHandle.
      */
     Result<SurfaceRef> createSurface(SurfaceDesc desc) override;
 private:

@@ -40,6 +40,9 @@ public:
     /**
      * @brief Creates the native window, hidden.
      *
+     * @note On macOS creating a window initializes Metal, which fixes the process's Metal settings: create an RHI
+     *       instance with validation before the first window, or Metal API validation stays off.
+     *
      * @param window_title UTF-8 title for the title bar.
      */
     explicit Window(const std::string& window_title = "");

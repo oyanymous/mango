@@ -65,6 +65,12 @@ public:
     Result<std::uint64_t> nextWaitValue(std::uint64_t requested);
 
     /**
+     * @brief Signals a Binary semaphore from the CPU (swapchain acquire: the image is ready when acquire returns).
+     * No-op for a Timeline semaphore.
+     */
+    void signalFromHost();
+
+    /**
      * @brief The event to encode waits and signals on.
      */
     id<MTLSharedEvent> event() const { return m_event; }

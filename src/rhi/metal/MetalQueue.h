@@ -42,7 +42,10 @@ public:
     Result<void> submit(SubmitDesc desc) override;
 
     /**
-     * @brief Not implemented yet; returns ErrorCode::Unsupported.
+     * @brief Presents an acquired MetalSwapchain image from a small command buffer that first waits on the
+     * semaphores.
+     *
+     * @return Success, or ErrorCode::OutOfDate if the image was not acquired (or the swapchain was resized since).
      */
     Result<void> present(PresentDesc desc) override;
 

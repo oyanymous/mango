@@ -139,6 +139,8 @@ if (MANGO_RHI_METAL)
         metal/MetalRenderPass.mm
         metal/MetalRenderEncoder.h
         metal/MetalRenderEncoder.mm
+        metal/MetalSwapchain.h
+        metal/MetalSwapchain.mm
     )
     target_sources(RHI PRIVATE ${RHI_METAL_SOURCES})
 

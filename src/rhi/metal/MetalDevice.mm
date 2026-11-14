@@ -14,6 +14,7 @@
 #include "MetalQueue.h"
 #include "MetalRenderPass.h"
 #include "MetalSemaphore.h"
+#include "MetalSwapchain.h"
 #include "MetalTexture.h"
 
 namespace rhi::metal {
@@ -112,8 +113,8 @@ Result<CommandBufferRef> MetalDevice::createCommandBuffer(CommandBufferDesc desc
     return CommandBufferRef(std::make_shared<MetalCommandBuffer>(m_context, std::move(desc), queue));
 }
 
-Result<SwapchainRef> MetalDevice::createSwapchain(SwapchainDesc) {
-    return notImplemented("createSwapchain");
+Result<SwapchainRef> MetalDevice::createSwapchain(SwapchainDesc desc) {
+    return MetalSwapchain::create(m_context, std::move(desc));
 }
 
 Result<FenceRef> MetalDevice::createFence(FenceDesc desc) {

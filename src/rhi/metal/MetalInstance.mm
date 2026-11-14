@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "MetalAdapter.h"
+#include "MetalSwapchain.h"
 
 namespace rhi::metal {
 
@@ -31,8 +32,8 @@ AdapterList MetalInstance::enumerateAdapters() {
     return m_adapters;
 }
 
-Result<SurfaceRef> MetalInstance::createSurface(SurfaceDesc) {
-    return Error{ErrorCode::Unsupported, "the Metal backend cannot create surfaces yet"};
+Result<SurfaceRef> MetalInstance::createSurface(SurfaceDesc desc) {
+    return MetalSurface::create(std::move(desc));
 }
 
 } // namespace rhi::metal

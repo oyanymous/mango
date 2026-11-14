@@ -15,6 +15,7 @@
 #include "MetalCommandBuffer.h"
 #include "MetalFence.h"
 #include "MetalSemaphore.h"
+#include "MetalSwapchain.h"
 
 namespace rhi::metal {
 
@@ -160,8 +161,44 @@ Result<void> MetalQueue::submit(SubmitDesc desc) {
     return {};
 }
 
-Result<void> MetalQueue::present(PresentDesc) {
-    return Error{ErrorCode::Unsupported, "MetalQueue::present is not implemented yet"};
+Result<void> MetalQueue::present(PresentDesc desc) {
+    if (!desc.swapchain) {
+        return Error{ErrorCode::InvalidArgument, "MetalQueue::present: swapchain is null"};
+    }
+    for (const SemaphoreRef& semaphore : desc.wait_semaphores) {
+        if (!semaphore) {
+            return Error{ErrorCode::InvalidArgument, "MetalQueue::present: null wait semaphore"};
+        }
+    }
+    std::vector<EventValue> waits;
+    for (const SemaphoreRef& semaphore : desc.wait_semaphores) {
+        auto& metal_semaphore = static_cast<MetalSemaphore&>(*semaphore);
+        Result<std::uint64_t> value = metal_semaphore.nextWaitValue(0);
+        if (!value) {
+            return value.error();
+        }
+        waits.push_back({metal_semaphore.event(), *value});
+    }
+    id<CAMetalDrawable> drawable = static_cast<MetalSwapchain&>(*desc.swapchain).takeDrawable(desc.image_index);
+    if (drawable == nil) {
+        return Error{ErrorCode::OutOfDate, "MetalQueue::present: the image was not acquired, or the swapchain resized"};
+    }
+
+    // Presentation is scheduled from a command buffer, after the frame's work it waits on.
+    id<MTLCommandBuffer> command_buffer = [m_queue commandBuffer];
+    command_buffer.label = @"MetalQueue::present";
+    for (const EventValue& wait : waits) {
+        [command_buffer encodeWaitForEvent:wait.event value:wait.value];
+    }
+    [command_buffer presentDrawable:drawable];
+    std::shared_ptr<MetalDebugReporter> reporter = m_context->reporter;
+    auto semaphores = std::make_shared<std::vector<SemaphoreRef>>(std::move(desc.wait_semaphores));
+    [command_buffer addCompletedHandler:^(id<MTLCommandBuffer> completed) {
+        reportFailure(*reporter, completed);
+        semaphores->clear();
+    }];
+    [command_buffer commit];
+    return {};
 }
 
 } // namespace rhi::metal
