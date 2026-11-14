@@ -1,0 +1,111 @@
+classDiagram
+    direction LR
+    %% Proposed design, not source-verified. Native type names are conceptual.
+    %% Interfaces declare behavior; concrete backend classes hold implementation state.
+    %% Buffers, textures, views and samplers
+    %% External references mirror the public APIs in their owning RHI files.
+    class IBuffer {
+        <<interface>>
+        +getDesc() BufferDesc
+        +map(MapDesc) MapResult
+        +unmap() void
+    }
+    class MetalBuffer {
+        -BufferDesc m_desc
+        -MappedRange m_mapped_range
+        -MTLBuffer m_buffer
+        +getDesc() BufferDesc
+        +map(MapDesc) MapResult
+        +unmap() void
+    }
+    class VulkanBuffer {
+        -BufferDesc m_desc
+        -MappedRange m_mapped_range
+        -VkBuffer m_buffer
+        -VkDeviceMemory m_memory
+        +getDesc() BufferDesc
+        +map(MapDesc) MapResult
+        +unmap() void
+    }
+    class GLBuffer {
+        -BufferDesc m_desc
+        -MappedRange m_mapped_range
+        -GLuint m_buffer
+        +getDesc() BufferDesc
+        +map(MapDesc) MapResult
+        +unmap() void
+    }
+    class ITexture {
+        <<interface>>
+        +getDesc() TextureDesc
+    }
+    class MetalTexture {
+        -TextureDesc m_desc
+        -MTLTexture m_texture
+        +getDesc() TextureDesc
+    }
+    class VulkanTexture {
+        -TextureDesc m_desc
+        -VkImage m_image
+        -VkDeviceMemory m_memory
+        +getDesc() TextureDesc
+    }
+    class GLTexture {
+        -TextureDesc m_desc
+        -GLuint m_texture
+        +getDesc() TextureDesc
+    }
+    class ITextureView {
+        <<interface>>
+        +getTexture() TextureRef
+    }
+    class MetalTextureView {
+        -TextureViewDesc m_desc
+        -TextureRef m_texture
+        -MTLTexture m_texture_view
+        +getTexture() TextureRef
+    }
+    class VulkanTextureView {
+        -TextureViewDesc m_desc
+        -TextureRef m_texture
+        -VkImageView m_image_view
+        +getTexture() TextureRef
+    }
+    class GLTextureView {
+        -TextureViewDesc m_desc
+        -TextureRef m_texture
+        -GLTextureViewBinding m_view_binding
+        +getTexture() TextureRef
+    }
+    class ISampler {
+        <<interface>>
+        +getDesc() SamplerDesc
+    }
+    class MetalSampler {
+        -SamplerDesc m_desc
+        -MTLSamplerState m_sampler
+        +getDesc() SamplerDesc
+    }
+    class VulkanSampler {
+        -SamplerDesc m_desc
+        -VkSampler m_sampler
+        +getDesc() SamplerDesc
+    }
+    class GLSampler {
+        -SamplerDesc m_desc
+        -GLuint m_sampler
+        +getDesc() SamplerDesc
+    }
+    IBuffer <|.. MetalBuffer
+    IBuffer <|.. VulkanBuffer
+    IBuffer <|.. GLBuffer
+    ITexture <|.. MetalTexture
+    ITexture <|.. VulkanTexture
+    ITexture <|.. GLTexture
+    ITextureView <|.. MetalTextureView
+    ITextureView <|.. VulkanTextureView
+    ITextureView <|.. GLTextureView
+    ISampler <|.. MetalSampler
+    ISampler <|.. VulkanSampler
+    ISampler <|.. GLSampler
+    ITextureView --> ITexture : retains

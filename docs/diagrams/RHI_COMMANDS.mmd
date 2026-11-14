@@ -1,0 +1,221 @@
+classDiagram
+    direction LR
+    %% Proposed design, not source-verified. Native type names are conceptual.
+    %% Interfaces declare behavior; concrete backend classes hold implementation state.
+    %% Command recording and scoped encoders
+    %% External references mirror the public APIs in their owning RHI files.
+    class ICommandBuffer {
+        <<interface>>
+        +begin() Result
+        +barrier(BarrierBatch) void
+        +beginRender(RenderBeginDesc) RenderEncoderRef
+        +beginCompute() ComputeEncoderRef
+        +beginCopy() CopyEncoderRef
+        +end() Result
+    }
+    class MetalCommandBuffer {
+        -CommandBufferDesc m_desc
+        -RecordingState m_state
+        -ResourceRefList m_retained_resources
+        -MTLCommandBuffer m_command_buffer
+        +begin() Result
+        +barrier(BarrierBatch) void
+        +beginRender(RenderBeginDesc) RenderEncoderRef
+        +beginCompute() ComputeEncoderRef
+        +beginCopy() CopyEncoderRef
+        +end() Result
+    }
+    class VulkanCommandBuffer {
+        -CommandBufferDesc m_desc
+        -RecordingState m_state
+        -ResourceRefList m_retained_resources
+        -VkCommandBuffer m_command_buffer
+        +begin() Result
+        +barrier(BarrierBatch) void
+        +beginRender(RenderBeginDesc) RenderEncoderRef
+        +beginCompute() ComputeEncoderRef
+        +beginCopy() CopyEncoderRef
+        +end() Result
+    }
+    class GLCommandBuffer {
+        -CommandBufferDesc m_desc
+        -RecordingState m_state
+        -ResourceRefList m_retained_resources
+        -GLCommandList m_commands
+        +begin() Result
+        +barrier(BarrierBatch) void
+        +beginRender(RenderBeginDesc) RenderEncoderRef
+        +beginCompute() ComputeEncoderRef
+        +beginCopy() CopyEncoderRef
+        +end() Result
+    }
+    class IRenderEncoder {
+        <<interface>>
+        +setPipeline(PipelineRef) void
+        +setBindGroup(BindGroupBinding) void
+        +setVertexBuffers(VertexBufferBindings) void
+        +setIndexBuffer(IndexBufferBinding) void
+        +draw(DrawDesc) void
+        +drawIndexed(DrawIndexedDesc) void
+        +end() void
+    }
+    class MetalRenderEncoder {
+        -CommandBufferRef m_command_buffer
+        -PipelineRef m_pipeline
+        -bool m_ended
+        -MTLRenderCommandEncoder m_encoder
+        +setPipeline(PipelineRef) void
+        +setBindGroup(BindGroupBinding) void
+        +setVertexBuffers(VertexBufferBindings) void
+        +setIndexBuffer(IndexBufferBinding) void
+        +draw(DrawDesc) void
+        +drawIndexed(DrawIndexedDesc) void
+        +end() void
+    }
+    class VulkanRenderEncoder {
+        -CommandBufferRef m_command_buffer
+        -PipelineRef m_pipeline
+        -bool m_ended
+        -VkCommandBuffer m_native_commands
+        +setPipeline(PipelineRef) void
+        +setBindGroup(BindGroupBinding) void
+        +setVertexBuffers(VertexBufferBindings) void
+        +setIndexBuffer(IndexBufferBinding) void
+        +draw(DrawDesc) void
+        +drawIndexed(DrawIndexedDesc) void
+        +end() void
+    }
+    class GLRenderEncoder {
+        -CommandBufferRef m_command_buffer
+        -PipelineRef m_pipeline
+        -bool m_ended
+        -GLCommandList m_commands
+        +setPipeline(PipelineRef) void
+        +setBindGroup(BindGroupBinding) void
+        +setVertexBuffers(VertexBufferBindings) void
+        +setIndexBuffer(IndexBufferBinding) void
+        +draw(DrawDesc) void
+        +drawIndexed(DrawIndexedDesc) void
+        +end() void
+    }
+    class IComputeEncoder {
+        <<interface>>
+        +setPipeline(PipelineRef) void
+        +setBindGroup(BindGroupBinding) void
+        +dispatch(DispatchDesc) void
+        +end() void
+    }
+    class MetalComputeEncoder {
+        -CommandBufferRef m_command_buffer
+        -PipelineRef m_pipeline
+        -bool m_ended
+        -MTLComputeCommandEncoder m_encoder
+        +setPipeline(PipelineRef) void
+        +setBindGroup(BindGroupBinding) void
+        +dispatch(DispatchDesc) void
+        +end() void
+    }
+    class VulkanComputeEncoder {
+        -CommandBufferRef m_command_buffer
+        -PipelineRef m_pipeline
+        -bool m_ended
+        -VkCommandBuffer m_native_commands
+        +setPipeline(PipelineRef) void
+        +setBindGroup(BindGroupBinding) void
+        +dispatch(DispatchDesc) void
+        +end() void
+    }
+    class GLComputeEncoder {
+        -CommandBufferRef m_command_buffer
+        -PipelineRef m_pipeline
+        -bool m_ended
+        -GLCommandList m_commands
+        +setPipeline(PipelineRef) void
+        +setBindGroup(BindGroupBinding) void
+        +dispatch(DispatchDesc) void
+        +end() void
+    }
+    class ICopyEncoder {
+        <<interface>>
+        +copyBuffer(BufferCopyDesc) void
+        +copyTexture(TextureCopyDesc) void
+        +copyBufferTexture(BufferTextureCopyDesc) void
+        +end() void
+    }
+    class MetalCopyEncoder {
+        -CommandBufferRef m_command_buffer
+        -bool m_ended
+        -MTLBlitCommandEncoder m_encoder
+        +copyBuffer(BufferCopyDesc) void
+        +copyTexture(TextureCopyDesc) void
+        +copyBufferTexture(BufferTextureCopyDesc) void
+        +end() void
+    }
+    class VulkanCopyEncoder {
+        -CommandBufferRef m_command_buffer
+        -bool m_ended
+        -VkCommandBuffer m_native_commands
+        +copyBuffer(BufferCopyDesc) void
+        +copyTexture(TextureCopyDesc) void
+        +copyBufferTexture(BufferTextureCopyDesc) void
+        +end() void
+    }
+    class GLCopyEncoder {
+        -CommandBufferRef m_command_buffer
+        -bool m_ended
+        -GLCommandList m_commands
+        +copyBuffer(BufferCopyDesc) void
+        +copyTexture(TextureCopyDesc) void
+        +copyBufferTexture(BufferTextureCopyDesc) void
+        +end() void
+    }
+    class IRenderPass {
+        <<external>>
+        +getDesc() RenderPassDesc
+    }
+    class IRenderTarget {
+        <<external>>
+        +getDesc() RenderTargetDesc
+    }
+    class IPipeline {
+        <<external>>
+        +getKind() PipelineKind
+    }
+    class IBindGroup {
+        <<external>>
+        +getDesc() BindGroupDesc
+    }
+    class IBuffer {
+        <<external>>
+        +getDesc() BufferDesc
+        +map(MapDesc) MapResult
+        +unmap() void
+    }
+    class ITexture {
+        <<external>>
+        +getDesc() TextureDesc
+    }
+    ICommandBuffer <|.. MetalCommandBuffer
+    ICommandBuffer <|.. VulkanCommandBuffer
+    ICommandBuffer <|.. GLCommandBuffer
+    IRenderEncoder <|.. MetalRenderEncoder
+    IRenderEncoder <|.. VulkanRenderEncoder
+    IRenderEncoder <|.. GLRenderEncoder
+    IComputeEncoder <|.. MetalComputeEncoder
+    IComputeEncoder <|.. VulkanComputeEncoder
+    IComputeEncoder <|.. GLComputeEncoder
+    ICopyEncoder <|.. MetalCopyEncoder
+    ICopyEncoder <|.. VulkanCopyEncoder
+    ICopyEncoder <|.. GLCopyEncoder
+    ICommandBuffer ..> IRenderPass : attachment semantics
+    ICommandBuffer ..> IRenderTarget : target
+    ICommandBuffer --> IRenderEncoder : scoped encoding
+    ICommandBuffer --> IComputeEncoder : scoped encoding
+    ICommandBuffer --> ICopyEncoder : scoped encoding
+    IRenderEncoder ..> IPipeline : graphics only
+    IComputeEncoder ..> IPipeline : compute only
+    IRenderEncoder ..> IBindGroup : binds
+    IComputeEncoder ..> IBindGroup : binds
+    IRenderEncoder ..> IBuffer : vertex and index buffers
+    ICopyEncoder ..> IBuffer : copies
+    ICopyEncoder ..> ITexture : copies

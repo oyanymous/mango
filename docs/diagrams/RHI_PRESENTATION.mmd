@@ -1,0 +1,69 @@
+classDiagram
+    direction LR
+    %% Proposed design, not source-verified. Native type names are conceptual.
+    %% Interfaces declare behavior; concrete backend classes hold implementation state.
+    %% Surfaces and swapchain presentation
+    %% External references mirror the public APIs in their owning RHI files.
+    class ISurface {
+        <<interface>>
+        +getDesc() SurfaceDesc
+    }
+    class MetalSurface {
+        -SurfaceDesc m_desc
+        -CAMetalLayer m_layer
+        +getDesc() SurfaceDesc
+    }
+    class VulkanSurface {
+        -SurfaceDesc m_desc
+        -VkSurfaceKHR m_surface
+        +getDesc() SurfaceDesc
+    }
+    class GLSurface {
+        -SurfaceDesc m_desc
+        -GLWindowSurface m_window_surface
+        +getDesc() SurfaceDesc
+    }
+    class ISwapchain {
+        <<interface>>
+        +acquire(AcquireDesc) AcquireResult
+        +resize(Extent) Result
+    }
+    class MetalSwapchain {
+        -SwapchainDesc m_desc
+        -SurfaceRef m_surface
+        -TextureList m_backbuffers
+        -uint32 m_current_image
+        -CAMetalDrawable m_drawable
+        +acquire(AcquireDesc) AcquireResult
+        +resize(Extent) Result
+    }
+    class VulkanSwapchain {
+        -SwapchainDesc m_desc
+        -SurfaceRef m_surface
+        -TextureList m_backbuffers
+        -uint32 m_current_image
+        -VkSwapchainKHR m_swapchain
+        +acquire(AcquireDesc) AcquireResult
+        +resize(Extent) Result
+    }
+    class GLSwapchain {
+        -SwapchainDesc m_desc
+        -SurfaceRef m_surface
+        -TextureList m_backbuffers
+        -uint32 m_current_image
+        -GLWindowSurface m_window_surface
+        +acquire(AcquireDesc) AcquireResult
+        +resize(Extent) Result
+    }
+    class ITexture {
+        <<external>>
+        +getDesc() TextureDesc
+    }
+    ISurface <|.. MetalSurface
+    ISurface <|.. VulkanSurface
+    ISurface <|.. GLSurface
+    ISwapchain <|.. MetalSwapchain
+    ISwapchain <|.. VulkanSwapchain
+    ISwapchain <|.. GLSwapchain
+    ISwapchain --> ISurface : presents to
+    ISwapchain --> ITexture : borrowed backbuffers

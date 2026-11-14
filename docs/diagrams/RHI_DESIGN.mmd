@@ -1,0 +1,26 @@
+flowchart LR
+    core["Core and device API<br/>RHI_CORE.mmd"]
+    presentation["Presentation<br/>RHI_PRESENTATION.mmd"]
+    resources["Resources<br/>RHI_RESOURCES.mmd"]
+    pipelines["Pipelines and bindings<br/>RHI_PIPELINES_BINDINGS.mmd"]
+    targets["Render passes and targets<br/>RHI_RENDER_TARGETS.mmd"]
+    commands["Command recording<br/>RHI_COMMANDS.mmd"]
+    submission["Submission and synchronization<br/>RHI_SUBMISSION_SYNC.mmd"]
+    core --> presentation
+    core --> resources
+    core --> pipelines
+    core --> targets
+    core --> commands
+    core --> submission
+    presentation --> resources
+    pipelines --> resources
+    pipelines --> targets
+    targets --> resources
+    commands --> pipelines
+    commands --> targets
+    commands --> resources
+    submission --> commands
+    submission --> presentation
+    %% Subsystem map only; exact API relationships are preserved in detail files.
+    %% Each detail file includes Metal, Vulkan and GL implementations.
+ 

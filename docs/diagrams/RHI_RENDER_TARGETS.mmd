@@ -1,0 +1,72 @@
+classDiagram
+    direction LR
+    %% Proposed design, not source-verified. Native type names are conceptual.
+    %% Interfaces declare behavior; concrete backend classes hold implementation state.
+    %% Render passes and render targets
+    %% External references mirror the public APIs in their owning RHI files.
+    class IRenderPass {
+        <<interface>>
+        +getDesc() RenderPassDesc
+    }
+    class MetalRenderPass {
+        -RenderPassDesc m_desc
+        +getDesc() RenderPassDesc
+        +configureDescriptor(MTLRenderPassDescriptor) void
+    }
+    class VulkanRenderPass {
+        -RenderPassDesc m_desc
+        -VkDevice m_device
+        -VkRenderPass m_render_pass
+        +getDesc() RenderPassDesc
+        +getNativeHandle() VkRenderPass
+        +destroy() void
+    }
+    class GLRenderPass {
+        -RenderPassDesc m_desc
+        +getDesc() RenderPassDesc
+        +applyLoadActions(GLuint, ClearValues) void
+        +applyStoreActions(GLuint) void
+    }
+    class IRenderTarget {
+        <<interface>>
+        +getDesc() RenderTargetDesc
+    }
+    class MetalRenderTarget {
+        -RenderTargetDesc m_desc
+        -TextureViewList m_attachments
+        +getDesc() RenderTargetDesc
+        +configureAttachments(MTLRenderPassDescriptor) void
+    }
+    class VulkanRenderTarget {
+        -RenderTargetDesc m_desc
+        -TextureViewList m_attachments
+        -VkDevice m_device
+        -VkFramebuffer m_framebuffer
+        -RenderPassRef m_compatible_pass
+        +getDesc() RenderTargetDesc
+        +getNativeHandle() VkFramebuffer
+        +destroy() void
+    }
+    class GLRenderTarget {
+        -RenderTargetDesc m_desc
+        -TextureViewList m_attachments
+        -GLuint m_framebuffer
+        +getDesc() RenderTargetDesc
+        +getNativeHandle() GLuint
+        +checkCompleteness() Result
+        +destroy() void
+    }
+    class ITextureView {
+        <<external>>
+        +getTexture() TextureRef
+    }
+    IRenderPass <|.. MetalRenderPass
+    IRenderPass <|.. VulkanRenderPass
+    IRenderPass <|.. GLRenderPass
+    IRenderTarget <|.. MetalRenderTarget
+    IRenderTarget <|.. VulkanRenderTarget
+    IRenderTarget <|.. GLRenderTarget
+    IRenderTarget --> ITextureView : retains attachments
+    VulkanRenderTarget --> IRenderPass : compatible pass
+    MetalRenderPass ..> MetalRenderTarget : configures shared descriptor
+    GLRenderPass ..> GLRenderTarget : applies attachment actions

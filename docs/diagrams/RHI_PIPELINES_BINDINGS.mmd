@@ -1,0 +1,158 @@
+classDiagram
+    direction LR
+    %% Proposed design, not source-verified. Native type names are conceptual.
+    %% Interfaces declare behavior; concrete backend classes hold implementation state.
+    %% Shaders, pipelines and resource bindings
+    %% External references mirror the public APIs in their owning RHI files.
+    class IShader {
+        <<interface>>
+        +getReflection() ShaderReflection
+    }
+    class MetalShader {
+        -ShaderReflection m_reflection
+        -MTLFunction m_function
+        +getReflection() ShaderReflection
+    }
+    class VulkanShader {
+        -ShaderReflection m_reflection
+        -VkShaderModule m_shader_module
+        +getReflection() ShaderReflection
+    }
+    class GLShader {
+        -ShaderReflection m_reflection
+        -GLuint m_shader
+        +getReflection() ShaderReflection
+    }
+    class IPipelineLayout {
+        <<interface>>
+        +getDesc() PipelineLayoutDesc
+    }
+    class MetalPipelineLayout {
+        -PipelineLayoutDesc m_desc
+        -BindGroupLayoutList m_bind_group_layouts
+        -MetalBindingMap m_binding_map
+        +getDesc() PipelineLayoutDesc
+    }
+    class VulkanPipelineLayout {
+        -PipelineLayoutDesc m_desc
+        -BindGroupLayoutList m_bind_group_layouts
+        -VkPipelineLayout m_pipeline_layout
+        +getDesc() PipelineLayoutDesc
+    }
+    class GLPipelineLayout {
+        -PipelineLayoutDesc m_desc
+        -BindGroupLayoutList m_bind_group_layouts
+        -GLBindingMap m_binding_map
+        +getDesc() PipelineLayoutDesc
+    }
+    class IPipeline {
+        <<interface>>
+        +getKind() PipelineKind
+    }
+    class MetalPipeline {
+        -PipelineKind m_kind
+        -PipelineLayoutRef m_layout
+        -ShaderList m_shaders
+        -MetalPipelineStateBundle m_pipeline_state
+        +getKind() PipelineKind
+    }
+    class VulkanPipeline {
+        -PipelineKind m_kind
+        -PipelineLayoutRef m_layout
+        -ShaderList m_shaders
+        -VkPipeline m_pipeline
+        +getKind() PipelineKind
+    }
+    class GLPipeline {
+        -PipelineKind m_kind
+        -PipelineLayoutRef m_layout
+        -ShaderList m_shaders
+        -GLuint m_program
+        +getKind() PipelineKind
+    }
+    class IBindGroupLayout {
+        <<interface>>
+        +getDesc() BindGroupLayoutDesc
+    }
+    class MetalBindGroupLayout {
+        -BindGroupLayoutDesc m_desc
+        -MetalBindingMap m_binding_map
+        +getDesc() BindGroupLayoutDesc
+    }
+    class VulkanBindGroupLayout {
+        -BindGroupLayoutDesc m_desc
+        -VkDescriptorSetLayout m_descriptor_set_layout
+        +getDesc() BindGroupLayoutDesc
+    }
+    class GLBindGroupLayout {
+        -BindGroupLayoutDesc m_desc
+        -GLBindingMap m_binding_map
+        +getDesc() BindGroupLayoutDesc
+    }
+    class IBindGroup {
+        <<interface>>
+        +getDesc() BindGroupDesc
+    }
+    class MetalBindGroup {
+        -BindGroupDesc m_desc
+        -BindGroupLayoutRef m_layout
+        -ResourceRefList m_resources
+        -MetalResourceBindings m_bindings
+        +getDesc() BindGroupDesc
+    }
+    class VulkanBindGroup {
+        -BindGroupDesc m_desc
+        -BindGroupLayoutRef m_layout
+        -ResourceRefList m_resources
+        -VkDescriptorSet m_descriptor_set
+        +getDesc() BindGroupDesc
+    }
+    class GLBindGroup {
+        -BindGroupDesc m_desc
+        -BindGroupLayoutRef m_layout
+        -ResourceRefList m_resources
+        -GLResourceBindings m_bindings
+        +getDesc() BindGroupDesc
+    }
+    class IRenderPass {
+        <<external>>
+        +getDesc() RenderPassDesc
+    }
+    class IBuffer {
+        <<external>>
+        +getDesc() BufferDesc
+        +map(MapDesc) MapResult
+        +unmap() void
+    }
+    class ITextureView {
+        <<external>>
+        +getTexture() TextureRef
+    }
+    class ISampler {
+        <<external>>
+        +getDesc() SamplerDesc
+    }
+    IShader <|.. MetalShader
+    IShader <|.. VulkanShader
+    IShader <|.. GLShader
+    IPipelineLayout <|.. MetalPipelineLayout
+    IPipelineLayout <|.. VulkanPipelineLayout
+    IPipelineLayout <|.. GLPipelineLayout
+    IPipeline <|.. MetalPipeline
+    IPipeline <|.. VulkanPipeline
+    IPipeline <|.. GLPipeline
+    IBindGroupLayout <|.. MetalBindGroupLayout
+    IBindGroupLayout <|.. VulkanBindGroupLayout
+    IBindGroupLayout <|.. GLBindGroupLayout
+    IBindGroup <|.. MetalBindGroup
+    IBindGroup <|.. VulkanBindGroup
+    IBindGroup <|.. GLBindGroup
+    IPipeline --> IPipelineLayout : retains
+    IPipeline --> IShader : compiled from
+    IPipeline ..> IRenderPass : compatibility signature
+    IPipelineLayout --> IBindGroupLayout : retains
+    IBindGroup --> IBindGroupLayout : retains
+    IBindGroup --> IBuffer : retains
+    IBindGroup --> ITextureView : retains
+    IBindGroup --> ISampler : retains
+%% siren-layout {"IShader":[641,301],"MetalShader":[1114,89],"VulkanShader":[1114,301],"GLShader":[1114,513],"IPipelineLayout":[641,1012],"MetalPipelineLayout":[1114,736],"VulkanPipelineLayout":[1114,971],"GLPipelineLayout":[1114,1205],"IPipeline":[129,1554],"MetalPipeline":[641,1349],"VulkanPipeline":[641,1606],"GLPipeline":[641,1863],"IBindGroupLayout":[1114,1426],"MetalBindGroupLayout":[1576,1214],"VulkanBindGroupLayout":[1576,1426],"GLBindGroupLayout":[1576,1638],"IBindGroup":[641,2166],"MetalBindGroup":[1114,1652],"VulkanBindGroup":[1114,1909],"GLBindGroup":[1114,2166],"IRenderPass":[641,2362],"IBuffer":[1114,2415],"ITextureView":[1114,2633],"ISampler":[1114,2828]}
