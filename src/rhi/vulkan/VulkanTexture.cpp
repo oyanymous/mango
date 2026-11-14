@@ -1,5 +1,7 @@
-/// @file
-/// VulkanTexture, VulkanTextureView and VulkanSampler.
+/**
+ * @file
+ * @brief VulkanTexture, VulkanTextureView and VulkanSampler.
+ */
 
 #include "VulkanTexture.h"
 
@@ -9,7 +11,9 @@ namespace rhi::vulkan {
 
 namespace {
 
-/// Maps TextureUsage bits to VkImageUsageFlags.
+/**
+ * @brief Maps TextureUsage bits to VkImageUsageFlags.
+ */
 VkImageUsageFlags toVkImageUsage(TextureUsage usage) {
     VkImageUsageFlags flags = 0;
     if (hasFlag(usage, TextureUsage::CopySrc)) {
@@ -33,7 +37,9 @@ VkImageUsageFlags toVkImageUsage(TextureUsage usage) {
     return flags;
 }
 
-/// The view type for a view of @p texture with an optional explicit dimension.
+/**
+ * @brief The view type for a view of @p texture with an optional explicit dimension.
+ */
 VkImageViewType toVkViewType(const TextureDesc& texture, std::optional<TextureViewDimension> dimension,
                              std::uint32_t layer_count) {
     if (!dimension) {

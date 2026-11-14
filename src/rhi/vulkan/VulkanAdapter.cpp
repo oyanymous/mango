@@ -1,5 +1,7 @@
-/// @file
-/// VulkanAdapter: physical-device queries.
+/**
+ * @file
+ * @brief VulkanAdapter: physical-device queries.
+ */
 
 #include "VulkanAdapter.h"
 
@@ -16,7 +18,9 @@ namespace rhi::vulkan {
 
 namespace {
 
-/// Maps a Vulkan device type to AdapterType.
+/**
+ * @brief Maps a Vulkan device type to AdapterType.
+ */
 AdapterType toAdapterType(VkPhysicalDeviceType type) {
     switch (type) {
     case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
@@ -32,7 +36,9 @@ AdapterType toAdapterType(VkPhysicalDeviceType type) {
     }
 }
 
-/// Copies the Vulkan limits the RHI exposes into Limits.
+/**
+ * @brief Copies the Vulkan limits the RHI exposes into Limits.
+ */
 Limits toLimits(const VkPhysicalDeviceLimits& vk) {
     Limits limits;
     limits.max_texture_dimension_2d = vk.maxImageDimension2D;
@@ -96,7 +102,9 @@ Capabilities VulkanAdapter::getCapabilities() const {
 
 namespace {
 
-/// Index of the first queue family that has all of @p required and none of @p excluded, or -1.
+/**
+ * @brief Index of the first queue family that has all of @p required and none of @p excluded, or -1.
+ */
 int findQueueFamily(const std::vector<VkQueueFamilyProperties>& families, VkQueueFlags required,
                     VkQueueFlags excluded) {
     for (std::size_t i = 0; i < families.size(); ++i) {
@@ -108,7 +116,9 @@ int findQueueFamily(const std::vector<VkQueueFamilyProperties>& families, VkQueu
     return -1;
 }
 
-/// Whether the physical device exposes a device extension.
+/**
+ * @brief Whether the physical device exposes a device extension.
+ */
 bool hasDeviceExtension(const std::vector<VkExtensionProperties>& extensions, const char* name) {
     return std::any_of(extensions.begin(), extensions.end(),
                        [name](const VkExtensionProperties& e) { return std::strcmp(e.extensionName, name) == 0; });

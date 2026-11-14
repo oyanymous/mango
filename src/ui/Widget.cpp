@@ -1,5 +1,7 @@
-/// @file
-/// Widget implementation.
+/**
+ * @file
+ * @brief Widget implementation.
+ */
 
 #include "Widget.h"
 

@@ -1,5 +1,7 @@
-/// @file
-/// Small Win32 helpers used by the Windows platform backend.
+/**
+ * @file
+ * @brief Small Win32 helpers used by the Windows platform backend.
+ */
 
 #include "win32_helpers.h"
 

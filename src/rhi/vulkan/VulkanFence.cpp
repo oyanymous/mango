@@ -1,5 +1,7 @@
-/// @file
-/// VulkanFence.
+/**
+ * @file
+ * @brief VulkanFence.
+ */
 
 #include "VulkanFence.h"
 

@@ -1,5 +1,7 @@
-/// @file
-/// Application, the facade over PrivateApplication.
+/**
+ * @file
+ * @brief Application, the facade over PrivateApplication.
+ */
 
 #include "Application.h"
 

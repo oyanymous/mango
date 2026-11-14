@@ -1,5 +1,7 @@
-/// @file
-/// VulkanDevice and VulkanDeviceHandle.
+/**
+ * @file
+ * @brief VulkanDevice and VulkanDeviceHandle.
+ */
 
 #include "VulkanDevice.h"
 
@@ -16,7 +18,9 @@ namespace rhi::vulkan {
 
 namespace {
 
-/// The error every not-yet-implemented create* method returns.
+/**
+ * @brief The error every not-yet-implemented create* method returns.
+ */
 Error notImplemented(const char* function, int step) {
     return Error{ErrorCode::Unsupported,
                  std::string("VulkanDevice::") + function + " is implemented in step " + std::to_string(step)};

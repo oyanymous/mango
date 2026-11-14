@@ -1,21 +1,29 @@
 #pragma once
 
-/// @file
-/// A native top-level window.
+/**
+ * @file
+ * @brief A native top-level window.
+ */
 
 #include <memory>
 
 #include "BaseWindow.h"
 
-/// A native top-level window (NSWindow on macOS, HWND on Windows).
-///
-/// The native handles live behind a pimpl (`Impl`), defined per OS in `darwin/Window.mm` or
-/// `windows/Window.cpp`, so no AppKit or Win32 types leak into C++ code that includes this header.
-/// The window is created hidden; call display() to show it.
+/**
+ * @brief A native top-level window (NSWindow on macOS, HWND on Windows).
+ *
+ * @details
+ * The native handles live behind a pimpl (`Impl`), defined per OS in `darwin/Window.mm` or
+ * `windows/Window.cpp`, so no AppKit or Win32 types leak into C++ code that includes this header.
+ * The window is created hidden; call display() to show it.
+ */
 class Window : public BaseWindow {
 public:
-    /// Creates the native window, hidden.
-    /// @param window_title UTF-8 title for the title bar.
+    /**
+     * @brief Creates the native window, hidden.
+     *
+     * @param window_title UTF-8 title for the title bar.
+     */
     explicit Window(const std::string& window_title = "");
     ~Window() override;
 

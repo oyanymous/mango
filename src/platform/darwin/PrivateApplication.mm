@@ -1,5 +1,7 @@
-/// @file
-/// macOS (AppKit) implementation of PrivateApplication.
+/**
+ * @file
+ * @brief macOS (AppKit) implementation of PrivateApplication.
+ */
 
 #include "PrivateApplication.h"
 
@@ -7,14 +9,20 @@
 #include <memory>
 
 
-/// The NSApplication delegate. Currently only opts in to secure restorable state.
+/**
+ * @brief The NSApplication delegate. Currently only opts in to secure restorable state.
+ */
 @interface AppDelegate : NSObject <NSApplicationDelegate>
 @end
 
-/// Private AppDelegate state.
+/**
+ * @brief Private AppDelegate state.
+ */
 @interface AppDelegate ()
 
-/// Window outlet from the Xcode application template; unused (windows are created by Window).
+/**
+ * @brief Window outlet from the Xcode application template; unused (windows are created by Window).
+ */
 @property (strong) IBOutlet NSWindow* window;
 @end
 
@@ -34,10 +42,12 @@
 
 @end
 
-/// Native AppKit state of the application.
+/**
+ * @brief Native AppKit state of the application.
+ */
 struct PrivateApplication::Impl {
-    NSApplication* m_app;                     ///< `[NSApplication sharedApplication]`.
-    id<NSApplicationDelegate> m_app_delegate; ///< An AppDelegate; retained (manual reference counting).
+    NSApplication* m_app;                     /**< `[NSApplication sharedApplication]`. */
+    id<NSApplicationDelegate> m_app_delegate; /**< An AppDelegate; retained (manual reference counting). */
 };
 
 PrivateApplication::PrivateApplication() : m_impl(std::make_unique<Impl>()) {

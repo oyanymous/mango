@@ -1,7 +1,9 @@
 #pragma once
 
-/// @file
-/// rhi::IDevice: the logical GPU that creates every other object.
+/**
+ * @file
+ * @brief rhi::IDevice: the logical GPU that creates every other object.
+ */
 
 #include <string>
 
@@ -27,78 +29,136 @@
 
 namespace rhi {
 
-/// Optional device features. Check Capabilities::features before requesting them.
+/**
+ * @brief Optional device features. Check Capabilities::features before requesting them.
+ */
 struct DeviceFeatures {
-    bool sampler_anisotropy = false;  ///< SamplerDesc::max_anisotropy > 1.
-    bool fill_mode_wireframe = false; ///< RasterState::wireframe.
+    bool sampler_anisotropy = false;  /**< SamplerDesc::max_anisotropy > 1. */
+    bool fill_mode_wireframe = false; /**< RasterState::wireframe. */
 };
 
-/// Describes a device to create with IAdapter::createDevice.
+/**
+ * @brief Describes a device to create with IAdapter::createDevice.
+ */
 struct DeviceDesc {
-    DeviceFeatures features; ///< Features to enable; creation fails if one is unsupported.
-    std::string label;       ///< Debug name.
+    DeviceFeatures features; /**< Features to enable; creation fails if one is unsupported. */
+    std::string label;       /**< Debug name. */
 };
 
-/// The logical GPU: owns the queues and creates every other object.
-///
-/// Every `create*` call takes a descriptor and returns the new object or an Error. Objects keep the device
-/// alive, so it is safe to drop the DeviceRef before them.
+/**
+ * @brief The logical GPU: owns the queues and creates every other object.
+ *
+ * @details
+ * Every `create*` call takes a descriptor and returns the new object or an Error. Objects keep the device
+ * alive, so it is safe to drop the DeviceRef before them.
+ */
 class IDevice {
 public:
     virtual ~IDevice() = default;
 
-    /// Returns the queue of a type. Falls back to the graphics queue when the adapter has no dedicated queue
-    /// of that type.
-    /// @param type Queue type.
+    /**
+     * @brief Returns the queue of a type. Falls back to the graphics queue when the adapter has no dedicated queue
+     * of that type.
+     *
+     * @param type Queue type.
+     */
     virtual QueueRef getQueue(QueueType type) = 0;
 
-    /// Creates a buffer.
-    /// @param desc Buffer descriptor.
+    /**
+     * @brief Creates a buffer.
+     *
+     * @param desc Buffer descriptor.
+     */
     virtual Result<BufferRef> createBuffer(BufferDesc desc) = 0;
-    /// Creates a texture.
-    /// @param desc Texture descriptor.
+    /**
+     * @brief Creates a texture.
+     *
+     * @param desc Texture descriptor.
+     */
     virtual Result<TextureRef> createTexture(TextureDesc desc) = 0;
-    /// Creates a view of a texture.
-    /// @param desc View descriptor, including the texture.
+    /**
+     * @brief Creates a view of a texture.
+     *
+     * @param desc View descriptor, including the texture.
+     */
     virtual Result<TextureViewRef> createTextureView(TextureViewDesc desc) = 0;
-    /// Creates a sampler.
-    /// @param desc Sampler descriptor.
+    /**
+     * @brief Creates a sampler.
+     *
+     * @param desc Sampler descriptor.
+     */
     virtual Result<SamplerRef> createSampler(SamplerDesc desc) = 0;
-    /// Creates a shader module from SPIR-V.
-    /// @param desc Shader descriptor.
+    /**
+     * @brief Creates a shader module from SPIR-V.
+     *
+     * @param desc Shader descriptor.
+     */
     virtual Result<ShaderRef> createShader(ShaderDesc desc) = 0;
-    /// Creates a pipeline layout.
-    /// @param desc Bind group layouts, in set order.
+    /**
+     * @brief Creates a pipeline layout.
+     *
+     * @param desc Bind group layouts, in set order.
+     */
     virtual Result<PipelineLayoutRef> createPipelineLayout(PipelineLayoutDesc desc) = 0;
-    /// Creates a graphics pipeline. Can be slow (shader compilation); create pipelines up front.
-    /// @param desc Shaders, vertex layout and fixed-function state.
+    /**
+     * @brief Creates a graphics pipeline. Can be slow (shader compilation); create pipelines up front.
+     *
+     * @param desc Shaders, vertex layout and fixed-function state.
+     */
     virtual Result<PipelineRef> createGraphicsPipeline(GraphicsPipelineDesc desc) = 0;
-    /// Creates a compute pipeline.
-    /// @param desc Shader and layout.
+    /**
+     * @brief Creates a compute pipeline.
+     *
+     * @param desc Shader and layout.
+     */
     virtual Result<PipelineRef> createComputePipeline(ComputePipelineDesc desc) = 0;
-    /// Creates a render pass.
-    /// @param desc Attachment formats and load/store ops.
+    /**
+     * @brief Creates a render pass.
+     *
+     * @param desc Attachment formats and load/store ops.
+     */
     virtual Result<RenderPassRef> createRenderPass(RenderPassDesc desc) = 0;
-    /// Creates a render target.
-    /// @param desc Pass and attachment views.
+    /**
+     * @brief Creates a render target.
+     *
+     * @param desc Pass and attachment views.
+     */
     virtual Result<RenderTargetRef> createRenderTarget(RenderTargetDesc desc) = 0;
-    /// Creates a bind group layout.
-    /// @param desc Binding slots.
+    /**
+     * @brief Creates a bind group layout.
+     *
+     * @param desc Binding slots.
+     */
     virtual Result<BindGroupLayoutRef> createBindGroupLayout(BindGroupLayoutDesc desc) = 0;
-    /// Creates a bind group.
-    /// @param desc Layout and resources.
+    /**
+     * @brief Creates a bind group.
+     *
+     * @param desc Layout and resources.
+     */
     virtual Result<BindGroupRef> createBindGroup(BindGroupDesc desc) = 0;
-    /// Creates a command buffer.
-    /// @param desc Target queue type.
+    /**
+     * @brief Creates a command buffer.
+     *
+     * @param desc Target queue type.
+     */
     virtual Result<CommandBufferRef> createCommandBuffer(CommandBufferDesc desc) = 0;
-    /// Creates a swapchain on a surface.
-    /// @param desc Surface, size, format and present mode.
+    /**
+     * @brief Creates a swapchain on a surface.
+     *
+     * @param desc Surface, size, format and present mode.
+     */
     virtual Result<SwapchainRef> createSwapchain(SwapchainDesc desc) = 0;
-    /// Creates a fence.
-    /// @param desc Initial state.
+    /**
+     * @brief Creates a fence.
+     *
+     * @param desc Initial state.
+     */
     virtual Result<FenceRef> createFence(FenceDesc desc) = 0;
-    /// Creates a semaphore.
-    /// @param desc Kind and initial value.
+    /**
+     * @brief Creates a semaphore.
+     *
+     * @param desc Kind and initial value.
+     */
     virtual Result<SemaphoreRef> createSemaphore(SemaphoreDesc desc) = 0;
 };
 

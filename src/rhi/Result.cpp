@@ -1,5 +1,7 @@
-/// @file
-/// rhi::toString(ErrorCode).
+/**
+ * @file
+ * @brief rhi::toString(ErrorCode).
+ */
 
 #include "Result.h"
 

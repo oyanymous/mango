@@ -1,5 +1,7 @@
-/// @file
-/// VkResult naming and mapping to RHI errors.
+/**
+ * @file
+ * @brief VkResult naming and mapping to RHI errors.
+ */
 
 #include "VulkanCommon.h"
 

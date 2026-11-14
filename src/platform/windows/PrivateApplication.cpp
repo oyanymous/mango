@@ -1,11 +1,15 @@
-/// @file
-/// Win32 implementation of PrivateApplication: the message loop.
+/**
+ * @file
+ * @brief Win32 implementation of PrivateApplication: the message loop.
+ */
 
 #include "../PrivateApplication.h"
 
 #include <windows.h>
 
-/// Win32 needs no per-application state yet.
+/**
+ * @brief Win32 needs no per-application state yet.
+ */
 struct PrivateApplication::Impl {};
 
 PrivateApplication::PrivateApplication() : m_impl(std::make_unique<Impl>()) {

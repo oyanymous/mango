@@ -1,7 +1,9 @@
 #pragma once
 
-/// @file
-/// rhi::vulkan::VulkanQueue: a VkQueue of one queue family.
+/**
+ * @file
+ * @brief rhi::vulkan::VulkanQueue: a VkQueue of one queue family.
+ */
 
 #include <cstdint>
 #include <memory>
@@ -13,26 +15,40 @@ namespace rhi::vulkan {
 
 class VulkanDeviceHandle;
 
-/// The Vulkan IQueue. Created by VulkanAdapter::createDevice, one per used queue family.
+/**
+ * @brief The Vulkan IQueue. Created by VulkanAdapter::createDevice, one per used queue family.
+ */
 class VulkanQueue final : public IQueue {
 public:
-    /// Wraps queue 0 of a queue family.
-    /// @param device Owner of the VkDevice; kept alive by the queue.
-    /// @param type The QueueType the queue was created for.
-    /// @param family_index Queue family the queue belongs to.
+    /**
+     * @brief Wraps queue 0 of a queue family.
+     *
+     * @param device Owner of the VkDevice; kept alive by the queue.
+     * @param type The QueueType the queue was created for.
+     * @param family_index Queue family the queue belongs to.
+     */
     VulkanQueue(std::shared_ptr<VulkanDeviceHandle> device, QueueType type, std::uint32_t family_index);
 
-    /// Submits with vkQueueSubmit; every command buffer must be ended (else InvalidArgument).
-    ///
-    /// Does not yet retain the command buffers until they finish (step 13 of docs/RHI_VULKAN_PLAN.md): keep
-    /// them alive until the submission's fence is signaled.
+    /**
+     * @brief Submits with vkQueueSubmit; every command buffer must be ended (else InvalidArgument).
+     *
+     * @details
+     * Does not yet retain the command buffers until they finish (step 13 of docs/RHI_VULKAN_PLAN.md): keep
+     * them alive until the submission's fence is signaled.
+     */
     Result<void> submit(SubmitDesc desc) override;
-    /// Not implemented yet (step 9 of docs/RHI_VULKAN_PLAN.md); returns ErrorCode::Unsupported.
+    /**
+     * @brief Not implemented yet (step 9 of docs/RHI_VULKAN_PLAN.md); returns ErrorCode::Unsupported.
+     */
     Result<void> present(PresentDesc desc) override;
 
-    /// The QueueType the queue was created for.
+    /**
+     * @brief The QueueType the queue was created for.
+     */
     QueueType type() const { return m_queue_type; }
-    /// Queue family index, needed for command pools and ownership transfers.
+    /**
+     * @brief Queue family index, needed for command pools and ownership transfers.
+     */
     std::uint32_t familyIndex() const { return m_family_index; }
 private:
     QueueType m_queue_type;

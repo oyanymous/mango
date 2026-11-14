@@ -1,7 +1,9 @@
 #pragma once
 
-/// @file
-/// rhi::vulkan::VulkanDevice and the shared VkDevice owner, VulkanDeviceHandle.
+/**
+ * @file
+ * @brief rhi::vulkan::VulkanDevice and the shared VkDevice owner, VulkanDeviceHandle.
+ */
 
 #include <array>
 #include <memory>
@@ -14,39 +16,53 @@
 
 namespace rhi::vulkan {
 
-/// Owns the VkDevice and its VMA allocator.
-///
-/// Shared by the device, its queues and every object created from it, so the VkDevice outlives all of them
-/// without the device and its queues owning each other. Keeps the instance alive in turn.
+/**
+ * @brief Owns the VkDevice and its VMA allocator.
+ *
+ * @details
+ * Shared by the device, its queues and every object created from it, so the VkDevice outlives all of them
+ * without the device and its queues owning each other. Keeps the instance alive in turn.
+ */
 class VulkanDeviceHandle {
 public:
-    /// Creates an empty handle; VulkanAdapter::createDevice fills in the members.
-    /// @param instance Owner of the VkInstance the device belongs to.
+    /**
+     * @brief Creates an empty handle; VulkanAdapter::createDevice fills in the members.
+     *
+     * @param instance Owner of the VkInstance the device belongs to.
+     */
     explicit VulkanDeviceHandle(std::shared_ptr<VulkanInstanceHandle> instance);
-    /// Waits for the GPU to go idle, then destroys the allocator and the device.
+    /**
+     * @brief Waits for the GPU to go idle, then destroys the allocator and the device.
+     */
     ~VulkanDeviceHandle();
 
     VulkanDeviceHandle(const VulkanDeviceHandle&) = delete;
     VulkanDeviceHandle& operator=(const VulkanDeviceHandle&) = delete;
 
-    VkPhysicalDevice m_physical_device = VK_NULL_HANDLE; ///< The adapter's physical device.
-    VkDevice m_device = VK_NULL_HANDLE;                  ///< The device; destroyed with the handle.
-    VmaAllocator m_allocator = VK_NULL_HANDLE;           ///< Allocates all buffer and image memory.
+    VkPhysicalDevice m_physical_device = VK_NULL_HANDLE; /**< The adapter's physical device. */
+    VkDevice m_device = VK_NULL_HANDLE;                  /**< The device; destroyed with the handle. */
+    VmaAllocator m_allocator = VK_NULL_HANDLE;           /**< Allocates all buffer and image memory. */
 private:
     std::shared_ptr<VulkanInstanceHandle> m_instance;
 };
 
-/// The Vulkan IDevice. Created by VulkanAdapter::createDevice.
-///
-/// The create* methods are filled in by later steps of docs/RHI_VULKAN_PLAN.md; until then they return
-/// ErrorCode::Unsupported.
+/**
+ * @brief The Vulkan IDevice. Created by VulkanAdapter::createDevice.
+ *
+ * @details
+ * The create* methods are filled in by later steps of docs/RHI_VULKAN_PLAN.md; until then they return
+ * ErrorCode::Unsupported.
+ */
 class VulkanDevice final : public IDevice {
 public:
-    /// Wraps an already created device.
-    /// @param desc The descriptor it was created with.
-    /// @param handle Owner of the VkDevice.
-    /// @param queues One queue per QueueType, indexed by its value; types without a dedicated family share
-    ///               the graphics queue object.
+    /**
+     * @brief Wraps an already created device.
+     *
+     * @param desc The descriptor it was created with.
+     * @param handle Owner of the VkDevice.
+     * @param queues One queue per QueueType, indexed by its value; types without a dedicated family share
+     *               the graphics queue object.
+     */
     VulkanDevice(DeviceDesc desc, std::shared_ptr<VulkanDeviceHandle> handle, std::array<QueueRef, 3> queues);
 
     QueueRef getQueue(QueueType type) override;

@@ -1,5 +1,7 @@
-/// @file
-/// VulkanQueue.
+/**
+ * @file
+ * @brief VulkanQueue.
+ */
 
 #include "VulkanQueue.h"
 

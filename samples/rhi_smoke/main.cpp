@@ -1,8 +1,10 @@
-/// @file
-/// rhi_smoke: headless checks of the RHI, run by CTest.
-///
-/// Runs every check, prints `[ OK ]` / `[FAIL]` per check, and exits non-zero if any failed. With the Vulkan
-/// backend it also creates a validated instance, lists the adapters, and fails on any validation warning.
+/**
+ * @file
+ * @brief rhi_smoke: headless checks of the RHI, run by CTest.
+ *
+ * Runs every check, prints `[ OK ]` / `[FAIL]` per check, and exits non-zero if any failed. With the Vulkan
+ * backend it also creates a validated instance, lists the adapters, and fails on any validation warning.
+ */
 
 #include <algorithm>
 #include <chrono>

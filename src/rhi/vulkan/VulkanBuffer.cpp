@@ -1,5 +1,7 @@
-/// @file
-/// VulkanBuffer.
+/**
+ * @file
+ * @brief VulkanBuffer.
+ */
 
 #include "VulkanBuffer.h"
 
@@ -9,7 +11,9 @@ namespace rhi::vulkan {
 
 namespace {
 
-/// Maps BufferUsage bits to VkBufferUsageFlags.
+/**
+ * @brief Maps BufferUsage bits to VkBufferUsageFlags.
+ */
 VkBufferUsageFlags toVkBufferUsage(BufferUsage usage) {
     VkBufferUsageFlags flags = 0;
     if (hasFlag(usage, BufferUsage::CopySrc)) {

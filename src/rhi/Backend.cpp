@@ -1,5 +1,7 @@
-/// @file
-/// Backend names and the list of compiled-in backends.
+/**
+ * @file
+ * @brief Backend names and the list of compiled-in backends.
+ */
 
 #include "Backend.h"
 

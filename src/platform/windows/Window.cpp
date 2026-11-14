@@ -1,5 +1,7 @@
-/// @file
-/// Win32 implementation of Window.
+/**
+ * @file
+ * @brief Win32 implementation of Window.
+ */
 
 #ifndef UNICODE
 #define UNICODE
@@ -13,17 +15,22 @@
 #include "win32_helpers.h"
 
 
-/// Native Win32 state of a Window.
+/**
+ * @brief Native Win32 state of a Window.
+ */
 struct Window::Impl {
-    HMODULE m_hinstance; ///< Module that registered the window class.
-    HWND m_hwnd;         ///< The window.
-    WNDCLASS m_wndclass; ///< The registered window class.
-    LPCWSTR m_classname; ///< Window class name.
+    HMODULE m_hinstance; /**< Module that registered the window class. */
+    HWND m_hwnd;         /**< The window. */
+    WNDCLASS m_wndclass; /**< The registered window class. */
+    LPCWSTR m_classname; /**< Window class name. */
 };
 
-/// Window procedure shared by all Mango windows.
-///
-/// Quits the application when a window is destroyed and paints the client area with the default window colour.
+/**
+ * @brief Window procedure shared by all Mango windows.
+ *
+ * @details
+ * Quits the application when a window is destroyed and paints the client area with the default window colour.
+ */
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
     case WM_DESTROY:

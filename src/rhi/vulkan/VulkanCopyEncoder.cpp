@@ -1,5 +1,7 @@
-/// @file
-/// VulkanCopyEncoder.
+/**
+ * @file
+ * @brief VulkanCopyEncoder.
+ */
 
 #include "VulkanCopyEncoder.h"
 
@@ -11,7 +13,9 @@ namespace rhi::vulkan {
 
 namespace {
 
-/// The one mip level and array layer a TextureLocation names.
+/**
+ * @brief The one mip level and array layer a TextureLocation names.
+ */
 VkImageSubresourceLayers toSubresourceLayers(const TextureLocation& location, VkImageAspectFlags aspect) {
     return {aspect, location.mip_level, location.array_layer, 1};
 }

@@ -1,5 +1,7 @@
-/// @file
-/// VulkanSemaphore.
+/**
+ * @file
+ * @brief VulkanSemaphore.
+ */
 
 #include "VulkanSemaphore.h"
 
