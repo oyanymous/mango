@@ -63,24 +63,28 @@ classDiagram
     class ISemaphore {
         <<interface>>
         +getKind() SemaphoreKind
+        +getValue() uint64
     }
     class MetalSemaphore {
         -SemaphoreKind m_kind
         -uint64 m_value
         -MetalEventState m_event_state
         +getKind() SemaphoreKind
+        +getValue() uint64
     }
     class VulkanSemaphore {
         -SemaphoreKind m_kind
         -uint64 m_value
         -VkSemaphore m_semaphore
         +getKind() SemaphoreKind
+        +getValue() uint64
     }
     class GLSemaphore {
         -SemaphoreKind m_kind
         -uint64 m_value
         -GLSemaphoreState m_sync_state
         +getKind() SemaphoreKind
+        +getValue() uint64
     }
     class ICommandBuffer {
         <<external>>

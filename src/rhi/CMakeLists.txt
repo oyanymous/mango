@@ -60,6 +60,10 @@ if (MANGO_RHI_VULKAN)
         vulkan/VulkanDevice.cpp
         vulkan/VulkanQueue.h
         vulkan/VulkanQueue.cpp
+        vulkan/VulkanFence.h
+        vulkan/VulkanFence.cpp
+        vulkan/VulkanSemaphore.h
+        vulkan/VulkanSemaphore.cpp
     )
 
     # Backend headers are private to RHI and included bare ("VulkanInstance.h").

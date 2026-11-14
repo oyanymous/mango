@@ -33,6 +33,10 @@ public:
 
     /// Whether the semaphore is binary or a timeline.
     virtual SemaphoreKind getKind() const = 0;
+
+    /// The counter value the GPU has signaled so far. Does not block.
+    /// @return The current value for a Timeline semaphore; always 0 for a Binary one.
+    virtual std::uint64_t getValue() const = 0;
 };
 
 } // namespace rhi

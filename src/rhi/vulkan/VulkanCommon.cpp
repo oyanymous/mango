@@ -84,4 +84,33 @@ Error toError(VkResult result, std::string_view what) {
     return Error{code, std::move(message)};
 }
 
+VkPipelineStageFlags toVkPipelineStages(PipelineStage stages) {
+    if (hasFlag(stages, PipelineStage::AllCommands)) {
+        return VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+    }
+    VkPipelineStageFlags flags = 0;
+    if (hasFlag(stages, PipelineStage::VertexInput)) {
+        flags |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+    }
+    if (hasFlag(stages, PipelineStage::VertexShader)) {
+        flags |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
+    }
+    if (hasFlag(stages, PipelineStage::FragmentShader)) {
+        flags |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    }
+    if (hasFlag(stages, PipelineStage::ComputeShader)) {
+        flags |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+    }
+    if (hasFlag(stages, PipelineStage::RenderTargetOutput)) {
+        flags |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    }
+    if (hasFlag(stages, PipelineStage::DepthStencil)) {
+        flags |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    }
+    if (hasFlag(stages, PipelineStage::Copy)) {
+        flags |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+    }
+    return flags != 0 ? flags : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+}
+
 } // namespace rhi::vulkan

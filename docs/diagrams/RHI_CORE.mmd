@@ -237,6 +237,7 @@ classDiagram
     class ISemaphore {
         <<external>>
         +getKind() SemaphoreKind
+        +getValue() uint64
     }
     IDeviceFactory <|.. MetalDeviceFactory
     IDeviceFactory <|.. VulkanDeviceFactory

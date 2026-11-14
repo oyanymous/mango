@@ -9,6 +9,7 @@
 #include <string>
 #include <string_view>
 
+#include "RHITypes.h"
 #include "Result.h"
 
 /// The Vulkan implementation of the RHI.
@@ -29,5 +30,9 @@ std::string_view toString(VkResult result);
 /// @param what The call that failed, e.g. `"vkCreateInstance"`; included in the message.
 /// @return An Error whose code best matches @p result.
 Error toError(VkResult result, std::string_view what);
+
+/// Maps RHI pipeline stages to Vulkan stage flags. PipelineStage::None maps to TOP_OF_PIPE (nothing waits).
+/// @param stages Stages as a bit set.
+VkPipelineStageFlags toVkPipelineStages(PipelineStage stages);
 
 } // namespace rhi::vulkan

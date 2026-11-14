@@ -4,6 +4,7 @@
 /// Runs every check, prints `[ OK ]` / `[FAIL]` per check, and exits non-zero if any failed. With the Vulkan
 /// backend it also creates a validated instance, lists the adapters, and fails on any validation warning.
 
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
@@ -175,6 +176,49 @@ const char* adapterTypeName(rhi::AdapterType type) {
     return "unknown";
 }
 
+// Fences, semaphores and empty submissions on the graphics queue.
+void testSync(rhi::IDevice& device) {
+    const rhi::Timeout timeout = std::chrono::seconds(5);
+    rhi::QueueRef queue = device.getQueue(rhi::QueueType::Graphics);
+
+    auto signaled = device.createFence({.signaled = true});
+    check(signaled && (*signaled)->isSignaled(), "fence created signaled");
+
+    auto fence = device.createFence({});
+    if (!fence) {
+        check(false, fence.error().message.c_str());
+        return;
+    }
+    check(!(*fence)->isSignaled(), "new fence is unsignaled");
+    auto poll = (*fence)->wait(rhi::Timeout(0));
+    check(!poll && poll.error().code == rhi::ErrorCode::Timeout, "polling an unsignaled fence times out");
+
+    check(static_cast<bool>(queue->submit({.fence = *fence})), "empty submit with a fence");
+    check((*fence)->wait(timeout) && (*fence)->isSignaled(), "fence signaled after the submit");
+    check((*fence)->reset() && !(*fence)->isSignaled(), "fence reset");
+
+    auto timeline = device.createSemaphore({.kind = rhi::SemaphoreKind::Timeline, .initial_value = 5});
+    auto binary = device.createSemaphore({});
+    if (!timeline || !binary) {
+        check(false, "semaphores created");
+        return;
+    }
+    check((*timeline)->getKind() == rhi::SemaphoreKind::Timeline && (*timeline)->getValue() == 5,
+          "timeline semaphore starts at its initial value");
+    check((*binary)->getKind() == rhi::SemaphoreKind::Binary && (*binary)->getValue() == 0, "binary semaphore");
+
+    // Submit 1 signals timeline=6 and the binary semaphore; submit 2 waits on both and signals timeline=7.
+    check(static_cast<bool>(queue->submit({.signals = {{*timeline, 6}, {*binary, 0}}})), "submit signaling semaphores");
+    check(static_cast<bool>(queue->submit({
+              .waits = {{*timeline, 6, rhi::PipelineStage::AllCommands}, {*binary, 0, rhi::PipelineStage::AllCommands}},
+              .signals = {{*timeline, 7}},
+              .fence = *fence,
+          })),
+          "submit waiting on semaphores");
+    check(static_cast<bool>((*fence)->wait(timeout)), "fence after the semaphore chain");
+    check((*timeline)->getValue() == 7, "timeline value advanced to 7");
+}
+
 void testInstance() {
 #if defined(MANGO_RHI_VULKAN)
     rhi::RHIFactory factory;
@@ -247,6 +291,7 @@ void testInstance() {
             std::printf("  queues: compute %s, transfer %s\n",
                         compute == graphics ? "shared with graphics" : "dedicated",
                         transfer == graphics ? "shared with graphics" : "dedicated");
+            testSync(**device);
             devices.push_back(*device);
         }
 

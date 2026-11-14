@@ -22,7 +22,8 @@ public:
     /// @param family_index Queue family the queue belongs to.
     VulkanQueue(std::shared_ptr<VulkanDeviceHandle> device, QueueType type, std::uint32_t family_index);
 
-    /// Not implemented yet (step 5 of docs/RHI_VULKAN_PLAN.md); returns ErrorCode::Unsupported.
+    /// Submits with vkQueueSubmit. Command buffers are not supported yet (step 6 of docs/RHI_VULKAN_PLAN.md):
+    /// a non-empty SubmitDesc::command_buffers returns ErrorCode::Unsupported.
     Result<void> submit(SubmitDesc desc) override;
     /// Not implemented yet (step 9 of docs/RHI_VULKAN_PLAN.md); returns ErrorCode::Unsupported.
     Result<void> present(PresentDesc desc) override;

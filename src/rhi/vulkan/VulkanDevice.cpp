@@ -5,6 +5,9 @@
 
 #include <string>
 
+#include "VulkanFence.h"
+#include "VulkanSemaphore.h"
+
 namespace rhi::vulkan {
 
 namespace {
@@ -97,12 +100,12 @@ Result<SwapchainRef> VulkanDevice::createSwapchain(SwapchainDesc) {
     return notImplemented("createSwapchain", 9);
 }
 
-Result<FenceRef> VulkanDevice::createFence(FenceDesc) {
-    return notImplemented("createFence", 5);
+Result<FenceRef> VulkanDevice::createFence(FenceDesc desc) {
+    return VulkanFence::create(m_device, std::move(desc));
 }
 
-Result<SemaphoreRef> VulkanDevice::createSemaphore(SemaphoreDesc) {
-    return notImplemented("createSemaphore", 5);
+Result<SemaphoreRef> VulkanDevice::createSemaphore(SemaphoreDesc desc) {
+    return VulkanSemaphore::create(m_device, std::move(desc));
 }
 
 } // namespace rhi::vulkan
