@@ -7,6 +7,8 @@
 
 #import <Metal/Metal.h>
 
+#include <memory>
+#include <string>
 #include <string_view>
 
 #include "IInstance.h"
@@ -48,5 +50,25 @@ public:
 private:
     DebugCallback m_debug_callback;
 };
+
+/**
+ * @brief What every object of a device shares: the `MTLDevice` and the instance's debug reporter.
+ *
+ * @details
+ * Held through a `std::shared_ptr` by the device and by every object it creates, so objects stay valid after the
+ * DeviceRef is dropped (ARC releases the `MTLDevice` with the last of them).
+ */
+struct MetalDeviceContext {
+    id<MTLDevice> device = nil;                   /**< The GPU. */
+    std::shared_ptr<MetalDebugReporter> reporter; /**< Where errors and validation messages go. */
+};
+
+/**
+ * @brief Converts a UTF-8 string to an `NSString`, e.g. for a Metal object's label.
+ *
+ * @param text UTF-8 text.
+ * @return The string, or nil if @p text is empty (Metal treats a nil label as "no label").
+ */
+NSString* toNSString(const std::string& text);
 
 } // namespace rhi::metal

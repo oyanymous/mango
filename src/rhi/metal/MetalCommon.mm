@@ -42,4 +42,8 @@ void MetalDebugReporter::report(DebugSeverity severity, std::string_view message
     std::fprintf(stderr, "[metal %s] %.*s\n", severityName(severity), static_cast<int>(message.size()), message.data());
 }
 
+NSString* toNSString(const std::string& text) {
+    return text.empty() ? nil : [NSString stringWithUTF8String:text.c_str()];
+}
+
 } // namespace rhi::metal

@@ -237,6 +237,17 @@ void testSync(rhi::IDevice& device) {
           "submit waiting on semaphores");
     check(static_cast<bool>((*fence)->wait(timeout)), "fence after the semaphore chain");
     check((*timeline)->getValue() == 7, "timeline value advanced to 7");
+
+    // Across queues: the compute queue waits for a value the graphics queue signals.
+    rhi::QueueRef compute = device.getQueue(rhi::QueueType::Compute);
+    check((*fence)->reset() && queue->submit({.signals = {{*timeline, 8}}}) &&
+              compute->submit({
+                  .waits = {{*timeline, 8, rhi::PipelineStage::AllCommands}},
+                  .signals = {{*timeline, 9}},
+                  .fence = *fence,
+              }),
+          "cross-queue submits");
+    check((*fence)->wait(timeout) && (*timeline)->getValue() == 9, "compute queue ran after the graphics signal");
 }
 
 // Upload -> GPU-only buffer -> readback buffer on the transfer queue, then compare the bytes.
@@ -693,11 +704,6 @@ void testBackend(rhi::Backend backend) {
         for (const rhi::AdapterRef& adapter : adapters) {
             rhi::Capabilities caps = adapter->getCapabilities();
             auto device = adapter->createDevice({.features = caps.features, .label = "smoke device"});
-            // Metal is built step by step (docs/RHI_METAL_PLAN.md); devices arrive in step 3.
-            if (backend == rhi::Backend::Metal && !device && device.error().code == rhi::ErrorCode::Unsupported) {
-                std::printf("[SKIP] device checks: %s\n", device.error().message.c_str());
-                continue;
-            }
             check(static_cast<bool>(device),
                   device ? "device created with every supported feature" : device.error().message.c_str());
             if (!device) {
@@ -712,11 +718,17 @@ void testBackend(rhi::Backend backend) {
                         compute == graphics ? "shared with graphics" : "dedicated",
                         transfer == graphics ? "shared with graphics" : "dedicated");
             testSync(**device);
+            devices.push_back(*device);
+            // Metal is built step by step (docs/RHI_METAL_PLAN.md): skip the checks whose objects it cannot create yet.
+            if (auto probe = (*device)->createBuffer({.size = 16, .usage = rhi::BufferUsage::CopySrc});
+                backend == rhi::Backend::Metal && !probe && probe.error().code == rhi::ErrorCode::Unsupported) {
+                std::printf("[SKIP] buffer, texture, render and compute checks: %s\n", probe.error().message.c_str());
+                continue;
+            }
             testBufferRoundTrip(**device);
             testTextureRoundTrip(**device, caps);
             testOffscreenClear(**device);
             testCompute(**device);
-            devices.push_back(*device);
         }
 
         // Adapters keep the native instance alive on their own; dropping the instance first must be safe.

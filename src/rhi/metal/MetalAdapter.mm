@@ -10,6 +10,8 @@
 #include <string>
 #include <utility>
 
+#include "MetalDevice.h"
+
 namespace rhi::metal {
 
 namespace {
@@ -108,8 +110,14 @@ Capabilities MetalAdapter::getCapabilities() const {
     return m_capabilities;
 }
 
-Result<DeviceRef> MetalAdapter::createDevice(DeviceDesc) {
-    return Error{ErrorCode::Unsupported, "the Metal backend cannot create devices yet"};
+Result<DeviceRef> MetalAdapter::createDevice(DeviceDesc desc) {
+    const DeviceFeatures& supported = m_capabilities.features;
+    if ((desc.features.sampler_anisotropy && !supported.sampler_anisotropy) ||
+        (desc.features.fill_mode_wireframe && !supported.fill_mode_wireframe)) {
+        return Error{ErrorCode::Unsupported, "MetalAdapter::createDevice: a requested feature is not supported"};
+    }
+    auto context = std::make_shared<MetalDeviceContext>(MetalDeviceContext{m_device, m_reporter});
+    return MetalDevice::create(std::move(context), std::move(desc));
 }
 
 } // namespace rhi::metal

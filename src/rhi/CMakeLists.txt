@@ -119,6 +119,14 @@ if (MANGO_RHI_METAL)
         metal/MetalInstance.mm
         metal/MetalAdapter.h
         metal/MetalAdapter.mm
+        metal/MetalDevice.h
+        metal/MetalDevice.mm
+        metal/MetalQueue.h
+        metal/MetalQueue.mm
+        metal/MetalFence.h
+        metal/MetalFence.mm
+        metal/MetalSemaphore.h
+        metal/MetalSemaphore.mm
     )
     target_sources(RHI PRIVATE ${RHI_METAL_SOURCES})
 

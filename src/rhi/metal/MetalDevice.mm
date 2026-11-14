@@ -1,0 +1,122 @@
+/**
+ * @file
+ * @brief MetalDevice: queue creation and object factories.
+ */
+
+#include "MetalDevice.h"
+
+#include <string>
+#include <utility>
+
+#include "MetalFence.h"
+#include "MetalQueue.h"
+#include "MetalSemaphore.h"
+
+namespace rhi::metal {
+
+namespace {
+
+/**
+ * @brief The error every factory of the backend not written yet returns.
+ */
+Error notImplemented(const char* what) {
+    return Error{ErrorCode::Unsupported, std::string("MetalDevice::") + what + " is not implemented yet"};
+}
+
+/**
+ * @brief Debug name of a queue, e.g. "smoke device graphics queue".
+ */
+NSString* queueLabel(const std::string& device_label, const char* type) {
+    std::string label = device_label.empty() ? std::string(type) : device_label + " " + type;
+    return toNSString(label + " queue");
+}
+
+} // namespace
+
+Result<DeviceRef> MetalDevice::create(std::shared_ptr<MetalDeviceContext> context, DeviceDesc desc) {
+    constexpr const char* kQueueNames[] = {"graphics", "compute", "transfer"};
+    std::array<QueueRef, 3> queues;
+    for (std::size_t i = 0; i < queues.size(); ++i) {
+        id<MTLCommandQueue> queue = [context->device newCommandQueue];
+        if (queue == nil) {
+            return Error{ErrorCode::InitializationFailed, "MTLDevice newCommandQueue failed"};
+        }
+        queue.label = queueLabel(desc.label, kQueueNames[i]);
+        queues[i] = std::make_shared<MetalQueue>(context, static_cast<QueueType>(i), queue);
+    }
+    return DeviceRef(std::make_shared<MetalDevice>(std::move(context), std::move(desc), std::move(queues)));
+}
+
+MetalDevice::MetalDevice(std::shared_ptr<MetalDeviceContext> context, DeviceDesc desc, std::array<QueueRef, 3> queues)
+    : m_desc(std::move(desc)), m_queues(std::move(queues)), m_context(std::move(context)) {
+}
+
+QueueRef MetalDevice::getQueue(QueueType type) {
+    return m_queues[static_cast<std::size_t>(type)];
+}
+
+Result<BufferRef> MetalDevice::createBuffer(BufferDesc) {
+    return notImplemented("createBuffer");
+}
+
+Result<TextureRef> MetalDevice::createTexture(TextureDesc) {
+    return notImplemented("createTexture");
+}
+
+Result<TextureViewRef> MetalDevice::createTextureView(TextureViewDesc) {
+    return notImplemented("createTextureView");
+}
+
+Result<SamplerRef> MetalDevice::createSampler(SamplerDesc) {
+    return notImplemented("createSampler");
+}
+
+Result<ShaderRef> MetalDevice::createShader(ShaderDesc) {
+    return notImplemented("createShader");
+}
+
+Result<PipelineLayoutRef> MetalDevice::createPipelineLayout(PipelineLayoutDesc) {
+    return notImplemented("createPipelineLayout");
+}
+
+Result<PipelineRef> MetalDevice::createGraphicsPipeline(GraphicsPipelineDesc) {
+    return notImplemented("createGraphicsPipeline");
+}
+
+Result<PipelineRef> MetalDevice::createComputePipeline(ComputePipelineDesc) {
+    return notImplemented("createComputePipeline");
+}
+
+Result<RenderPassRef> MetalDevice::createRenderPass(RenderPassDesc) {
+    return notImplemented("createRenderPass");
+}
+
+Result<RenderTargetRef> MetalDevice::createRenderTarget(RenderTargetDesc) {
+    return notImplemented("createRenderTarget");
+}
+
+Result<BindGroupLayoutRef> MetalDevice::createBindGroupLayout(BindGroupLayoutDesc) {
+    return notImplemented("createBindGroupLayout");
+}
+
+Result<BindGroupRef> MetalDevice::createBindGroup(BindGroupDesc) {
+    return notImplemented("createBindGroup");
+}
+
+Result<CommandBufferRef> MetalDevice::createCommandBuffer(CommandBufferDesc) {
+    return notImplemented("createCommandBuffer");
+}
+
+Result<SwapchainRef> MetalDevice::createSwapchain(SwapchainDesc) {
+    return notImplemented("createSwapchain");
+}
+
+Result<FenceRef> MetalDevice::createFence(FenceDesc desc) {
+    return FenceRef(std::make_shared<MetalFence>(std::move(desc)));
+}
+
+Result<SemaphoreRef> MetalDevice::createSemaphore(SemaphoreDesc desc) {
+    return MetalSemaphore::create(m_context, std::move(desc));
+}
+
+} // namespace rhi::metal

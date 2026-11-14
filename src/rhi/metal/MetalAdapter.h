@@ -44,7 +44,7 @@ public:
     Capabilities getCapabilities() const override;
 
     /**
-     * @brief Not implemented yet; returns ErrorCode::Unsupported.
+     * @brief Creates a MetalDevice on this GPU, with one command queue per QueueType.
      */
     Result<DeviceRef> createDevice(DeviceDesc desc) override;
 private:
