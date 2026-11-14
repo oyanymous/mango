@@ -42,6 +42,8 @@ public:
     VkPhysicalDevice m_physical_device = VK_NULL_HANDLE; /**< The adapter's physical device. */
     VkDevice m_device = VK_NULL_HANDLE;                  /**< The device; destroyed with the handle. */
     VmaAllocator m_allocator = VK_NULL_HANDLE;           /**< Allocates all buffer and image memory. */
+    std::uint32_t m_graphics_family = 0;                 /**< Queue family of the graphics (present) queue. */
+    bool m_swapchain_enabled = false;                    /**< Whether VK_KHR_swapchain was enabled. */
 private:
     std::shared_ptr<VulkanInstanceHandle> m_instance;
 };

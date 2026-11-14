@@ -18,7 +18,7 @@ ctest --preset macos
 
 The Vulkan RHI backend (`MANGO_RHI_VULKAN`, default ON) needs **no Vulkan SDK**: `cmake/VulkanDependencies.cmake` fetches Vulkan-Headers, volk and VMA at pinned versions (keep Vulkan-Headers and volk on the same `vulkan-sdk-*` tag). volk loads the GPU driver's Vulkan loader at runtime, so nothing links against it; their implementations are compiled once in `src/rhi/vulkan/*Implementation.cpp`. Do not add `find_package(Vulkan)` or other SDK lookups. Configure with `-DMANGO_RHI_VULKAN=OFF` to build without the backend. `MANGO_VULKAN_VALIDATION` (default ON, but OFF with MinGW: CLion's bundled MinGW cannot link the layer's SPIRV-Tools dependency, which forces `-static`) builds the Khronos validation layer from source at the same tag (`cmake/VulkanValidationLayers.cmake`, an ExternalProject; needs Python 3; the first build takes a long time, later builds skip it). Instances created with `enable_validation` set `VK_LAYER_PATH` to that build, so an installed SDK's layer is ignored unless `VK_LAYER_PATH`/`VK_ADD_LAYER_PATH` is already set.
 
-Tests: `samples/rhi_smoke` is a headless check program registered with CTest; it exits non-zero on any failed check.
+Tests: `samples/rhi_smoke` is a headless check program registered with CTest; it exits non-zero on any failed check. `samples/rhi_triangle` is the windowed sample (not in CTest): it exits non-zero if validation reported anything.
 
 ## Formatting & git hooks
 

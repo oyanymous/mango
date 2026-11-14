@@ -11,6 +11,7 @@
 #include "VulkanDevice.h"
 #include "VulkanFence.h"
 #include "VulkanSemaphore.h"
+#include "VulkanSwapchain.h"
 
 namespace rhi::vulkan {
 
@@ -76,8 +77,40 @@ Result<void> VulkanQueue::submit(SubmitDesc desc) {
     return {};
 }
 
-Result<void> VulkanQueue::present(PresentDesc) {
-    return Error{ErrorCode::Unsupported, "VulkanQueue::present is implemented in step 9"};
+Result<void> VulkanQueue::present(PresentDesc desc) {
+    if (!desc.swapchain) {
+        return Error{ErrorCode::InvalidArgument, "VulkanQueue::present: swapchain is null"};
+    }
+    const VkSwapchainKHR swapchain = static_cast<const VulkanSwapchain&>(*desc.swapchain).handle();
+    if (swapchain == VK_NULL_HANDLE) {
+        return Error{ErrorCode::OutOfDate, "VulkanQueue::present: the swapchain has no images (zero extent)"};
+    }
+
+    std::vector<VkSemaphore> wait_semaphores;
+    for (const SemaphoreRef& semaphore : desc.wait_semaphores) {
+        if (!semaphore) {
+            return Error{ErrorCode::InvalidArgument, "VulkanQueue::present: null wait semaphore"};
+        }
+        wait_semaphores.push_back(static_cast<const VulkanSemaphore&>(*semaphore).handle());
+    }
+
+    VkPresentInfoKHR info{};
+    info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    info.waitSemaphoreCount = static_cast<std::uint32_t>(wait_semaphores.size());
+    info.pWaitSemaphores = wait_semaphores.data();
+    info.swapchainCount = 1;
+    info.pSwapchains = &swapchain;
+    info.pImageIndices = &desc.image_index;
+
+    const VkResult result = vkQueuePresentKHR(m_queue, &info);
+    // A suboptimal swapchain still presented, but should be resized like an out-of-date one.
+    if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR) {
+        return Error{ErrorCode::OutOfDate, "VulkanQueue::present: the swapchain must be resized"};
+    }
+    if (result != VK_SUCCESS) {
+        return toError(result, "vkQueuePresentKHR");
+    }
+    return {};
 }
 
 } // namespace rhi::vulkan

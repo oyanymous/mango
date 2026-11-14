@@ -43,12 +43,13 @@ public:
      * @param device Owner of the VkDevice.
      * @param desc The descriptor it was created with.
      * @param image The image.
-     * @param allocation Its memory.
+     * @param allocation Its memory, or VK_NULL_HANDLE for an image owned elsewhere (a swapchain backbuffer),
+     *                   which is then not destroyed with the texture.
      */
     VulkanTexture(std::shared_ptr<VulkanDeviceHandle> device, TextureDesc desc, VkImage image,
                   VmaAllocation allocation);
     /**
-     * @brief Destroys the image and frees its memory.
+     * @brief Destroys the image and frees its memory, unless the image is owned elsewhere.
      */
     ~VulkanTexture() override;
 

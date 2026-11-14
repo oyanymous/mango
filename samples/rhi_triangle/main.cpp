@@ -1,0 +1,249 @@
+/**
+ * @file
+ * @brief rhi_triangle: a window rendered with the RHI. For now it presents an animated clear colour.
+ *
+ * Validation is on; every validation warning or error is printed, and the program exits non-zero if there was
+ * any. Resizing and minimizing the window recreate the swapchain.
+ */
+
+#include <array>
+#include <chrono>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <thread>
+#include <type_traits>
+#include <vector>
+
+#include "Application.h"
+#include "RHI.h"
+#include "Window.h"
+
+namespace {
+
+constexpr std::size_t kFramesInFlight = 2;
+constexpr rhi::Format kBackbufferFormat = rhi::Format::BGRA8Unorm;
+
+/** @brief Per-frame-in-flight objects; a frame's fence guards all of them. */
+struct Frame {
+    rhi::CommandBufferRef command_buffer;
+    rhi::FenceRef fence;           /**< Signaled when the frame's submit finished; created signaled. */
+    rhi::SemaphoreRef image_ready; /**< Signaled by acquire, waited by the submit. */
+};
+
+/** @brief The renderer's state: device objects plus everything that depends on the swapchain images. */
+struct Renderer {
+    rhi::DeviceRef device;
+    rhi::QueueRef queue;
+    rhi::SwapchainRef swapchain;
+    rhi::RenderPassRef render_pass;
+    std::array<Frame, kFramesInFlight> frames;
+    std::size_t frame_index = 0;
+    // Indexed by swapchain image. A present's wait semaphore may only be reused once that image is acquired
+    // again, so "render finished" semaphores belong to images, not to frames.
+    std::vector<rhi::SemaphoreRef> render_finished;
+    std::vector<rhi::RenderTargetRef> targets;
+    bool needs_resize = false;
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+};
+
+/** @brief Unwraps a Result or exits with its error message. */
+template <typename T>
+T orExit(rhi::Result<T> result, const char* what) {
+    if (!result) {
+        std::fprintf(stderr, "%s failed: %s\n", what, result.error().message.c_str());
+        std::exit(EXIT_FAILURE);
+    }
+    if constexpr (!std::is_void_v<T>) {
+        return std::move(result).value();
+    }
+}
+
+/** @brief Recreates the swapchain at the window's size and drops everything built on the old images. */
+void resize(Renderer& r, const Window& window) {
+    const WindowSize size = window.clientSize();
+    r.targets.clear();
+    if (rhi::Result<void> result =
+            r.swapchain->resize({static_cast<std::uint32_t>(size.width), static_cast<std::uint32_t>(size.height)});
+        !result) {
+        std::fprintf(stderr, "swapchain resize failed: %s\n", result.error().message.c_str());
+        std::exit(EXIT_FAILURE);
+    }
+    r.needs_resize = false;
+}
+
+/** @brief The render target for a backbuffer, created on first use after each resize. */
+rhi::RenderTargetRef targetFor(Renderer& r, std::uint32_t image_index, const rhi::TextureRef& backbuffer) {
+    if (r.targets.size() <= image_index) {
+        r.targets.resize(image_index + 1);
+    }
+    if (!r.targets[image_index]) {
+        const rhi::TextureDesc desc = backbuffer->getDesc();
+        auto view = orExit(r.device->createTextureView({.texture = backbuffer}), "createTextureView");
+        r.targets[image_index] =
+            orExit(r.device->createRenderTarget({.render_pass = r.render_pass,
+                                                 .color_attachments = {view},
+                                                 .extent = {desc.extent.width, desc.extent.height}}),
+                   "createRenderTarget");
+    }
+    return r.targets[image_index];
+}
+
+/** @brief The binary semaphore a present of @p image_index waits on. */
+rhi::SemaphoreRef renderFinishedFor(Renderer& r, std::uint32_t image_index) {
+    if (r.render_finished.size() <= image_index) {
+        r.render_finished.resize(image_index + 1);
+    }
+    if (!r.render_finished[image_index]) {
+        r.render_finished[image_index] = orExit(r.device->createSemaphore({}), "createSemaphore");
+    }
+    return r.render_finished[image_index];
+}
+
+/** @brief Records, submits and presents one frame. */
+void renderFrame(Renderer& r, const Window& window) {
+    const WindowSize size = window.clientSize();
+    if (size.width == 0 || size.height == 0) {
+        // Minimized: nothing to present; don't spin.
+        std::this_thread::sleep_for(std::chrono::milliseconds(16));
+        r.needs_resize = true;
+        return;
+    }
+    if (r.needs_resize) {
+        resize(r, window);
+    }
+
+    Frame& frame = r.frames[r.frame_index];
+    orExit(frame.fence->wait(rhi::kWaitForever), "fence wait");
+
+    rhi::AcquireResult acquired = r.swapchain->acquire({.signal_semaphore = frame.image_ready});
+    if (acquired.status == rhi::AcquireStatus::OutOfDate) {
+        resize(r, window);
+        return;
+    }
+    if (acquired.status != rhi::AcquireStatus::Success && acquired.status != rhi::AcquireStatus::Suboptimal) {
+        std::fprintf(stderr, "swapchain acquire failed\n");
+        std::exit(EXIT_FAILURE);
+    }
+    if (acquired.status == rhi::AcquireStatus::Suboptimal) {
+        r.needs_resize = true; // still render this image; its semaphore is already pending
+    }
+
+    // Cycle the hue slowly so a stuck frame is obvious.
+    const float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - r.start).count();
+    const std::array<float, 4> color = {0.5f + 0.5f * std::sin(t), 0.5f + 0.5f * std::sin(t + 2.094f),
+                                        0.5f + 0.5f * std::sin(t + 4.189f), 1.0f};
+
+    orExit(frame.fence->reset(), "fence reset");
+    rhi::ICommandBuffer& cmd = *frame.command_buffer;
+    orExit(cmd.begin(), "command buffer begin");
+    cmd.barrier({.textures = {{.texture = acquired.texture,
+                               .before = rhi::ResourceState::Undefined,
+                               .after = rhi::ResourceState::RenderTarget}}});
+    {
+        rhi::RenderEncoderRef pass = cmd.beginRender({.render_pass = r.render_pass,
+                                                      .target = targetFor(r, acquired.image_index, acquired.texture),
+                                                      .clear_colors = {color}});
+        pass->end();
+    }
+    cmd.barrier({.textures = {{.texture = acquired.texture,
+                               .before = rhi::ResourceState::RenderTarget,
+                               .after = rhi::ResourceState::Present}}});
+    orExit(cmd.end(), "command buffer end");
+
+    rhi::SemaphoreRef render_finished = renderFinishedFor(r, acquired.image_index);
+    orExit(r.queue->submit({
+               .command_buffers = {frame.command_buffer},
+               .waits = {{frame.image_ready, 0, rhi::PipelineStage::RenderTargetOutput}},
+               .signals = {{render_finished, 0}},
+               .fence = frame.fence,
+           }),
+           "submit");
+
+    rhi::Result<void> presented = r.queue->present(
+        {.swapchain = r.swapchain, .image_index = acquired.image_index, .wait_semaphores = {render_finished}});
+    if (!presented) {
+        if (presented.error().code != rhi::ErrorCode::OutOfDate) {
+            std::fprintf(stderr, "present failed: %s\n", presented.error().message.c_str());
+            std::exit(EXIT_FAILURE);
+        }
+        r.needs_resize = true;
+    }
+    r.frame_index = (r.frame_index + 1) % kFramesInFlight;
+}
+
+} // namespace
+
+int main() {
+    Application app;
+    Window window("rhi_triangle");
+    window.display();
+
+    int problems = 0;
+    rhi::RHIFactory factory;
+    auto instance = orExit(factory.createInstance(rhi::Backend::Vulkan,
+                                                  {
+                                                      .application_name = "rhi_triangle",
+                                                      .enable_validation = true,
+                                                      .debug_callback =
+                                                          [&problems](const rhi::DebugMessage& message) {
+                                                              if (message.severity == rhi::DebugSeverity::Warning ||
+                                                                  message.severity == rhi::DebugSeverity::Error) {
+                                                                  ++problems;
+                                                              }
+                                                              std::printf("[debug] %.*s\n",
+                                                                          static_cast<int>(message.message.size()),
+                                                                          message.message.data());
+                                                          },
+                                                  }),
+                           "createInstance");
+
+    const NativeWindow native = window.nativeWindow();
+    auto surface = orExit(
+        instance->createSurface({.window = rhi::Win32WindowHandle{.hinstance = native.hinstance, .hwnd = native.hwnd}}),
+        "createSurface");
+
+    rhi::AdapterList adapters = instance->enumerateAdapters();
+    if (adapters.empty()) {
+        std::fprintf(stderr, "no Vulkan 1.2 adapter\n");
+        return EXIT_FAILURE;
+    }
+    std::printf("Adapter: %s\n", adapters[0]->getCapabilities().name.c_str());
+
+    {
+        Renderer r;
+        r.device = orExit(adapters[0]->createDevice({}), "createDevice");
+        r.queue = r.device->getQueue(rhi::QueueType::Graphics);
+        const WindowSize size = window.clientSize();
+        r.swapchain = orExit(r.device->createSwapchain({.surface = surface,
+                                                        .extent = {static_cast<std::uint32_t>(size.width),
+                                                                   static_cast<std::uint32_t>(size.height)},
+                                                        .format = kBackbufferFormat}),
+                             "createSwapchain");
+        r.render_pass = orExit(r.device->createRenderPass({.color_attachments = {{.format = kBackbufferFormat}}}),
+                               "createRenderPass");
+        for (Frame& frame : r.frames) {
+            frame.command_buffer = orExit(r.device->createCommandBuffer({}), "createCommandBuffer");
+            frame.fence = orExit(r.device->createFence({.signaled = true}), "createFence");
+            frame.image_ready = orExit(r.device->createSemaphore({}), "createSemaphore");
+        }
+
+        window.setResizeCallback([&r](WindowSize) { r.needs_resize = true; });
+        std::uint64_t frames = 0;
+        Application::setFrameCallback([&] {
+            renderFrame(r, window);
+            ++frames;
+        });
+        app.run();
+
+        Application::setFrameCallback({});
+        window.setResizeCallback({});
+        // shortcut: fences do not cover the last present's semaphore wait, and the RHI has no device-idle call
+        // yet; dropping the swapchain first waits for the device (step 13 adds deferred destruction).
+        r.swapchain.reset();
+        std::printf("Rendered %llu frames\n", static_cast<unsigned long long>(frames));
+    }
+
+    std::printf("%d validation warning(s)/error(s)\n", problems);
+    return problems == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+}

@@ -78,7 +78,7 @@ public:
     AdapterList enumerateAdapters() override;
 
     /**
-     * @brief Not implemented yet (step 9 of docs/RHI_VULKAN_PLAN.md); returns ErrorCode::Unsupported.
+     * @brief Creates a VulkanSurface for a Win32 window (or, untested, a CAMetalLayer).
      */
     Result<SurfaceRef> createSurface(SurfaceDesc desc) override;
 private:

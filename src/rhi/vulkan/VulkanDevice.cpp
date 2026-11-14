@@ -13,6 +13,7 @@
 #include "VulkanQueue.h"
 #include "VulkanRenderPass.h"
 #include "VulkanSemaphore.h"
+#include "VulkanSwapchain.h"
 #include "VulkanTexture.h"
 
 namespace rhi::vulkan {
@@ -106,8 +107,8 @@ Result<CommandBufferRef> VulkanDevice::createCommandBuffer(CommandBufferDesc des
     return VulkanCommandBuffer::create(m_device, std::move(desc), queue.familyIndex());
 }
 
-Result<SwapchainRef> VulkanDevice::createSwapchain(SwapchainDesc) {
-    return notImplemented("createSwapchain", 9);
+Result<SwapchainRef> VulkanDevice::createSwapchain(SwapchainDesc desc) {
+    return VulkanSwapchain::create(m_device, std::move(desc));
 }
 
 Result<FenceRef> VulkanDevice::createFence(FenceDesc desc) {

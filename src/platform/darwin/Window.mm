@@ -50,3 +50,17 @@ void Window::setWindowTitle(const std::string& window_title) {
 }
 
 Window::~Window() = default;
+
+// shortcut: no CAMetalLayer or resize notifications on macOS yet; add them with MoltenVK (first macOS build).
+NativeWindow Window::nativeWindow() const {
+    return {};
+}
+
+WindowSize Window::clientSize() const {
+    const NSRect frame = [[m_impl->m_window contentView] frame];
+    const CGFloat scale = [m_impl->m_window backingScaleFactor];
+    return {static_cast<int>(frame.size.width * scale), static_cast<int>(frame.size.height * scale)};
+}
+
+void Window::setResizeCallback(std::function<void(WindowSize)>) {
+}

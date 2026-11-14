@@ -76,6 +76,10 @@ if (MANGO_RHI_VULKAN)
         vulkan/VulkanRenderPass.cpp
         vulkan/VulkanRenderEncoder.h
         vulkan/VulkanRenderEncoder.cpp
+        vulkan/VulkanSurface.h
+        vulkan/VulkanSurface.cpp
+        vulkan/VulkanSwapchain.h
+        vulkan/VulkanSwapchain.cpp
     )
 
     # Backend headers are private to RHI and included bare ("VulkanInstance.h").
@@ -84,6 +88,12 @@ if (MANGO_RHI_VULKAN)
     # Vulkan stays a PRIVATE dependency: no Vulkan type may appear in a public RHI header.
     target_link_libraries(RHI PRIVATE mango::volk mango::VulkanMemoryAllocator)
     target_compile_definitions(RHI PUBLIC MANGO_RHI_VULKAN=1)
+    # Surface creation needs the platform's WSI declarations, in every RHI translation unit (volk included).
+    if (WIN32)
+        target_compile_definitions(RHI PRIVATE VK_USE_PLATFORM_WIN32_KHR WIN32_LEAN_AND_MEAN NOMINMAX)
+    elseif (APPLE)
+        target_compile_definitions(RHI PRIVATE VK_USE_PLATFORM_METAL_EXT)
+    endif ()
 
     if (MANGO_VULKAN_VALIDATION)
         # Instances created with enable_validation find the layer built from source here.

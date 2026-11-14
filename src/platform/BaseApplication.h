@@ -5,6 +5,8 @@
  * @brief The OS-independent part of the application.
  */
 
+#include <functional>
+#include <utility>
 #include <vector>
 
 #include "IWidget.h"
@@ -33,9 +35,22 @@ public:
     [[nodiscard]] std::vector<IWidget*> topLevelWidgets() { return m_top_level_widgets; }
 
     /**
+     * @brief Sets a function the event loop calls once per iteration, after pending events are handled.
+     *
+     * @details
+     * With a frame callback the loop polls instead of blocking, so the callback runs continuously (e.g. to
+     * render). Pass an empty function to go back to a blocking loop.
+     *
+     * @param callback Called on the thread that runs the event loop.
+     */
+    void setFrameCallback(std::function<void()> callback) { m_frame_callback = std::move(callback); }
+
+    /**
      * @brief Runs the native event loop. Blocks until the application quits.
      */
     virtual void run() = 0;
+protected:
+    std::function<void()> m_frame_callback; /**< Called once per loop iteration; may be empty. */
 private:
     std::vector<IWidget*> m_top_level_widgets;
 };

@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "VulkanAdapter.h"
+#include "VulkanSurface.h"
 
 namespace rhi::vulkan {
 
@@ -112,8 +113,8 @@ AdapterList VulkanInstance::enumerateAdapters() {
     return m_adapters;
 }
 
-Result<SurfaceRef> VulkanInstance::createSurface(SurfaceDesc) {
-    return Error{ErrorCode::Unsupported, "VulkanInstance::createSurface is implemented in step 9"};
+Result<SurfaceRef> VulkanInstance::createSurface(SurfaceDesc desc) {
+    return VulkanSurface::create(m_instance, std::move(desc));
 }
 
 } // namespace rhi::vulkan

@@ -126,7 +126,10 @@ VulkanTexture::VulkanTexture(std::shared_ptr<VulkanDeviceHandle> device, Texture
 }
 
 VulkanTexture::~VulkanTexture() {
-    vmaDestroyImage(m_device->m_allocator, m_image, m_allocation);
+    // Swapchain backbuffers have no allocation: the swapchain owns their images.
+    if (m_allocation != VK_NULL_HANDLE) {
+        vmaDestroyImage(m_device->m_allocator, m_image, m_allocation);
+    }
 }
 
 TextureDesc VulkanTexture::getDesc() const {

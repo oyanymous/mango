@@ -42,6 +42,17 @@ public:
     static void addTopLevelWidget(IWidget* widget) { PrivateApplication::instance().addTopLevelWidget(widget); }
 
     /**
+     * @brief Sets a function the event loop calls once per iteration; see BaseApplication::setFrameCallback.
+     *
+     * @note Not called on macOS yet (the Cocoa loop has no frame hook); only the Win32 loop supports it.
+     *
+     * @param callback Called on the event-loop thread; an empty function restores the blocking loop.
+     */
+    static void setFrameCallback(std::function<void()> callback) {
+        PrivateApplication::instance().setFrameCallback(std::move(callback));
+    }
+
+    /**
      * @brief Runs the native event loop. Blocks until the application quits.
      */
     void run();

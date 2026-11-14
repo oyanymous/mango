@@ -38,7 +38,10 @@ public:
      */
     Result<void> submit(SubmitDesc desc) override;
     /**
-     * @brief Not implemented yet (step 9 of docs/RHI_VULKAN_PLAN.md); returns ErrorCode::Unsupported.
+     * @brief Presents with vkQueuePresentKHR.
+     *
+     * @return Success, or ErrorCode::OutOfDate when the swapchain is out of date, suboptimal (the image was still
+     *         presented) or has a zero extent.
      */
     Result<void> present(PresentDesc desc) override;
 

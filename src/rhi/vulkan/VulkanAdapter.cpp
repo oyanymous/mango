@@ -168,8 +168,9 @@ Result<DeviceRef> VulkanAdapter::createDevice(DeviceDesc desc) {
     vkEnumerateDeviceExtensionProperties(m_physical_device, nullptr, &extension_count, available.data());
 
     std::vector<const char*> extensions;
-    // Swapchains come in step 9; without the extension only presentation is unavailable.
-    if (hasDeviceExtension(available, VK_KHR_SWAPCHAIN_EXTENSION_NAME)) {
+    // Without the extension only presentation is unavailable (createSwapchain returns Unsupported).
+    const bool swapchain = hasDeviceExtension(available, VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    if (swapchain) {
         extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     }
     // The spec requires enabling it on portability implementations (MoltenVK) whenever it is exposed.
@@ -196,6 +197,8 @@ Result<DeviceRef> VulkanAdapter::createDevice(DeviceDesc desc) {
 
     auto handle = std::make_shared<VulkanDeviceHandle>(m_instance);
     handle->m_physical_device = m_physical_device;
+    handle->m_graphics_family = static_cast<std::uint32_t>(graphics);
+    handle->m_swapchain_enabled = swapchain;
     if (VkResult result = vkCreateDevice(m_physical_device, &create_info, nullptr, &handle->m_device);
         result != VK_SUCCESS) {
         handle->m_device = VK_NULL_HANDLE;
