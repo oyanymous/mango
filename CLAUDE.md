@@ -4,15 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build & run
 
-CMake (≥ 3.24) with a single preset, `macos` (Apple Clang, Debug, output in `build/macos/`):
+CMake (≥ 3.24), C++20, one preset per host OS (Debug, output in `build/<preset>/`):
+
+- `macos`: Apple Clang.
+- `windows`: Ninja + `g++` from `PATH` (CLion's bundled MinGW works: put its `bin/cmake/win/x64/bin`, `bin/ninja/win/x64` and `bin/mingw/bin` on `PATH`).
 
 ```bash
 cmake --preset macos
 cmake --build --preset macos
-./build/macos/main
+ctest --preset macos
+./build/macos/src/main
 ```
 
-There are no tests yet.
+The Vulkan RHI backend (`MANGO_RHI_VULKAN`, default ON) needs **no Vulkan SDK**: `cmake/VulkanDependencies.cmake` fetches Vulkan-Headers, volk and VMA at pinned versions (keep Vulkan-Headers and volk on the same `vulkan-sdk-*` tag). volk loads the GPU driver's Vulkan loader at runtime, so nothing links against it; their implementations are compiled once in `src/rhi/vulkan/*Implementation.cpp`. Do not add `find_package(Vulkan)` or other SDK lookups. Configure with `-DMANGO_RHI_VULKAN=OFF` to build without the backend.
+
+Tests: `samples/rhi_smoke` is a headless check program registered with CTest; it exits non-zero on any failed check.
 
 ## Formatting & git hooks
 
@@ -29,7 +35,7 @@ Hook scripts must keep LF line endings (enforced by `.gitattributes`) and the ex
 
 Early-stage macOS renderer. `src/main.cpp` creates an `Application` and a top-level `Widget`, then calls `app.run()` (blocks in the Cocoa run loop).
 
-Three library targets, with dependencies flowing `UI → Platform → Core`:
+Four library targets, with dependencies flowing `UI → Platform → Core` and `RHI → Core`:
 
 - **`src/core`** — header-only `INTERFACE` target `Core`. Holds abstract interfaces shared across layers (e.g. `IWidget`), so `src/platform` can refer to widgets without depending on `src/ui`.
 - **`src/platform`** — static library target `Platform` (links `Core` and Cocoa publicly).
@@ -38,6 +44,7 @@ Three library targets, with dependencies flowing `UI → Platform → Core`:
   - Platform-specific implementations live in per-OS subdirectories; `src/platform` are Objective-C++ files that define `Impl` with AppKit objects (`NSApplication`, `NSWindow`, delegate classes). New OS backends would follow the same pattern alongside `darwin/`.
   - The project enables the `OBJCXX` language in the root `src/CMakeLists.txt`.
 - **`src/ui`** — static library target `UI` (links `Platform` and `Core`). `Widget` implements `IWidget`; a parentless `Widget` registers itself via `Application::addTopLevelWidget`. Also holds geometry/value types (`Point`, `Size`, `Rect`, `Line`, `Polygon`, `Color`).
+- **`src/rhi`** — static library target `RHI` (links `Core`): the GPU abstraction from `docs/diagrams/`, in `namespace rhi`, being built step by step per `docs/RHI_VULKAN_PLAN.md`. Backend code lives in `src/rhi/vulkan/` and is compiled in when `MANGO_RHI_VULKAN` is ON; Vulkan and VMA are linked `PRIVATE`, so public RHI headers must never include Vulkan headers. RHI does not depend on `Platform`.
 - ARC is not enabled (no `-fobjc-arc`), so Objective-C objects in `.mm` files are under manual reference counting.
 
 ### Include style

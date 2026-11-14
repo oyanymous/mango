@@ -16,21 +16,21 @@ step for review before the next one starts.
 | Language | C++20 | Designated initializers for `*Desc` structs, `std::span`. |
 | `Result<T>` | Small project-owned `Result<T>` / `Result<void>` holding a value or an `Error {code, message}` | `std::expected` needs C++23; can be swapped later. |
 | `*Ref` types | `using BufferRef = std::shared_ptr<IBuffer>;` etc. | Diagrams use "retains" relationships everywhere. |
-| Vulkan SDK | LunarG Vulkan SDK via `find_package(Vulkan REQUIRED COMPONENTS glslc)`; MoltenVK on macOS | Ships headers, loader, validation layers and `glslc`. |
+| Vulkan dependencies | **No Vulkan SDK.** Everything is fetched by CMake at pinned versions (`cmake/VulkanDependencies.cmake`): Vulkan-Headers and volk on the same `vulkan-sdk-*` tag, VMA. volk loads the driver's loader (`vulkan-1.dll` / `libvulkan`) at runtime, so nothing links against it | Every machine builds against identical versions; no per-developer installs. |
 | API level | Vulkan 1.2 + timeline semaphores; classic `VkRenderPass`/`VkFramebuffer` as in `RHI_RENDER_TARGETS.mmd` | Works on MoltenVK; matches the diagrams. |
-| Memory | Vulkan Memory Allocator (VMA) via `FetchContent` | Avoids hand-written allocators. Diagrams' `VkDeviceMemory` members become `VmaAllocation` (diagrams updated in the last step). |
-| Shaders | GLSL compiled to SPIR-V at build time with `glslc`; `ShaderDesc` takes SPIR-V bytes | No runtime compiler dependency. |
-| Debugging | Validation layers + debug messenger on in Debug builds; any validation error fails the smoke tests | Gives each step an objective "clean" check. |
+| Memory | Vulkan Memory Allocator (VMA), fetched, with functions loaded through volk | Avoids hand-written allocators. Diagrams' `VkDeviceMemory` members become `VmaAllocation` (diagrams updated in the last step). |
+| Shaders | GLSL compiled to SPIR-V at build time with a glslang compiler fetched and built by CMake (step 10); `ShaderDesc` takes SPIR-V bytes | No runtime compiler dependency, no installed `glslc`. |
+| Debugging | Validation layers + debug messenger on in Debug builds; any validation error fails the smoke tests. How the layers are obtained without an SDK (built from Khronos source by CMake vs. a prebuilt release) is decided at the start of step 3; on macOS the same goes for MoltenVK | Gives each step an objective "clean" check. |
 | Verification | `samples/rhi_smoke` (headless, registered with CTest) and `samples/rhi_triangle` (windowed) | Repo has no tests yet; these become them. |
 
 ## Steps
 
 ### 1. Build setup and empty RHI library
-- Add a `windows` configure/build preset (MSVC, Debug, `build/windows/`) next to `macos`; set C++20.
-- Add `MANGO_RHI_VULKAN` option (default ON), `find_package(Vulkan)`, fetch VMA.
+- Add a `windows` configure/build/test preset (Ninja + MinGW g++, Debug, `build/windows/`) next to `macos`; set C++20.
+- Add `MANGO_RHI_VULKAN` option (default ON); fetch Vulkan-Headers, volk and VMA at pinned versions.
 - Create `src/rhi/` target `RHI` with `Result.h`, `Backend.h` (`enum class Backend { Vulkan, Metal, GL }`)
   and common value types (`Extent2D/3D`, `Format`, `QueueType`, …).
-- Add `samples/rhi_smoke` that links `RHI` and prints the Vulkan header version; register with CTest.
+- Add `samples/rhi_smoke` that links `RHI`, prints the Vulkan header version and loads the driver's loader through volk; register with CTest.
 - **Verify:** both presets configure and build; `main` still opens its window; `ctest` passes.
 
 ### 2. Public RHI interfaces (headers only)
@@ -96,11 +96,5 @@ step for review before the next one starts.
 - Deferred destruction of resources still in flight, `m_retained_resources` release on fence completion,
   clean shutdown order, error paths return `Result` errors instead of asserting.
 - Update the `.mmd` diagrams where the implementation diverged (e.g. VMA members), `CLAUDE.md`
-  (new targets, presets, Vulkan SDK requirement).
+  (new targets, presets, fetched dependencies).
 - **Verify:** all samples run validation-clean, including window close mid-frame; diagrams render.
-
-## Before step 1
-- The `rhi` branch has uncommitted diagram edits; they should be committed (or stashed) first so the
-  implementation commits stay separate.
-- Install the LunarG Vulkan SDK (not found on this machine: `VULKAN_SDK` is unset) and make sure `cmake`
-  is on `PATH`.
