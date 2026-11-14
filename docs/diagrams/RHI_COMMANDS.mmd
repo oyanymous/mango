@@ -29,6 +29,9 @@ classDiagram
         -CommandBufferDesc m_desc
         -RecordingState m_state
         -ResourceRefList m_retained_resources
+        -VulkanSemaphoreRef m_pending_timeline
+        -uint64 m_pending_value
+        -VkCommandPool m_pool
         -VkCommandBuffer m_command_buffer
         +begin() Result~void~
         +barrier(BarrierBatch) void

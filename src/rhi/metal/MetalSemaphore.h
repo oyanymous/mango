@@ -44,6 +44,10 @@ public:
 
     SemaphoreKind getKind() const override;
     std::uint64_t getValue() const override;
+    /**
+     * @brief Sets the event's signaledValue (Timeline only).
+     */
+    Result<void> signal(std::uint64_t value) override;
 
     /**
      * @brief The event value a submission signaling @p requested must set. Timeline: @p requested; Binary: the next

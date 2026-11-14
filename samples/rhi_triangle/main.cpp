@@ -394,9 +394,7 @@ int main() {
 
         Application::setFrameCallback({});
         window.setResizeCallback({});
-        // shortcut: fences do not cover the last present's semaphore wait, and the RHI has no device-idle call
-        // yet; dropping the swapchain first waits for the device (step 13 adds deferred destruction).
-        r.swapchain.reset();
+        // Renderer is destroyed in any order: the queue keeps in-flight objects alive and waits for idle last.
         std::printf("Rendered %llu frames\n", static_cast<unsigned long long>(frames));
     }
 

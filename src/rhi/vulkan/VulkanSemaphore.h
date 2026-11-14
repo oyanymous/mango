@@ -49,6 +49,10 @@ public:
      * @brief Reads the counter with vkGetSemaphoreCounterValue (Timeline only).
      */
     std::uint64_t getValue() const override;
+    /**
+     * @brief Signals with vkSignalSemaphore (Timeline only).
+     */
+    Result<void> signal(std::uint64_t value) override;
 
     /**
      * @brief The VkSemaphore, for VkQueue submissions.

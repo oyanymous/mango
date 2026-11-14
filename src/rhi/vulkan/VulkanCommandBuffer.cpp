@@ -11,6 +11,7 @@
 #include "VulkanDevice.h"
 #include "VulkanRenderEncoder.h"
 #include "VulkanRenderPass.h"
+#include "VulkanSemaphore.h"
 #include "VulkanTexture.h"
 
 namespace rhi::vulkan {
@@ -135,7 +136,13 @@ Result<void> VulkanCommandBuffer::begin() {
     if (m_state == RecordingState::Encoding) {
         return Error{ErrorCode::InvalidArgument, "ICommandBuffer::begin: an encoder is still open"};
     }
-    // The caller guarantees the previous submission finished, so its resources can go.
+    if (m_state == RecordingState::Pending) {
+        if (m_pending_timeline->getValue() < m_pending_value) {
+            return Error{ErrorCode::InvalidArgument, "ICommandBuffer::begin: the last submission is still executing"};
+        }
+        m_pending_timeline.reset();
+    }
+    // The previous submission finished, so its resources can go.
     m_retained_resources.clear();
     if (VkResult result = vkResetCommandPool(m_device->m_device, m_pool, 0); result != VK_SUCCESS) {
         return toError(result, "vkResetCommandPool");
@@ -294,6 +301,18 @@ Result<void> VulkanCommandBuffer::end() {
     }
     m_state = RecordingState::Executable;
     return {};
+}
+
+void VulkanCommandBuffer::markSubmitted(std::shared_ptr<VulkanSemaphore> timeline, std::uint64_t value) {
+    m_state = RecordingState::Pending;
+    m_pending_timeline = std::move(timeline);
+    m_pending_value = value;
+}
+
+void VulkanCommandBuffer::retire(std::uint64_t value) {
+    if (m_state == RecordingState::Pending && m_pending_value == value) {
+        m_retained_resources.clear();
+    }
 }
 
 void VulkanCommandBuffer::retain(std::shared_ptr<const void> resource) {

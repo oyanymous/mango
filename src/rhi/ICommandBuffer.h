@@ -127,7 +127,9 @@ public:
     virtual ~ICommandBuffer() = default;
 
     /**
-     * @brief Starts recording, discarding anything recorded before. The previous submission must have finished.
+     * @brief Starts recording, discarding anything recorded before.
+     *
+     * @return InvalidArgument while an encoder is open or the previous submission is still executing.
      */
     virtual Result<void> begin() = 0;
     /**

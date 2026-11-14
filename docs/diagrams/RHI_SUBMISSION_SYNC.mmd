@@ -18,7 +18,9 @@ classDiagram
     }
     class VulkanQueue {
         -QueueType m_queue_type
-        -CommandBufferList m_pending_submissions
+        -InFlightList m_in_flight
+        -VulkanSemaphoreRef m_timeline
+        -PresentWaitMap m_presented
         -VkQueue m_queue
         +submit(SubmitDesc) Result~void~
         +present(PresentDesc) Result~void~
@@ -64,6 +66,7 @@ classDiagram
         <<interface>>
         +getKind() SemaphoreKind
         +getValue() uint64
+        +signal(uint64) Result~void~
     }
     class MetalSemaphore {
         -SemaphoreKind m_kind
@@ -71,13 +74,14 @@ classDiagram
         -MetalEventState m_event_state
         +getKind() SemaphoreKind
         +getValue() uint64
+        +signal(uint64) Result~void~
     }
     class VulkanSemaphore {
         -SemaphoreKind m_kind
-        -uint64 m_value
         -VkSemaphore m_semaphore
         +getKind() SemaphoreKind
         +getValue() uint64
+        +signal(uint64) Result~void~
     }
     class GLSemaphore {
         -SemaphoreKind m_kind
@@ -85,6 +89,7 @@ classDiagram
         -GLSemaphoreState m_sync_state
         +getKind() SemaphoreKind
         +getValue() uint64
+        +signal(uint64) Result~void~
     }
     class ICommandBuffer {
         <<external>>

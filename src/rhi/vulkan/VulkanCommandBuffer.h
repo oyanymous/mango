@@ -15,6 +15,7 @@
 namespace rhi::vulkan {
 
 class VulkanDeviceHandle;
+class VulkanSemaphore;
 
 /**
  * @brief The Vulkan ICommandBuffer. Created by VulkanDevice::createCommandBuffer.
@@ -33,6 +34,7 @@ public:
         Recording,  /**< Between begin() and end(), no encoder open. */
         Encoding,   /**< An encoder is open. */
         Executable, /**< end() succeeded; can be submitted. */
+        Pending,    /**< Submitted; begin() fails until the GPU finished it. */
     };
 
     /**
@@ -109,10 +111,24 @@ public:
      * @brief Called by an encoder's end(): recording continues on the command buffer.
      */
     void endEncoder();
+    /**
+     * @brief Called by VulkanQueue::submit: the command buffer runs until @p timeline reaches @p value.
+     *
+     * @param timeline The queue's timeline semaphore; kept alive by the command buffer.
+     * @param value The value the submission signals on it.
+     */
+    void markSubmitted(std::shared_ptr<VulkanSemaphore> timeline, std::uint64_t value);
+    /**
+     * @brief Called by VulkanQueue once the submission that signals @p value finished: releases the recorded
+     * resources, unless the command buffer has been begun again since.
+     */
+    void retire(std::uint64_t value);
 private:
     CommandBufferDesc m_desc;
     RecordingState m_state = RecordingState::Initial;
     std::vector<std::shared_ptr<const void>> m_retained_resources;
+    std::shared_ptr<VulkanSemaphore> m_pending_timeline; // set while Pending
+    std::uint64_t m_pending_value = 0;
     VkCommandPool m_pool = VK_NULL_HANDLE;
     VkCommandBuffer m_command_buffer = VK_NULL_HANDLE;
     std::shared_ptr<VulkanDeviceHandle> m_device;

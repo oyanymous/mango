@@ -33,6 +33,18 @@ std::uint64_t MetalSemaphore::getValue() const {
     return m_kind == SemaphoreKind::Timeline ? m_event.signaledValue : 0;
 }
 
+Result<void> MetalSemaphore::signal(std::uint64_t value) {
+    if (m_kind != SemaphoreKind::Timeline) {
+        return Error{ErrorCode::InvalidArgument, "ISemaphore::signal: only Timeline semaphores can be signaled"};
+    }
+    // Same rule as Vulkan: the counter only moves forward.
+    if (value <= m_event.signaledValue) {
+        return Error{ErrorCode::InvalidArgument, "ISemaphore::signal: value must exceed the current value"};
+    }
+    m_event.signaledValue = value;
+    return {};
+}
+
 std::uint64_t MetalSemaphore::nextSignalValue(std::uint64_t requested) {
     if (m_kind == SemaphoreKind::Timeline) {
         return requested;

@@ -238,6 +238,7 @@ classDiagram
         <<external>>
         +getKind() SemaphoreKind
         +getValue() uint64
+        +signal(uint64) Result~void~
     }
     IDeviceFactory <|.. MetalDeviceFactory
     IDeviceFactory <|.. VulkanDeviceFactory

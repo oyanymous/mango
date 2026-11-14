@@ -46,4 +46,22 @@ std::uint64_t VulkanSemaphore::getValue() const {
     return value;
 }
 
+Result<void> VulkanSemaphore::signal(std::uint64_t value) {
+    if (m_kind != SemaphoreKind::Timeline) {
+        return Error{ErrorCode::InvalidArgument, "ISemaphore::signal: only Timeline semaphores can be signaled"};
+    }
+    // Vulkan requires a strictly increasing value; checking here turns a validation error into a Result.
+    if (value <= getValue()) {
+        return Error{ErrorCode::InvalidArgument, "ISemaphore::signal: value must exceed the current value"};
+    }
+    VkSemaphoreSignalInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO;
+    info.semaphore = m_semaphore;
+    info.value = value;
+    if (VkResult result = vkSignalSemaphore(m_device->m_device, &info); result != VK_SUCCESS) {
+        return toError(result, "vkSignalSemaphore");
+    }
+    return {};
+}
+
 } // namespace rhi::vulkan

@@ -9,6 +9,7 @@
 #include <string>
 
 #include "RHIFwd.h"
+#include "Result.h"
 
 namespace rhi {
 
@@ -51,6 +52,13 @@ public:
      * @return The current value for a Timeline semaphore; always 0 for a Binary one.
      */
     virtual std::uint64_t getValue() const = 0;
+    /**
+     * @brief Sets a Timeline semaphore's counter from the CPU, releasing GPU waits for values up to @p value.
+     *
+     * @param value The new value; must be greater than the current one.
+     * @return InvalidArgument for a Binary semaphore or a value not above the current one.
+     */
+    virtual Result<void> signal(std::uint64_t value) = 0;
 };
 
 } // namespace rhi

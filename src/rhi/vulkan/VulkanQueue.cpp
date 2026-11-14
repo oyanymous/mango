@@ -15,12 +15,46 @@
 
 namespace rhi::vulkan {
 
-VulkanQueue::VulkanQueue(std::shared_ptr<VulkanDeviceHandle> device, QueueType type, std::uint32_t family_index)
-    : m_queue_type(type), m_family_index(family_index), m_device(std::move(device)) {
+Result<std::shared_ptr<VulkanQueue>> VulkanQueue::create(std::shared_ptr<VulkanDeviceHandle> device, QueueType type,
+                                                         std::uint32_t family_index) {
+    Result<SemaphoreRef> timeline = VulkanSemaphore::create(device, {.kind = SemaphoreKind::Timeline});
+    if (!timeline) {
+        return timeline.error();
+    }
+    return std::make_shared<VulkanQueue>(std::move(device), type, family_index,
+                                         std::static_pointer_cast<VulkanSemaphore>(std::move(timeline).value()));
+}
+
+VulkanQueue::VulkanQueue(std::shared_ptr<VulkanDeviceHandle> device, QueueType type, std::uint32_t family_index,
+                         std::shared_ptr<VulkanSemaphore> timeline)
+    : m_queue_type(type), m_family_index(family_index), m_timeline(std::move(timeline)), m_device(std::move(device)) {
     vkGetDeviceQueue(m_device->m_device, family_index, 0, &m_queue);
 }
 
+VulkanQueue::~VulkanQueue() {
+    // Also covers presents, whose semaphore waits no fence or timeline can observe.
+    vkQueueWaitIdle(m_queue);
+    for (InFlight& submission : m_in_flight) {
+        for (const CommandBufferRef& command_buffer : submission.command_buffers) {
+            static_cast<VulkanCommandBuffer&>(*command_buffer).retire(submission.value);
+        }
+    }
+}
+
+void VulkanQueue::retireFinished() {
+    const std::uint64_t reached = m_timeline->getValue();
+    while (!m_in_flight.empty() && m_in_flight.front().value <= reached) {
+        InFlight& submission = m_in_flight.front();
+        for (const CommandBufferRef& command_buffer : submission.command_buffers) {
+            static_cast<VulkanCommandBuffer&>(*command_buffer).retire(submission.value);
+        }
+        m_in_flight.pop_front();
+    }
+}
+
 Result<void> VulkanQueue::submit(SubmitDesc desc) {
+    retireFinished();
+
     std::vector<VkCommandBuffer> command_buffers;
     for (const CommandBufferRef& command_buffer : desc.command_buffers) {
         const auto* vk = static_cast<const VulkanCommandBuffer*>(command_buffer.get());
@@ -51,6 +85,10 @@ Result<void> VulkanQueue::submit(SubmitDesc desc) {
         signal_semaphores.push_back(static_cast<const VulkanSemaphore&>(*signal.semaphore).handle());
         signal_values.push_back(signal.value);
     }
+    // The queue's own timeline marks when this submission, and so everything it holds, is finished.
+    const std::uint64_t value = m_last_value + 1;
+    signal_semaphores.push_back(m_timeline->handle());
+    signal_values.push_back(value);
 
     VkTimelineSemaphoreSubmitInfo timeline_info{};
     timeline_info.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
@@ -74,10 +112,24 @@ Result<void> VulkanQueue::submit(SubmitDesc desc) {
     if (VkResult result = vkQueueSubmit(m_queue, 1, &submit_info, fence); result != VK_SUCCESS) {
         return toError(result, "vkQueueSubmit");
     }
+    m_last_value = value;
+
+    InFlight submission{.value = value, .command_buffers = std::move(desc.command_buffers), .fence = desc.fence};
+    for (const CommandBufferRef& command_buffer : submission.command_buffers) {
+        static_cast<VulkanCommandBuffer&>(*command_buffer).markSubmitted(m_timeline, value);
+    }
+    for (SemaphoreWait& wait : desc.waits) {
+        submission.semaphores.push_back(std::move(wait.semaphore));
+    }
+    for (SemaphoreSignal& signal : desc.signals) {
+        submission.semaphores.push_back(std::move(signal.semaphore));
+    }
+    m_in_flight.push_back(std::move(submission));
     return {};
 }
 
 Result<void> VulkanQueue::present(PresentDesc desc) {
+    retireFinished();
     if (!desc.swapchain) {
         return Error{ErrorCode::InvalidArgument, "VulkanQueue::present: swapchain is null"};
     }
@@ -103,6 +155,8 @@ Result<void> VulkanQueue::present(PresentDesc desc) {
     info.pImageIndices = &desc.image_index;
 
     const VkResult result = vkQueuePresentKHR(m_queue, &info);
+    // Even a failed present may have consumed the waits; replacing the entry releases this image's last present.
+    m_presented[{desc.swapchain.get(), desc.image_index}] = std::move(desc.wait_semaphores);
     // A suboptimal swapchain still presented, but should be resized like an out-of-date one.
     if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR) {
         return Error{ErrorCode::OutOfDate, "VulkanQueue::present: the swapchain must be resized"};

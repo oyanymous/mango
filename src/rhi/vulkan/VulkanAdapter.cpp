@@ -230,8 +230,12 @@ Result<DeviceRef> VulkanAdapter::createDevice(DeviceDesc desc) {
             }
         }
         if (!queues[type]) {
-            queues[type] = std::make_shared<VulkanQueue>(handle, static_cast<QueueType>(type),
-                                                         static_cast<std::uint32_t>(family_of[type]));
+            Result<std::shared_ptr<VulkanQueue>> queue =
+                VulkanQueue::create(handle, static_cast<QueueType>(type), static_cast<std::uint32_t>(family_of[type]));
+            if (!queue) {
+                return queue.error();
+            }
+            queues[type] = std::move(queue).value();
         }
     }
 

@@ -384,6 +384,35 @@ void testCompute(rhi::IDevice& device) {
 }
 #endif
 
+// The queue keeps submitted objects alive, and a pending command buffer refuses begin() and resubmission.
+// A gate semaphore holds the submission back until the host signals it, so the checks are not racy; validation
+// reports it if anything is destroyed while the GPU still uses it.
+void testLifetime(rhi::IDevice& device) {
+    auto gate = device.createSemaphore({.kind = rhi::SemaphoreKind::Timeline});
+    auto blocked = device.createCommandBuffer({});
+    auto fence = device.createFence({});
+    if (!gate || !blocked || !fence || !(*blocked)->begin() || !(*blocked)->end()) {
+        check(false, "lifetime test objects ready");
+        return;
+    }
+    rhi::QueueRef queue = device.getQueue(rhi::QueueType::Graphics);
+    check(
+        static_cast<bool>(queue->submit(
+            {.command_buffers = {*blocked}, .waits = {{*gate, 1, rhi::PipelineStage::AllCommands}}, .fence = *fence})),
+        "gated submit");
+    check(!(*blocked)->begin(), "begin() fails while the submission is pending");
+    check(!queue->submit({.command_buffers = {*blocked}}), "a pending command buffer cannot be resubmitted");
+
+    // Drop the test's references while the GPU still waits; the queue keeps the submission's objects alive.
+    rhi::SemaphoreRef gate_ref = *gate;
+    blocked = rhi::Error{};
+    gate = rhi::Error{};
+    check(!gate_ref->signal(0), "signal() needs a value above the current one");
+    check(static_cast<bool>(gate_ref->signal(1)) && gate_ref->getValue() == 1, "host signal opens the gate");
+    gate_ref.reset();
+    check(static_cast<bool>((*fence)->wait(std::chrono::seconds(5))), "gated submission finished");
+}
+
 // Upload a 64x64 image, copy a 32x32 region of it into a second texture, read that back and compare.
 // Also creates views and samplers.
 void testTextureRoundTrip(rhi::IDevice& device, const rhi::Capabilities& caps) {
@@ -729,6 +758,7 @@ void testBackend(rhi::Backend backend) {
             testTextureRoundTrip(**device, caps);
             testOffscreenClear(**device);
             testCompute(**device);
+            testLifetime(**device);
         }
 
         // Adapters keep the native instance alive on their own; dropping the instance first must be safe.
