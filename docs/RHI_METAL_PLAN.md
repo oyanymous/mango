@@ -4,6 +4,16 @@ Adds a Metal backend behind the existing public RHI interfaces (`src/rhi/I*.h`).
 change; every Metal-specific decision stays in `src/rhi/metal/`. Vulkan stays the reference backend: each
 step mirrors a step of `docs/RHI_VULKAN_PLAN.md` and is checked with the same smoke checks.
 
+## Status
+
+All twelve steps are done (November 2026). Deviations from the plan, found while building it:
+
+- Step 7: a `CAMetalLayer` cannot be created lazily to keep validation possible, because creating any `NSWindow`
+  initializes Metal; samples create the RHI instance before their window instead.
+- Step 9: compute pipeline creation landed with graphics pipelines; step 11 added only the compute encoder.
+- Step 10: `Application::quit()` and `rhi_triangle --frames N` were added for unattended windowed runs.
+- Texture views of a whole texture use the texture itself, so swapchain backbuffer views follow the current drawable.
+
 ## Workflow
 
 Each step ends in something that builds and can be checked on its own:
@@ -33,11 +43,11 @@ Each step ends in something that builds and can be checked on its own:
 | Binding model | Flat remap: the pipeline layout assigns each `(set, binding)` a per-stage Metal buffer/texture/sampler index, handed to SPIRV-Cross; vertex buffers take buffer indices from 30 downwards | Simple and validates easily. Argument buffers are an optimisation for later. |
 | Queues | One `MTLCommandQueue` per `QueueType` | Metal has no queue families; separate queues keep `getQueue` semantics. |
 | Command buffers | `ICommandBuffer::begin()` creates a fresh `MTLCommandBuffer` (Metal ones are one-shot) | Keeps the reusable RHI command-buffer object. |
-| Barriers | Resources use Metal's default hazard tracking, so `barrier()` records no GPU work; it only checks and updates the tracked `ResourceState` (debug builds report an illegal `before` state) | Same RHI usage as Vulkan, catches bugs on both. |
+| Barriers | Resources use Metal's default hazard tracking, so `barrier()` records no GPU work; it only retains the resources (no `ResourceState` tracking was needed: Vulkan validation already catches wrong states) | Same RHI usage as Vulkan. |
 | Sync | `ISemaphore` → `MTLSharedEvent` (timeline = value; binary = internal counter). `IFence` → command-buffer completion handler + condition variable | Works on macOS 13; no busy waits. |
 | Buffer memory | `MemoryLocation` GPU-only → `MTLStorageModePrivate`; CPU-visible → `MTLStorageModeShared` | Unified memory on Apple silicon; avoids `Managed` + `didModifyRange` bookkeeping. |
 | Formats | `D24UnormS8Uint` reported unsupported when the device lacks it (all Apple silicon); everything else maps 1:1 | Matches the note on `Format`. |
-| Debugging | `enable_validation` turns on the Metal API validation layer (`MTL_DEBUG_LAYER=1`, plus shader validation) before the first Metal call; command-buffer errors (`MTLCommandBufferErrorOption.EncoderExecutionStatus`) are routed to `debug_callback`. A validation failure aborts, so CTest fails | Gives each step the same "clean" check Vulkan has. |
+| Debugging | `enable_validation` turns on the Metal API and shader validation layers (`MTL_DEBUG_LAYER=1`, `MTL_SHADER_VALIDATION=1`, errors and warnings assert) before the first Metal call, and reports a warning if Metal was already initialized (creating an `NSWindow` does that, so create the instance first). Failed command buffers are reported to `debug_callback`. A validation failure aborts, so CTest fails | Gives each step the same "clean" check Vulkan has. |
 | Verification | `rhi_smoke` runs its backend checks once per available backend; `rhi_triangle` takes `--backend metal\|vulkan` | Both backends checked by the same code. |
 
 ## Steps

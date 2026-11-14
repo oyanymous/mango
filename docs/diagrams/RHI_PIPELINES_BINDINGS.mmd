@@ -9,9 +9,10 @@ classDiagram
         +getReflection() ShaderReflection
     }
     class MetalShader {
-        -ShaderReflection m_reflection
-        -MTLFunction m_function
+        -ShaderDesc m_desc
+        -MetalDeviceContext m_context
         +getReflection() ShaderReflection
+        +compile(MetalPipelineLayout) Result~MetalFunction~
     }
     class VulkanShader {
         -ShaderReflection m_reflection
@@ -29,9 +30,9 @@ classDiagram
     }
     class MetalPipelineLayout {
         -PipelineLayoutDesc m_desc
-        -BindGroupLayoutList m_bind_group_layouts
-        -MetalBindingMap m_binding_map
+        -MetalBindingSlotSets m_sets
         +getDesc() PipelineLayoutDesc
+        +sets() MetalBindingSlotSets
     }
     class VulkanPipelineLayout {
         -PipelineLayoutDesc m_desc
@@ -52,8 +53,10 @@ classDiagram
     class MetalPipeline {
         -PipelineKind m_kind
         -PipelineLayoutRef m_layout
-        -ShaderList m_shaders
-        -MetalPipelineStateBundle m_pipeline_state
+        +MTLRenderPipelineState m_render_state
+        +MTLDepthStencilState m_depth_stencil_state
+        +MTLComputePipelineState m_compute_state
+        +MTLSize m_workgroup_size
         +getKind() PipelineKind
     }
     class VulkanPipeline {
@@ -76,7 +79,6 @@ classDiagram
     }
     class MetalBindGroupLayout {
         -BindGroupLayoutDesc m_desc
-        -MetalBindingMap m_binding_map
         +getDesc() BindGroupLayoutDesc
     }
     class VulkanBindGroupLayout {
@@ -95,10 +97,10 @@ classDiagram
     }
     class MetalBindGroup {
         -BindGroupDesc m_desc
-        -BindGroupLayoutRef m_layout
-        -ResourceRefList m_resources
-        -MetalResourceBindings m_bindings
+        -MetalBoundResourceList m_resources
         +getDesc() BindGroupDesc
+        +bind(MTLRenderCommandEncoder, MetalPipelineLayout, uint32) void
+        +bind(MTLComputeCommandEncoder, MetalPipelineLayout, uint32) void
     }
     class VulkanBindGroup {
         -BindGroupDesc m_desc

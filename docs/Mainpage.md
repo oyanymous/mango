@@ -1,7 +1,7 @@
 # Mango {#mainpage}
 
 Mango is an early-stage cross-platform renderer. It has two halves: a small windowing/UI layer, and a
-**rendering hardware interface (RHI)** that hides the GPU API (Vulkan today; Metal and GL are designed but not
+**rendering hardware interface (RHI)** that hides the GPU API (Vulkan and Metal today; GL is designed but not
 implemented).
 
 ## Modules
@@ -11,7 +11,7 @@ implemented).
 | `src/core` | `Core` (header-only) | Interfaces shared across layers, e.g. IWidget. |
 | `src/platform` | `Platform` | The native application and windows: Application, Window, with per-OS code in `darwin/` and `windows/`. |
 | `src/ui` | `UI` | Widget and geometry/value types (Point, Size, Rect, Line, Polygon, Color). |
-| `src/rhi` | `RHI` | The GPU abstraction in namespace @ref rhi, with the Vulkan backend in @ref rhi::vulkan. |
+| `src/rhi` | `RHI` | The GPU abstraction in namespace @ref rhi, with the Vulkan backend in @ref rhi::vulkan and the Metal backend in @ref rhi::metal. |
 
 Dependencies flow `UI → Platform → Core` and `RHI → Core`. The RHI does not depend on the platform layer: windows are
 handed to it as native handles (rhi::SurfaceDesc).

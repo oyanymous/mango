@@ -25,13 +25,6 @@ namespace rhi::metal {
 namespace {
 
 /**
- * @brief The error every factory of the backend not written yet returns.
- */
-Error notImplemented(const char* what) {
-    return Error{ErrorCode::Unsupported, std::string("MetalDevice::") + what + " is not implemented yet"};
-}
-
-/**
  * @brief Debug name of a queue, e.g. "smoke device graphics queue".
  */
 NSString* queueLabel(const std::string& device_label, const char* type) {

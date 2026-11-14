@@ -48,6 +48,14 @@ MetalQueue::MetalQueue(std::shared_ptr<MetalDeviceContext> context, QueueType ty
     : m_type(type), m_queue(queue), m_context(std::move(context)) {
 }
 
+MetalQueue::~MetalQueue() {
+    // A queue runs its command buffers in commit order, so an empty one committed last finishes after the others.
+    id<MTLCommandBuffer> drain = [m_queue commandBuffer];
+    drain.label = @"MetalQueue drain";
+    [drain commit];
+    [drain waitUntilCompleted];
+}
+
 Result<void> MetalQueue::submit(SubmitDesc desc) {
     std::vector<std::shared_ptr<MetalCommandBuffer>> command_buffers;
     for (const CommandBufferRef& ref : desc.command_buffers) {

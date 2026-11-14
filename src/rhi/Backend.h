@@ -15,7 +15,7 @@ namespace rhi {
  */
 enum class Backend {
     Vulkan, /**< Vulkan 1.2+ (MoltenVK on macOS). Implemented in rhi::vulkan. */
-    Metal,  /**< Apple Metal (macOS 13+). Being implemented in rhi::metal, see docs/RHI_METAL_PLAN.md. */
+    Metal,  /**< Apple Metal (macOS 13+). Implemented in rhi::metal. */
     GL,     /**< OpenGL. Designed (see docs/diagrams), not implemented. */
 };
 

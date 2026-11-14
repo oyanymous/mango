@@ -11,7 +11,6 @@ classDiagram
     class MetalRenderPass {
         -RenderPassDesc m_desc
         +getDesc() RenderPassDesc
-        +configureDescriptor(MTLRenderPassDescriptor) void
     }
     class VulkanRenderPass {
         -RenderPassDesc m_desc
@@ -33,9 +32,7 @@ classDiagram
     }
     class MetalRenderTarget {
         -RenderTargetDesc m_desc
-        -TextureViewList m_attachments
         +getDesc() RenderTargetDesc
-        +configureAttachments(MTLRenderPassDescriptor) void
     }
     class VulkanRenderTarget {
         -RenderTargetDesc m_desc
@@ -68,5 +65,6 @@ classDiagram
     IRenderTarget <|.. GLRenderTarget
     IRenderTarget --> ITextureView : retains attachments
     VulkanRenderTarget --> IRenderPass : compatible pass
-    MetalRenderPass ..> MetalRenderTarget : configures shared descriptor
+    MetalRenderTarget --> IRenderPass : compatible pass
+    %% Metal has no pass or framebuffer object: beginRender combines both into an MTLRenderPassDescriptor.
     GLRenderPass ..> GLRenderTarget : applies attachment actions

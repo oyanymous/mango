@@ -17,8 +17,8 @@ namespace rhi::metal {
  * @brief A Metal device: the shared MetalDeviceContext plus one MetalQueue per QueueType.
  *
  * @details
- * Being built step by step (docs/RHI_METAL_PLAN.md): fences, semaphores, buffers, command buffers, textures, views and
- * samplers work; every other `create*` returns ErrorCode::Unsupported for now.
+ * Every object it creates holds the context, so objects may outlive the device. Metal objects are thread-safe, but
+ * like the Vulkan backend this one is not: use a device and its objects from one thread at a time.
  */
 class MetalDevice final : public IDevice {
 public:

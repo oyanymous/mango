@@ -10,9 +10,9 @@ classDiagram
         +present(PresentDesc) Result~void~
     }
     class MetalQueue {
-        -QueueType m_queue_type
-        -CommandBufferList m_pending_submissions
+        -QueueType m_type
         -MTLCommandQueue m_queue
+        -MetalDeviceContext m_context
         +submit(SubmitDesc) Result~void~
         +present(PresentDesc) Result~void~
     }
@@ -39,12 +39,14 @@ classDiagram
         +reset() Result~void~
     }
     class MetalFence {
-        -FenceDesc m_desc
-        -uint64 m_submission_value
-        -MetalCompletionState m_completion
+        -mutex m_mutex
+        -condition_variable m_signaled_cv
+        -bool m_signaled
+        -bool m_pending
         +wait(Timeout) Result~void~
         +isSignaled() bool
         +reset() Result~void~
+        +signal() void
     }
     class VulkanFence {
         -FenceDesc m_desc
@@ -70,11 +72,13 @@ classDiagram
     }
     class MetalSemaphore {
         -SemaphoreKind m_kind
-        -uint64 m_value
-        -MetalEventState m_event_state
+        -MTLSharedEvent m_event
+        -atomic~uint64~ m_binary_signals
+        -atomic~uint64~ m_binary_waits
         +getKind() SemaphoreKind
         +getValue() uint64
         +signal(uint64) Result~void~
+        +signalFromHost() void
     }
     class VulkanSemaphore {
         -SemaphoreKind m_kind

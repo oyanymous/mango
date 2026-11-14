@@ -33,6 +33,12 @@ public:
     MetalQueue(std::shared_ptr<MetalDeviceContext> context, QueueType type, id<MTLCommandQueue> queue);
 
     /**
+     * @brief Waits until the GPU has finished everything submitted to the queue, so no work outlives the device.
+     * Submitted objects stay alive regardless: completion handlers hold them until they run.
+     */
+    ~MetalQueue() override;
+
+    /**
      * @brief Commits the command buffers between the semaphore waits and signals.
      *
      * @return Success, or ErrorCode::InvalidArgument for a command buffer that is not ended, was already submitted, or

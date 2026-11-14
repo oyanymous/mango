@@ -13,7 +13,7 @@ classDiagram
         +createInstance(InstanceDesc) Result~InstanceRef~
     }
     class MetalDeviceFactory {
-        -Backend m_backend = Metal
+        +isAvailable()$ bool
         +createInstance(InstanceDesc) Result~InstanceRef~
     }
     class VulkanDeviceFactory {
@@ -32,7 +32,7 @@ classDiagram
     class MetalInstance {
         -InstanceDesc m_desc
         -AdapterList m_adapters
-        -MetalRuntime m_runtime
+        -MetalDebugReporter m_reporter
         +enumerateAdapters() AdapterList
         +createSurface(SurfaceDesc) Result~SurfaceRef~
     }
@@ -58,6 +58,7 @@ classDiagram
     class MetalAdapter {
         -Capabilities m_capabilities
         -MTLDevice m_device
+        -MetalDebugReporter m_reporter
         +getCapabilities() Capabilities
         +createDevice(DeviceDesc) Result~DeviceRef~
     }

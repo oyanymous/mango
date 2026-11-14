@@ -30,12 +30,13 @@ classDiagram
     }
     class MetalSwapchain {
         -SwapchainDesc m_desc
-        -SurfaceRef m_surface
+        -CAMetalLayer m_layer
         -TextureList m_backbuffers
-        -uint32 m_current_image
-        -CAMetalDrawable m_drawable
+        -CAMetalDrawableList m_drawables
+        -uint32 m_next_image
         +acquire(AcquireDesc) AcquireResult
-        +resize(Extent) Result~void~
+        +resize(Extent2D) Result~void~
+        +takeDrawable(uint32) CAMetalDrawable
     }
     class VulkanSwapchain {
         -SwapchainDesc m_desc
