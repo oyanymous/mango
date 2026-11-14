@@ -5,7 +5,10 @@
 
 #include <string>
 
+#include "VulkanBuffer.h"
+#include "VulkanCommandBuffer.h"
 #include "VulkanFence.h"
+#include "VulkanQueue.h"
 #include "VulkanSemaphore.h"
 
 namespace rhi::vulkan {
@@ -44,8 +47,8 @@ QueueRef VulkanDevice::getQueue(QueueType type) {
     return m_queues[static_cast<std::size_t>(type)];
 }
 
-Result<BufferRef> VulkanDevice::createBuffer(BufferDesc) {
-    return notImplemented("createBuffer", 6);
+Result<BufferRef> VulkanDevice::createBuffer(BufferDesc desc) {
+    return VulkanBuffer::create(m_device, std::move(desc));
 }
 
 Result<TextureRef> VulkanDevice::createTexture(TextureDesc) {
@@ -92,8 +95,9 @@ Result<BindGroupRef> VulkanDevice::createBindGroup(BindGroupDesc) {
     return notImplemented("createBindGroup", 11);
 }
 
-Result<CommandBufferRef> VulkanDevice::createCommandBuffer(CommandBufferDesc) {
-    return notImplemented("createCommandBuffer", 6);
+Result<CommandBufferRef> VulkanDevice::createCommandBuffer(CommandBufferDesc desc) {
+    const auto& queue = static_cast<const VulkanQueue&>(*getQueue(desc.queue));
+    return VulkanCommandBuffer::create(m_device, std::move(desc), queue.familyIndex());
 }
 
 Result<SwapchainRef> VulkanDevice::createSwapchain(SwapchainDesc) {

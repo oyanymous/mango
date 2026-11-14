@@ -5,6 +5,7 @@
 
 #include <vector>
 
+#include "VulkanCommandBuffer.h"
 #include "VulkanDevice.h"
 #include "VulkanFence.h"
 #include "VulkanSemaphore.h"
@@ -17,9 +18,13 @@ VulkanQueue::VulkanQueue(std::shared_ptr<VulkanDeviceHandle> device, QueueType t
 }
 
 Result<void> VulkanQueue::submit(SubmitDesc desc) {
-    if (!desc.command_buffers.empty()) {
-        // shortcut: command buffers arrive in step 6 (VulkanCommandBuffer); until then only empty submits work.
-        return Error{ErrorCode::Unsupported, "VulkanQueue::submit: command buffers are implemented in step 6"};
+    std::vector<VkCommandBuffer> command_buffers;
+    for (const CommandBufferRef& command_buffer : desc.command_buffers) {
+        const auto* vk = static_cast<const VulkanCommandBuffer*>(command_buffer.get());
+        if (!vk || vk->state() != VulkanCommandBuffer::RecordingState::Executable) {
+            return Error{ErrorCode::InvalidArgument, "VulkanQueue::submit: command buffer is null or not ended"};
+        }
+        command_buffers.push_back(vk->handle());
     }
 
     // Timeline values are per semaphore; Vulkan ignores the entries of binary semaphores.
@@ -57,6 +62,8 @@ Result<void> VulkanQueue::submit(SubmitDesc desc) {
     submit_info.waitSemaphoreCount = static_cast<std::uint32_t>(wait_semaphores.size());
     submit_info.pWaitSemaphores = wait_semaphores.data();
     submit_info.pWaitDstStageMask = wait_stages.data();
+    submit_info.commandBufferCount = static_cast<std::uint32_t>(command_buffers.size());
+    submit_info.pCommandBuffers = command_buffers.data();
     submit_info.signalSemaphoreCount = static_cast<std::uint32_t>(signal_semaphores.size());
     submit_info.pSignalSemaphores = signal_semaphores.data();
 

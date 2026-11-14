@@ -1,0 +1,194 @@
+/// @file
+/// VulkanCommandBuffer.
+
+#include "VulkanCommandBuffer.h"
+
+#include "VulkanBuffer.h"
+#include "VulkanCopyEncoder.h"
+#include "VulkanDevice.h"
+
+namespace rhi::vulkan {
+
+namespace {
+
+/// The pipeline stages and memory accesses a resource in a given state is used with.
+struct StageAccess {
+    VkPipelineStageFlags stages;
+    VkAccessFlags access;
+};
+
+/// Maps a ResourceState to the stages and accesses that use it, for barriers.
+StageAccess toStageAccess(ResourceState state) {
+    constexpr VkPipelineStageFlags kShaders = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
+                                              VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
+                                              VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+    constexpr VkPipelineStageFlags kFragmentTests =
+        VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    switch (state) {
+    case ResourceState::Undefined:
+        return {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0};
+    case ResourceState::CopySrc:
+        return {VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT};
+    case ResourceState::CopyDst:
+        return {VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT};
+    case ResourceState::VertexBuffer:
+        return {VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT};
+    case ResourceState::IndexBuffer:
+        return {VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_ACCESS_INDEX_READ_BIT};
+    case ResourceState::UniformBuffer:
+        return {kShaders, VK_ACCESS_UNIFORM_READ_BIT};
+    case ResourceState::ShaderRead:
+        return {kShaders, VK_ACCESS_SHADER_READ_BIT};
+    case ResourceState::ShaderWrite:
+        return {kShaders, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT};
+    case ResourceState::RenderTarget:
+        return {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT};
+    case ResourceState::DepthStencilWrite:
+        return {kFragmentTests,
+                VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT};
+    case ResourceState::DepthStencilRead:
+        return {kFragmentTests | kShaders, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT};
+    case ResourceState::Present:
+        return {VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0};
+    }
+    return {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT};
+}
+
+} // namespace
+
+Result<CommandBufferRef> VulkanCommandBuffer::create(std::shared_ptr<VulkanDeviceHandle> device, CommandBufferDesc desc,
+                                                     std::uint32_t family_index) {
+    VkCommandPoolCreateInfo pool_info{};
+    pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    pool_info.queueFamilyIndex = family_index;
+    VkCommandPool pool = VK_NULL_HANDLE;
+    if (VkResult result = vkCreateCommandPool(device->m_device, &pool_info, nullptr, &pool); result != VK_SUCCESS) {
+        return toError(result, "vkCreateCommandPool");
+    }
+
+    VkCommandBufferAllocateInfo allocate_info{};
+    allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocate_info.commandPool = pool;
+    allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocate_info.commandBufferCount = 1;
+    VkCommandBuffer command_buffer = VK_NULL_HANDLE;
+    if (VkResult result = vkAllocateCommandBuffers(device->m_device, &allocate_info, &command_buffer);
+        result != VK_SUCCESS) {
+        vkDestroyCommandPool(device->m_device, pool, nullptr);
+        return toError(result, "vkAllocateCommandBuffers");
+    }
+    return CommandBufferRef(
+        std::make_shared<VulkanCommandBuffer>(std::move(device), std::move(desc), pool, command_buffer));
+}
+
+VulkanCommandBuffer::VulkanCommandBuffer(std::shared_ptr<VulkanDeviceHandle> device, CommandBufferDesc desc,
+                                         VkCommandPool pool, VkCommandBuffer command_buffer)
+    : m_desc(std::move(desc)), m_pool(pool), m_command_buffer(command_buffer), m_device(std::move(device)) {
+}
+
+VulkanCommandBuffer::~VulkanCommandBuffer() {
+    vkDestroyCommandPool(m_device->m_device, m_pool, nullptr);
+}
+
+Result<void> VulkanCommandBuffer::begin() {
+    if (m_state == RecordingState::Encoding) {
+        return Error{ErrorCode::InvalidArgument, "ICommandBuffer::begin: an encoder is still open"};
+    }
+    // The caller guarantees the previous submission finished, so its resources can go.
+    m_retained_resources.clear();
+    if (VkResult result = vkResetCommandPool(m_device->m_device, m_pool, 0); result != VK_SUCCESS) {
+        return toError(result, "vkResetCommandPool");
+    }
+    VkCommandBufferBeginInfo begin_info{};
+    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    if (VkResult result = vkBeginCommandBuffer(m_command_buffer, &begin_info); result != VK_SUCCESS) {
+        return toError(result, "vkBeginCommandBuffer");
+    }
+    m_state = RecordingState::Recording;
+    return {};
+}
+
+void VulkanCommandBuffer::barrier(BarrierBatch batch) {
+    if (m_state != RecordingState::Recording || batch.buffers.empty()) {
+        return;
+    }
+    // shortcut: texture barriers are ignored until step 7 adds VulkanTexture and layout tracking.
+    VkPipelineStageFlags src_stages = 0;
+    VkPipelineStageFlags dst_stages = 0;
+    std::vector<VkBufferMemoryBarrier> barriers;
+    for (BufferBarrier& b : batch.buffers) {
+        if (!b.buffer) {
+            continue;
+        }
+        const StageAccess before = toStageAccess(b.before);
+        const StageAccess after = toStageAccess(b.after);
+        src_stages |= before.stages;
+        dst_stages |= after.stages;
+
+        VkBufferMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        barrier.srcAccessMask = before.access;
+        barrier.dstAccessMask = after.access;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.buffer = static_cast<const VulkanBuffer&>(*b.buffer).handle();
+        barrier.offset = b.offset;
+        barrier.size = b.size == kWholeSize ? VK_WHOLE_SIZE : b.size;
+        barriers.push_back(barrier);
+        retain(std::move(b.buffer));
+    }
+    if (barriers.empty()) {
+        return;
+    }
+    vkCmdPipelineBarrier(m_command_buffer, src_stages, dst_stages, 0, 0, nullptr,
+                         static_cast<std::uint32_t>(barriers.size()), barriers.data(), 0, nullptr);
+}
+
+RenderEncoderRef VulkanCommandBuffer::beginRender(RenderBeginDesc) {
+    return nullptr;
+}
+
+ComputeEncoderRef VulkanCommandBuffer::beginCompute() {
+    return nullptr;
+}
+
+CopyEncoderRef VulkanCommandBuffer::beginCopy() {
+    if (m_state != RecordingState::Recording) {
+        return nullptr;
+    }
+    m_state = RecordingState::Encoding;
+    return std::make_unique<VulkanCopyEncoder>(shared_from_this());
+}
+
+Result<void> VulkanCommandBuffer::end() {
+    if (m_state != RecordingState::Recording) {
+        return Error{ErrorCode::InvalidArgument, "ICommandBuffer::end: not recording, or an encoder is still open"};
+    }
+    // A fence wait alone does not make device writes visible to the host; this barrier does.
+    VkMemoryBarrier to_host{};
+    to_host.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    to_host.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+    to_host.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+    vkCmdPipelineBarrier(m_command_buffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0, 1,
+                         &to_host, 0, nullptr, 0, nullptr);
+
+    if (VkResult result = vkEndCommandBuffer(m_command_buffer); result != VK_SUCCESS) {
+        return toError(result, "vkEndCommandBuffer");
+    }
+    m_state = RecordingState::Executable;
+    return {};
+}
+
+void VulkanCommandBuffer::retain(std::shared_ptr<const void> resource) {
+    m_retained_resources.push_back(std::move(resource));
+}
+
+void VulkanCommandBuffer::endEncoder() {
+    if (m_state == RecordingState::Encoding) {
+        m_state = RecordingState::Recording;
+    }
+}
+
+} // namespace rhi::vulkan

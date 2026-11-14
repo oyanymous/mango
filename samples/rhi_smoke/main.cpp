@@ -4,6 +4,7 @@
 /// Runs every check, prints `[ OK ]` / `[FAIL]` per check, and exits non-zero if any failed. With the Vulkan
 /// backend it also creates a validated instance, lists the adapters, and fails on any validation warning.
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -219,6 +220,78 @@ void testSync(rhi::IDevice& device) {
     check((*timeline)->getValue() == 7, "timeline value advanced to 7");
 }
 
+// Upload -> GPU-only buffer -> readback buffer on the transfer queue, then compare the bytes.
+void testBufferRoundTrip(rhi::IDevice& device) {
+    constexpr std::uint64_t kSize = 64 * 1024;
+
+    auto bad = device.createBuffer({.size = 0, .usage = rhi::BufferUsage::CopySrc});
+    check(!bad && bad.error().code == rhi::ErrorCode::InvalidArgument, "zero-sized buffer is rejected");
+
+    auto upload = device.createBuffer(
+        {.size = kSize, .usage = rhi::BufferUsage::CopySrc, .memory = rhi::MemoryLocation::CpuToGpu});
+    auto gpu = device.createBuffer({.size = kSize,
+                                    .usage = rhi::BufferUsage::CopySrc | rhi::BufferUsage::CopyDst,
+                                    .memory = rhi::MemoryLocation::GpuOnly});
+    auto readback = device.createBuffer(
+        {.size = kSize, .usage = rhi::BufferUsage::CopyDst, .memory = rhi::MemoryLocation::GpuToCpu});
+    if (!upload || !gpu || !readback) {
+        check(false, "buffers created");
+        return;
+    }
+    check(!(*gpu)->map({}), "GpuOnly buffer cannot be mapped");
+
+    auto mapped = (*upload)->map({});
+    check(mapped && mapped->size() == kSize, "upload buffer maps to its full size");
+    if (!mapped) {
+        return;
+    }
+    check(!(*upload)->map({}), "a mapped buffer cannot be mapped twice");
+    for (std::size_t i = 0; i < mapped->size(); ++i) {
+        (*mapped)[i] = static_cast<std::byte>((i * 31 + 7) & 0xFF);
+    }
+    (*upload)->unmap();
+
+    auto cmd = device.createCommandBuffer({.queue = rhi::QueueType::Transfer});
+    if (!cmd) {
+        check(false, cmd.error().message.c_str());
+        return;
+    }
+    check(!(*cmd)->beginCopy(), "beginCopy before begin() returns null");
+    check(static_cast<bool>((*cmd)->begin()), "command buffer begin");
+    {
+        rhi::CopyEncoderRef copy = (*cmd)->beginCopy();
+        check(copy && !(*cmd)->beginCopy(), "only one encoder at a time");
+        copy->copyBuffer({.src = *upload, .dst = *gpu});
+        copy->end();
+    }
+    (*cmd)->barrier(
+        {.buffers = {{.buffer = *gpu, .before = rhi::ResourceState::CopyDst, .after = rhi::ResourceState::CopySrc}}});
+    {
+        rhi::CopyEncoderRef copy = (*cmd)->beginCopy();
+        copy->copyBuffer({.src = *gpu, .dst = *readback});
+        copy->end();
+    }
+    check(static_cast<bool>((*cmd)->end()), "command buffer end");
+
+    auto fence = device.createFence({});
+    if (!fence) {
+        return;
+    }
+    rhi::QueueRef queue = device.getQueue(rhi::QueueType::Transfer);
+    check(static_cast<bool>(queue->submit({.command_buffers = {*cmd}, .fence = *fence})), "copy submitted");
+    check(static_cast<bool>((*fence)->wait(std::chrono::seconds(5))), "copy finished");
+
+    auto result = (*readback)->map({});
+    auto source = (*upload)->map({});
+    bool same = result && source && std::equal(result->begin(), result->end(), source->begin(), source->end());
+    check(same, "GPU round trip: read-back bytes match the upload");
+    (*readback)->unmap();
+    (*upload)->unmap();
+
+    // Re-recording after the fence: begin() releases the previous recording's resources.
+    check((*cmd)->begin() && (*cmd)->end(), "command buffer can be re-recorded");
+}
+
 void testInstance() {
 #if defined(MANGO_RHI_VULKAN)
     rhi::RHIFactory factory;
@@ -292,6 +365,7 @@ void testInstance() {
                         compute == graphics ? "shared with graphics" : "dedicated",
                         transfer == graphics ? "shared with graphics" : "dedicated");
             testSync(**device);
+            testBufferRoundTrip(**device);
             devices.push_back(*device);
         }
 
