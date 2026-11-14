@@ -56,7 +56,7 @@ public:
     RenderEncoderRef beginRender(RenderBeginDesc desc) override;
 
     /**
-     * @brief Not implemented yet; returns null.
+     * @brief Opens an `MTLComputeCommandEncoder`.
      */
     ComputeEncoderRef beginCompute() override;
 

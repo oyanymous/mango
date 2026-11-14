@@ -8,6 +8,7 @@
 #include <array>
 #include <utility>
 
+#include "MetalComputeEncoder.h"
 #include "MetalCopyEncoder.h"
 #include "MetalRenderEncoder.h"
 #include "MetalTexture.h"
@@ -136,7 +137,15 @@ RenderEncoderRef MetalCommandBuffer::beginRender(RenderBeginDesc desc) {
 }
 
 ComputeEncoderRef MetalCommandBuffer::beginCompute() {
-    return nullptr;
+    if (m_state != RecordingState::Recording) {
+        return nullptr;
+    }
+    id<MTLComputeCommandEncoder> encoder = [m_command_buffer computeCommandEncoder];
+    if (encoder == nil) {
+        return nullptr;
+    }
+    m_state = RecordingState::Encoding;
+    return std::make_unique<MetalComputeEncoder>(shared_from_this(), encoder);
 }
 
 CopyEncoderRef MetalCommandBuffer::beginCopy() {
