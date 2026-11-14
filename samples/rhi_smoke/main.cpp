@@ -22,6 +22,8 @@
 
 #if defined(MANGO_RHI_VULKAN)
 #include <volk.h>
+
+#include "fill.comp.h"
 #endif
 
 namespace {
@@ -295,6 +297,68 @@ void testBufferRoundTrip(rhi::IDevice& device) {
     // Re-recording after the fence: begin() releases the previous recording's resources.
     check((*cmd)->begin() && (*cmd)->end(), "command buffer can be re-recorded");
 }
+
+#if defined(MANGO_RHI_VULKAN)
+// Dispatch fill.comp on the compute queue into a storage buffer, then read it back: values[i] == i * i + 7.
+void testCompute(rhi::IDevice& device) {
+    constexpr std::uint32_t kCount = 1024; // 16 workgroups of 64
+    auto shader = device.createShader(
+        {.stage = rhi::ShaderStage::Compute, .spirv = {std::begin(fill_comp_spv), std::end(fill_comp_spv)}});
+    auto group_layout =
+        device.createBindGroupLayout({.entries = {{0, rhi::BindingType::StorageBuffer, rhi::ShaderStage::Compute}}});
+    if (!shader || !group_layout) {
+        check(false, "compute shader and bind group layout created");
+        return;
+    }
+    auto layout = device.createPipelineLayout({.bind_group_layouts = {*group_layout}});
+    check(!device.createComputePipeline({.layout = layout ? *layout : nullptr}), "compute pipeline needs a shader");
+    auto pipeline = device.createComputePipeline({.layout = layout ? *layout : nullptr, .compute_shader = *shader});
+    check(pipeline && (*pipeline)->getKind() == rhi::PipelineKind::Compute, "compute pipeline created");
+
+    // GpuToCpu storage: ICommandBuffer::end() makes the shader writes visible to the host after the fence.
+    auto output = device.createBuffer({.size = kCount * sizeof(std::uint32_t),
+                                       .usage = rhi::BufferUsage::Storage,
+                                       .memory = rhi::MemoryLocation::GpuToCpu});
+    if (!pipeline || !output) {
+        check(false, "compute pipeline and storage buffer created");
+        return;
+    }
+    auto group = device.createBindGroup({.layout = *group_layout, .entries = {{.binding = 0, .buffer = *output}}});
+    check(!device.createBindGroup({.layout = *group_layout, .entries = {{.binding = 0}}}),
+          "bind group entry without its buffer is rejected");
+    check(!device.createBindGroup({.layout = *group_layout, .entries = {{.binding = 5, .buffer = *output}}}),
+          "bind group entry for a missing binding is rejected");
+
+    auto cmd = device.createCommandBuffer({.queue = rhi::QueueType::Compute});
+    auto fence = device.createFence({});
+    if (!group || !cmd || !fence || !(*cmd)->begin()) {
+        check(false, "compute bind group and command buffer ready");
+        return;
+    }
+    {
+        rhi::ComputeEncoderRef compute = (*cmd)->beginCompute();
+        check(compute && !(*cmd)->beginCompute(), "compute encoder begins, only one at a time");
+        compute->setPipeline(*pipeline);
+        compute->setBindGroup({.index = 0, .bind_group = *group});
+        compute->dispatch({.x = kCount / 64});
+        compute->end();
+    }
+    check((*cmd)->end() &&
+              device.getQueue(rhi::QueueType::Compute)->submit({.command_buffers = {*cmd}, .fence = *fence}),
+          "dispatch submitted");
+    check(static_cast<bool>((*fence)->wait(std::chrono::seconds(5))), "dispatch finished");
+
+    auto mapped = (*output)->map({});
+    bool correct = static_cast<bool>(mapped);
+    for (std::uint32_t i = 0; correct && i < kCount; ++i) {
+        std::uint32_t value = 0;
+        std::memcpy(&value, mapped->data() + i * sizeof(value), sizeof(value));
+        correct = value == i * i + 7;
+    }
+    check(correct, "compute read-back: values[i] == i * i + 7");
+    (*output)->unmap();
+}
+#endif
 
 // Upload a 64x64 image, copy a 32x32 region of it into a second texture, read that back and compare.
 // Also creates views and samplers.
@@ -612,6 +676,7 @@ void testInstance() {
             testBufferRoundTrip(**device);
             testTextureRoundTrip(**device, caps);
             testOffscreenClear(**device);
+            testCompute(**device);
             devices.push_back(*device);
         }
 

@@ -280,6 +280,31 @@ Result<PipelineRef> VulkanPipeline::createGraphics(std::shared_ptr<VulkanDeviceH
         std::vector<ShaderRef>{std::move(desc.vertex_shader), std::move(desc.fragment_shader)}, pipeline));
 }
 
+Result<PipelineRef> VulkanPipeline::createCompute(std::shared_ptr<VulkanDeviceHandle> device,
+                                                  ComputePipelineDesc desc) {
+    if (!desc.layout || !desc.compute_shader) {
+        return Error{ErrorCode::InvalidArgument, "createComputePipeline: layout and compute_shader are required"};
+    }
+    const ShaderReflection compute = desc.compute_shader->getReflection();
+    if (compute.stage != ShaderStage::Compute) {
+        return Error{ErrorCode::InvalidArgument, "createComputePipeline: the shader is not a compute shader"};
+    }
+
+    VkComputePipelineCreateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    info.stage = toVkStage(desc.compute_shader, VK_SHADER_STAGE_COMPUTE_BIT, compute.entry_point);
+    info.layout = static_cast<const VulkanPipelineLayout&>(*desc.layout).handle();
+
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    if (VkResult result = vkCreateComputePipelines(device->m_device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline);
+        result != VK_SUCCESS) {
+        return toError(result, "vkCreateComputePipelines");
+    }
+    return PipelineRef(
+        std::make_shared<VulkanPipeline>(std::move(device), PipelineKind::Compute, std::move(desc.layout),
+                                         std::vector<ShaderRef>{std::move(desc.compute_shader)}, pipeline));
+}
+
 VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDeviceHandle> device, PipelineKind kind, PipelineLayoutRef layout,
                                std::vector<ShaderRef> shaders, VkPipeline pipeline)
     : m_kind(kind),

@@ -76,7 +76,9 @@ public:
      */
     RenderEncoderRef beginRender(RenderBeginDesc desc) override;
     /**
-     * @brief Not implemented yet (step 12); returns null.
+     * @brief Begins compute recording.
+     *
+     * @return The encoder, or null unless recording with no encoder open.
      */
     ComputeEncoderRef beginCompute() override;
     /**

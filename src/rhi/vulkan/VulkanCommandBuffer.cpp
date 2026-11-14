@@ -6,6 +6,7 @@
 #include "VulkanCommandBuffer.h"
 
 #include "VulkanBuffer.h"
+#include "VulkanComputeEncoder.h"
 #include "VulkanCopyEncoder.h"
 #include "VulkanDevice.h"
 #include "VulkanRenderEncoder.h"
@@ -261,7 +262,11 @@ RenderEncoderRef VulkanCommandBuffer::beginRender(RenderBeginDesc desc) {
 }
 
 ComputeEncoderRef VulkanCommandBuffer::beginCompute() {
-    return nullptr;
+    if (m_state != RecordingState::Recording) {
+        return nullptr;
+    }
+    m_state = RecordingState::Encoding;
+    return std::make_unique<VulkanComputeEncoder>(shared_from_this());
 }
 
 CopyEncoderRef VulkanCommandBuffer::beginCopy() {

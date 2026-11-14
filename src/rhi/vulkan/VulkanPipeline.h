@@ -121,9 +121,18 @@ public:
      */
     static Result<PipelineRef> createGraphics(std::shared_ptr<VulkanDeviceHandle> device, GraphicsPipelineDesc desc,
                                               bool wireframe_enabled);
+    /**
+     * @brief Creates a compute pipeline.
+     *
+     * @param device Owner of the VkDevice; kept alive by the pipeline.
+     * @param desc Layout and compute shader.
+     * @return The pipeline; InvalidArgument when the layout or shader is missing or the shader is not a
+     *         ShaderStage::Compute shader.
+     */
+    static Result<PipelineRef> createCompute(std::shared_ptr<VulkanDeviceHandle> device, ComputePipelineDesc desc);
 
     /**
-     * @brief Takes ownership of a created VkPipeline. Use createGraphics().
+     * @brief Takes ownership of a created VkPipeline. Use createGraphics() or createCompute().
      *
      * @param device Owner of the VkDevice.
      * @param kind Graphics or compute.

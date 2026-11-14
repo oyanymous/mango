@@ -20,18 +20,6 @@
 
 namespace rhi::vulkan {
 
-namespace {
-
-/**
- * @brief The error every not-yet-implemented create* method returns.
- */
-Error notImplemented(const char* function, int step) {
-    return Error{ErrorCode::Unsupported,
-                 std::string("VulkanDevice::") + function + " is implemented in step " + std::to_string(step)};
-}
-
-} // namespace
-
 VulkanDeviceHandle::VulkanDeviceHandle(std::shared_ptr<VulkanInstanceHandle> instance)
     : m_instance(std::move(instance)) {
 }
@@ -84,8 +72,8 @@ Result<PipelineRef> VulkanDevice::createGraphicsPipeline(GraphicsPipelineDesc de
     return VulkanPipeline::createGraphics(m_device, std::move(desc), m_desc.features.fill_mode_wireframe);
 }
 
-Result<PipelineRef> VulkanDevice::createComputePipeline(ComputePipelineDesc) {
-    return notImplemented("createComputePipeline", 12);
+Result<PipelineRef> VulkanDevice::createComputePipeline(ComputePipelineDesc desc) {
+    return VulkanPipeline::createCompute(m_device, std::move(desc));
 }
 
 Result<RenderPassRef> VulkanDevice::createRenderPass(RenderPassDesc desc) {

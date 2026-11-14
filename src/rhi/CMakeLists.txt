@@ -68,6 +68,8 @@ if (MANGO_RHI_VULKAN)
         vulkan/VulkanBuffer.cpp
         vulkan/VulkanCommandBuffer.h
         vulkan/VulkanCommandBuffer.cpp
+        vulkan/VulkanComputeEncoder.h
+        vulkan/VulkanComputeEncoder.cpp
         vulkan/VulkanCopyEncoder.h
         vulkan/VulkanCopyEncoder.cpp
         vulkan/VulkanTexture.h
