@@ -1,3 +1,9 @@
+/// @file
+/// rhi_smoke: headless checks of the RHI, run by CTest.
+///
+/// Runs every check, prints `[ OK ]` / `[FAIL]` per check, and exits non-zero if any failed. With the Vulkan
+/// backend it also creates a validated instance, lists the adapters, and fails on any validation warning.
+
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
@@ -13,8 +19,9 @@
 
 namespace {
 
-int g_failures = 0;
+int g_failures = 0; // failed checks so far
 
+// Prints the outcome of one check and counts failures.
 void check(bool condition, const char* what) {
     std::printf("[%s] %s\n", condition ? " OK " : "FAIL", what);
     if (!condition) {
@@ -151,6 +158,96 @@ void testBackends() {
 #endif
 }
 
+const char* adapterTypeName(rhi::AdapterType type) {
+    switch (type) {
+    case rhi::AdapterType::DiscreteGpu:
+        return "discrete GPU";
+    case rhi::AdapterType::IntegratedGpu:
+        return "integrated GPU";
+    case rhi::AdapterType::VirtualGpu:
+        return "virtual GPU";
+    case rhi::AdapterType::Cpu:
+        return "CPU";
+    case rhi::AdapterType::Unknown:
+        break;
+    }
+    return "unknown";
+}
+
+void testInstance() {
+#if defined(MANGO_RHI_VULKAN)
+    rhi::RHIFactory factory;
+    rhi::BackendList available = factory.availableBackends();
+    check(available.size() == 1 && available[0] == rhi::Backend::Vulkan, "RHIFactory lists Vulkan as available");
+
+    check(!factory.createInstance(rhi::Backend::Metal, {}) &&
+              factory.createInstance(rhi::Backend::Metal, {}).error().code == rhi::ErrorCode::BackendUnavailable,
+          "RHIFactory rejects a backend that is not compiled in");
+
+    // Every warning or error from the driver or the validation layer counts as a failure.
+    int problems = 0;
+    std::string layer_in_use;
+    rhi::InstanceDesc desc{
+        .application_name = "rhi_smoke",
+        .enable_validation = true,
+        .debug_callback =
+            [&problems, &layer_in_use](const rhi::DebugMessage& message) {
+                if (message.severity == rhi::DebugSeverity::Warning || message.severity == rhi::DebugSeverity::Error) {
+                    ++problems;
+                }
+                if (message.message.starts_with("using VK_LAYER_KHRONOS_validation")) {
+                    layer_in_use = message.message;
+                }
+                std::printf("  [debug] %.*s\n", static_cast<int>(message.message.size()), message.message.data());
+            },
+    };
+
+    {
+        auto instance = factory.createInstance(rhi::Backend::Vulkan, desc);
+        check(static_cast<bool>(instance),
+              instance ? "Vulkan instance created with validation" : instance.error().message.c_str());
+        if (!instance) {
+            return;
+        }
+
+        rhi::AdapterList adapters = (*instance)->enumerateAdapters();
+        check(!adapters.empty(), "at least one Vulkan 1.2 adapter");
+        check((*instance)->enumerateAdapters().size() == adapters.size(), "adapters are enumerated once and cached");
+
+        for (const rhi::AdapterRef& adapter : adapters) {
+            rhi::Capabilities caps = adapter->getCapabilities();
+            std::printf("Adapter: %s (%s), Vulkan %u.%u.%u, vendor 0x%04x device 0x%04x\n", caps.name.c_str(),
+                        adapterTypeName(caps.type), caps.api_version_major, caps.api_version_minor,
+                        caps.api_version_patch, caps.vendor_id, caps.device_id);
+            std::printf("  max 2D texture %u, max bind groups %u, max colour attachments %u, anisotropy %s (%.0fx)\n",
+                        caps.limits.max_texture_dimension_2d, caps.limits.max_bind_groups,
+                        caps.limits.max_color_attachments, caps.features.sampler_anisotropy ? "yes" : "no",
+                        caps.limits.max_sampler_anisotropy);
+            std::printf("  compute workgroup size max %u x %u x %u, %u invocations\n",
+                        caps.limits.max_compute_workgroup_size[0], caps.limits.max_compute_workgroup_size[1],
+                        caps.limits.max_compute_workgroup_size[2], caps.limits.max_compute_invocations_per_workgroup);
+            check(!caps.name.empty() && caps.limits.max_texture_dimension_2d >= 4096, "adapter capabilities filled in");
+        }
+
+        // Adapters keep the VkInstance alive on their own; dropping the instance first must be safe.
+        instance = rhi::Error{};
+        check(adapters.empty() || !adapters[0]->getCapabilities().name.empty(), "adapters outlive their instance");
+    }
+
+#if defined(MANGO_VULKAN_VALIDATION)
+    // The layer built from source is on the same pinned SDK tag as the Vulkan headers.
+    const std::string expected_layer = "using VK_LAYER_KHRONOS_validation " +
+                                       std::to_string(VK_API_VERSION_MAJOR(VK_HEADER_VERSION_COMPLETE)) + "." +
+                                       std::to_string(VK_API_VERSION_MINOR(VK_HEADER_VERSION_COMPLETE)) + "." +
+                                       std::to_string(VK_API_VERSION_PATCH(VK_HEADER_VERSION_COMPLETE));
+    check(layer_in_use == expected_layer, "the pinned validation layer built from source is the one in use");
+    check(problems == 0, "no validation warnings or errors");
+#else
+    std::printf("Validation layer not built (MANGO_VULKAN_VALIDATION=OFF); %d warning(s)/error(s)\n", problems);
+#endif
+#endif
+}
+
 } // namespace
 
 int main() {
@@ -158,6 +255,7 @@ int main() {
     testTypes();
     testInterfaces();
     testBackends();
+    testInstance();
 
     if (g_failures != 0) {
         std::printf("%d check(s) failed\n", g_failures);

@@ -1,5 +1,8 @@
 #pragma once
 
+/// @file
+/// rhi::ISurface: a window the GPU can present to, and the native window handles that create it.
+
 #include <string>
 #include <variant>
 
@@ -7,28 +10,34 @@
 
 namespace rhi {
 
-// Native window handles are passed as opaque pointers so RHI does not depend on Platform or OS headers.
+/// A Win32 window, as opaque pointers so the RHI needs no `<windows.h>`.
 struct Win32WindowHandle {
-    void* hinstance = nullptr; // HINSTANCE
-    void* hwnd = nullptr;      // HWND
+    void* hinstance = nullptr; ///< The window's `HINSTANCE`.
+    void* hwnd = nullptr;      ///< The `HWND`.
 };
 
+/// A macOS view's Metal layer, as an opaque pointer so the RHI needs no Objective-C.
 struct MetalLayerHandle {
-    void* layer = nullptr; // CAMetalLayer*
+    void* layer = nullptr; ///< A `CAMetalLayer*`.
 };
 
+/// A native window handle. `std::monostate` means "no window".
+///
+/// Native handles are passed as opaque pointers so the RHI does not depend on the platform layer or OS headers.
 using NativeWindowHandle = std::variant<std::monostate, Win32WindowHandle, MetalLayerHandle>;
 
+/// Describes a surface to create with IInstance::createSurface.
 struct SurfaceDesc {
-    NativeWindowHandle window;
-    std::string label;
+    NativeWindowHandle window; ///< The window; must outlive the surface.
+    std::string label;         ///< Debug name.
 };
 
-// A window the GPU can present to.
+/// A window the GPU can present to. Swapchains are created on a surface.
 class ISurface {
 public:
     virtual ~ISurface() = default;
 
+    /// The descriptor the surface was created with.
     virtual SurfaceDesc getDesc() const = 0;
 };
 

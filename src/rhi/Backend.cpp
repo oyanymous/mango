@@ -1,3 +1,6 @@
+/// @file
+/// Backend names and the list of compiled-in backends.
+
 #include "Backend.h"
 
 #include <array>

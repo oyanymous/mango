@@ -34,6 +34,7 @@ set(RHI_PUBLIC_HEADERS
 add_library(RHI
     ${RHI_PUBLIC_HEADERS}
     Backend.cpp
+    RHIFactory.cpp
     Result.cpp
 )
 
@@ -47,11 +48,29 @@ if (MANGO_RHI_VULKAN)
     target_sources(RHI PRIVATE
         vulkan/VolkImplementation.cpp
         vulkan/VmaImplementation.cpp
+        vulkan/VulkanCommon.h
+        vulkan/VulkanCommon.cpp
+        vulkan/VulkanDeviceFactory.h
+        vulkan/VulkanDeviceFactory.cpp
+        vulkan/VulkanInstance.h
+        vulkan/VulkanInstance.cpp
+        vulkan/VulkanAdapter.h
+        vulkan/VulkanAdapter.cpp
     )
+
+    # Backend headers are private to RHI and included bare ("VulkanInstance.h").
+    target_include_directories(RHI PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/vulkan")
 
     # Vulkan stays a PRIVATE dependency: no Vulkan type may appear in a public RHI header.
     target_link_libraries(RHI PRIVATE mango::volk mango::VulkanMemoryAllocator)
     target_compile_definitions(RHI PUBLIC MANGO_RHI_VULKAN=1)
+
+    if (MANGO_VULKAN_VALIDATION)
+        # Instances created with enable_validation find the layer built from source here.
+        add_dependencies(RHI mango_vulkan_validation_layers)
+        target_compile_definitions(RHI PRIVATE "MANGO_VULKAN_LAYER_PATH=\"${MANGO_VULKAN_LAYER_PATH}\"")
+        target_compile_definitions(RHI PUBLIC MANGO_VULKAN_VALIDATION=1)
+    endif ()
 endif ()
 
 # Compiles every public header on its own (twice, to check #pragma once), so a header that misses

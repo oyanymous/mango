@@ -20,13 +20,13 @@ step for review before the next one starts.
 | API level | Vulkan 1.2 + timeline semaphores; classic `VkRenderPass`/`VkFramebuffer` as in `RHI_RENDER_TARGETS.mmd` | Works on MoltenVK; matches the diagrams. |
 | Memory | Vulkan Memory Allocator (VMA), fetched, with functions loaded through volk | Avoids hand-written allocators. Diagrams' `VkDeviceMemory` members become `VmaAllocation` (diagrams updated in the last step). |
 | Shaders | GLSL compiled to SPIR-V at build time with a glslang compiler fetched and built by CMake (step 10); `ShaderDesc` takes SPIR-V bytes | No runtime compiler dependency, no installed `glslc`. |
-| Debugging | Validation layers + debug messenger on in Debug builds; any validation error fails the smoke tests. How the layers are obtained without an SDK (built from Khronos source by CMake vs. a prebuilt release) is decided at the start of step 3; on macOS the same goes for MoltenVK | Gives each step an objective "clean" check. |
+| Debugging | Validation layers + debug messenger; any validation warning or error fails the smoke tests. The Khronos validation layer is built from source at the pinned SDK tag (`cmake/VulkanValidationLayers.cmake`, option `MANGO_VULKAN_VALIDATION`, needs Python 3; slow first build) and the instance points the loader only at it (`VK_LAYER_PATH`), so an installed SDK's layer is never used. MoltenVK on macOS: pinned prebuilt release, decided when macOS is first built | Gives each step an objective "clean" check on identical layer versions. |
 | Verification | `samples/rhi_smoke` (headless, registered with CTest) and `samples/rhi_triangle` (windowed) | Repo has no tests yet; these become them. |
 
 ## Steps
 
 ### 1. Build setup and empty RHI library
-- Add a `windows` configure/build/test preset (Ninja + MinGW g++, Debug, `build/windows/`) next to `macos`; set C++20.
+- Add a `windows` configure/build/test preset (MSVC x64 + Ninja, Debug, `build/windows/`) next to `macos`; set C++20.
 - Add `MANGO_RHI_VULKAN` option (default ON); fetch Vulkan-Headers, volk and VMA at pinned versions.
 - Create `src/rhi/` target `RHI` with `Result.h`, `Backend.h` (`enum class Backend { Vulkan, Metal, GL }`)
   and common value types (`Extent2D/3D`, `Format`, `QueueType`, …).
