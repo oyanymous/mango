@@ -1,27 +1,52 @@
+/**
+ * @file
+ * @brief Win32 implementation of Window.
+ */
+
 #ifndef UNICODE
 #define UNICODE
 #endif
 
 #include <windows.h>
 
+#include <functional>
 #include <utility>
 
 #include "Window.h"
 #include "win32_helpers.h"
 
 
+/**
+ * @brief Native Win32 state of a Window.
+ */
 struct Window::Impl {
-    HMODULE m_hinstance;
-    HWND m_hwnd;
-    WNDCLASS m_wndclass;
-    LPCWSTR m_classname;
+    HMODULE m_hinstance;                               /**< Module that registered the window class. */
+    HWND m_hwnd;                                       /**< The window. */
+    WNDCLASS m_wndclass;                               /**< The registered window class. */
+    LPCWSTR m_classname;                               /**< Window class name. */
+    std::function<void(WindowSize)> m_resize_callback; /**< Called on WM_SIZE; may be empty. */
 };
 
+/**
+ * @brief Window procedure shared by all Mango windows.
+ *
+ * @details
+ * Quits the application when a window is destroyed and paints the client area with the default window colour.
+ */
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
     case WM_DESTROY:
         PostQuitMessage(0);
         return 0;
+
+    case WM_SIZE: {
+        // GWLP_USERDATA holds the window's resize callback; it is still 0 for the WM_SIZE sent during creation.
+        auto* callback = reinterpret_cast<std::function<void(WindowSize)>*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+        if (callback && *callback) {
+            (*callback)({LOWORD(lParam), HIWORD(lParam)});
+        }
+        return 0;
+    }
 
     case WM_PAINT: {
         PAINTSTRUCT ps;
@@ -42,6 +67,7 @@ Window::Window(const std::string& window_title)
     m_impl->m_hinstance = GetModuleHandle(nullptr);
     m_impl->m_wndclass = createWindowClass(m_impl->m_hinstance, WindowProc, m_impl->m_classname);
     m_impl->m_hwnd = createWindow(m_impl->m_hinstance, m_impl->m_classname, toWide(m_window_title).c_str());
+    SetWindowLongPtrW(m_impl->m_hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&m_impl->m_resize_callback));
 }
 
 Window::~Window() {
@@ -55,4 +81,18 @@ void Window::display() {
 
 void Window::setWindowTitle(const std::string& title) {
     SetWindowTextA(m_impl->m_hwnd, title.c_str());
+}
+
+NativeWindow Window::nativeWindow() const {
+    return {.hinstance = m_impl->m_hinstance, .hwnd = m_impl->m_hwnd};
+}
+
+WindowSize Window::clientSize() const {
+    RECT rect{};
+    GetClientRect(m_impl->m_hwnd, &rect);
+    return {static_cast<int>(rect.right - rect.left), static_cast<int>(rect.bottom - rect.top)};
+}
+
+void Window::setResizeCallback(std::function<void(WindowSize)> callback) {
+    m_impl->m_resize_callback = std::move(callback);
 }

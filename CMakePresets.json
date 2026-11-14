@@ -10,6 +10,37 @@
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}",
                 "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
                 "CMAKE_BUILD_TYPE": "Debug"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            }
+        },
+        {
+            "name": "windows",
+            "displayName": "MSVC x64 (Ninja)",
+            "description": "MSVC (cl) + Ninja. Run from a Developer PowerShell / x64 Native Tools prompt, or from an IDE that sets up the MSVC environment (CLion's Visual Studio toolchain, Visual Studio).",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "toolset": {
+                "value": "host=x64",
+                "strategy": "external"
+            },
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}",
+                "CMAKE_C_COMPILER": "cl",
+                "CMAKE_CXX_COMPILER": "cl",
+                "CMAKE_BUILD_TYPE": "Debug"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
             }
         }
     ],
@@ -19,6 +50,26 @@
             "description": "",
             "displayName": "",
             "configurePreset": "macos"
+        },
+        {
+            "name": "windows",
+            "configurePreset": "windows"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "macos",
+            "configurePreset": "macos",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "windows",
+            "configurePreset": "windows",
+            "output": {
+                "outputOnFailure": true
+            }
         }
     ]
 }

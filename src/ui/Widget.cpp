@@ -1,3 +1,8 @@
+/**
+ * @file
+ * @brief Widget implementation.
+ */
+
 #include "Widget.h"
 
 #include <iostream>
@@ -12,6 +17,7 @@ Widget::Widget(Widget* parent) : m_parent(parent) {
 
 void Widget::display() {
     if (m_window == nullptr) {
+        // Created on first display so a widget can be configured (e.g. titled) before its native window exists.
         m_window = new Window();
         m_window->setWindowTitle(m_window_title);
     }

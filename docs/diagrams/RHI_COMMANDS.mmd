@@ -6,48 +6,53 @@ classDiagram
     %% External references mirror the public APIs in their owning RHI files.
     class ICommandBuffer {
         <<interface>>
-        +begin() Result
+        +begin() Result~void~
         +barrier(BarrierBatch) void
         +beginRender(RenderBeginDesc) RenderEncoderRef
         +beginCompute() ComputeEncoderRef
         +beginCopy() CopyEncoderRef
-        +end() Result
+        +end() Result~void~
     }
     class MetalCommandBuffer {
         -CommandBufferDesc m_desc
         -RecordingState m_state
+        -bool m_pending
         -ResourceRefList m_retained_resources
+        -MTLCommandQueue m_queue
         -MTLCommandBuffer m_command_buffer
-        +begin() Result
+        +begin() Result~void~
         +barrier(BarrierBatch) void
         +beginRender(RenderBeginDesc) RenderEncoderRef
         +beginCompute() ComputeEncoderRef
         +beginCopy() CopyEncoderRef
-        +end() Result
+        +end() Result~void~
     }
     class VulkanCommandBuffer {
         -CommandBufferDesc m_desc
         -RecordingState m_state
         -ResourceRefList m_retained_resources
+        -VulkanSemaphoreRef m_pending_timeline
+        -uint64 m_pending_value
+        -VkCommandPool m_pool
         -VkCommandBuffer m_command_buffer
-        +begin() Result
+        +begin() Result~void~
         +barrier(BarrierBatch) void
         +beginRender(RenderBeginDesc) RenderEncoderRef
         +beginCompute() ComputeEncoderRef
         +beginCopy() CopyEncoderRef
-        +end() Result
+        +end() Result~void~
     }
     class GLCommandBuffer {
         -CommandBufferDesc m_desc
         -RecordingState m_state
         -ResourceRefList m_retained_resources
         -GLCommandList m_commands
-        +begin() Result
+        +begin() Result~void~
         +barrier(BarrierBatch) void
         +beginRender(RenderBeginDesc) RenderEncoderRef
         +beginCompute() ComputeEncoderRef
         +beginCopy() CopyEncoderRef
-        +end() Result
+        +end() Result~void~
     }
     class IRenderEncoder {
         <<interface>>
@@ -62,6 +67,7 @@ classDiagram
     class MetalRenderEncoder {
         -CommandBufferRef m_command_buffer
         -PipelineRef m_pipeline
+        -MTLBuffer m_index_buffer
         -bool m_ended
         -MTLRenderCommandEncoder m_encoder
         +setPipeline(PipelineRef) void

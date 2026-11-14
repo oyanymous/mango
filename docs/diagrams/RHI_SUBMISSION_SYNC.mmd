@@ -6,95 +6,108 @@ classDiagram
     %% External references mirror the public APIs in their owning RHI files.
     class IQueue {
         <<interface>>
-        +submit(SubmitDesc) Result
-        +present(PresentDesc) Result
+        +submit(SubmitDesc) Result~void~
+        +present(PresentDesc) Result~void~
     }
     class MetalQueue {
-        -QueueType m_queue_type
-        -CommandBufferList m_pending_submissions
+        -QueueType m_type
         -MTLCommandQueue m_queue
-        +submit(SubmitDesc) Result
-        +present(PresentDesc) Result
+        -MetalDeviceContext m_context
+        +submit(SubmitDesc) Result~void~
+        +present(PresentDesc) Result~void~
     }
     class VulkanQueue {
         -QueueType m_queue_type
-        -CommandBufferList m_pending_submissions
+        -InFlightList m_in_flight
+        -VulkanSemaphoreRef m_timeline
+        -PresentWaitMap m_presented
         -VkQueue m_queue
-        +submit(SubmitDesc) Result
-        +present(PresentDesc) Result
+        +submit(SubmitDesc) Result~void~
+        +present(PresentDesc) Result~void~
     }
     class GLQueue {
         -QueueType m_queue_type
         -CommandBufferList m_pending_submissions
         -GLContext m_context
-        +submit(SubmitDesc) Result
-        +present(PresentDesc) Result
+        +submit(SubmitDesc) Result~void~
+        +present(PresentDesc) Result~void~
     }
     class IFence {
         <<interface>>
-        +wait(Timeout) Result
+        +wait(Timeout) Result~void~
         +isSignaled() bool
-        +reset() Result
+        +reset() Result~void~
     }
     class MetalFence {
-        -FenceDesc m_desc
-        -uint64 m_submission_value
-        -MetalCompletionState m_completion
-        +wait(Timeout) Result
+        -mutex m_mutex
+        -condition_variable m_signaled_cv
+        -bool m_signaled
+        -bool m_pending
+        +wait(Timeout) Result~void~
         +isSignaled() bool
-        +reset() Result
+        +reset() Result~void~
+        +signal() void
     }
     class VulkanFence {
         -FenceDesc m_desc
         -uint64 m_submission_value
         -VkFence m_fence
-        +wait(Timeout) Result
+        +wait(Timeout) Result~void~
         +isSignaled() bool
-        +reset() Result
+        +reset() Result~void~
     }
     class GLFence {
         -FenceDesc m_desc
         -uint64 m_submission_value
         -GLsync m_sync
-        +wait(Timeout) Result
+        +wait(Timeout) Result~void~
         +isSignaled() bool
-        +reset() Result
+        +reset() Result~void~
     }
     class ISemaphore {
         <<interface>>
         +getKind() SemaphoreKind
+        +getValue() uint64
+        +signal(uint64) Result~void~
     }
     class MetalSemaphore {
         -SemaphoreKind m_kind
-        -uint64 m_value
-        -MetalEventState m_event_state
+        -MTLSharedEvent m_event
+        -atomic~uint64~ m_binary_signals
+        -atomic~uint64~ m_binary_waits
         +getKind() SemaphoreKind
+        +getValue() uint64
+        +signal(uint64) Result~void~
+        +signalFromHost() void
     }
     class VulkanSemaphore {
         -SemaphoreKind m_kind
-        -uint64 m_value
         -VkSemaphore m_semaphore
         +getKind() SemaphoreKind
+        +getValue() uint64
+        +signal(uint64) Result~void~
     }
     class GLSemaphore {
         -SemaphoreKind m_kind
         -uint64 m_value
         -GLSemaphoreState m_sync_state
         +getKind() SemaphoreKind
+        +getValue() uint64
+        +signal(uint64) Result~void~
     }
     class ICommandBuffer {
         <<external>>
-        +begin() Result
+        +begin() Result~void~
         +barrier(BarrierBatch) void
         +beginRender(RenderBeginDesc) RenderEncoderRef
         +beginCompute() ComputeEncoderRef
         +beginCopy() CopyEncoderRef
-        +end() Result
+        +end() Result~void~
     }
     class ISwapchain {
         <<external>>
         +acquire(AcquireDesc) AcquireResult
-        +resize(Extent) Result
+        +resize(Extent) Result~void~
     }
     IQueue <|.. MetalQueue
     IQueue <|.. VulkanQueue

@@ -1,3 +1,8 @@
+/**
+ * @file
+ * @brief Application, the facade over PrivateApplication.
+ */
+
 #include "Application.h"
 
 Application::Application() {

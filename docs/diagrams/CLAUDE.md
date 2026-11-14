@@ -18,7 +18,7 @@ Keep detailed API relationships in their owning subsystem file, and update `RHI_
 ## Style
 
 - Four-space indentation; keep `direction LR`. `flowchart LR` for the overview, `classDiagram` for subsystem details. Name new files `RHI_<SUBSYSTEM>.mmd`.
-- PascalCase types, `I` prefix for interfaces, `Metal` / `Vulkan` / `GL` prefixes for backend classes. camelCase functions and parameters, `m_snake_case` members (e.g. `getDesc()`, `m_command_buffer`). Method parameters list types only: `createBuffer(BufferDesc) Result`.
+- PascalCase types, `I` prefix for interfaces, `Metal` / `Vulkan` / `GL` prefixes for backend classes. camelCase functions and parameters, `m_snake_case` members (e.g. `getDesc()`, `m_command_buffer`). Method parameters list types only: `createBuffer(BufferDesc) Result~BufferRef~`. Never use a bare `Result`: parameterize it with the success type, using Mermaid generic syntax (`Result~BufferRef~`; `Result~void~` when there is no value).
 - Mark interfaces `<<interface>>`, public members `+`, private state `-`, comments `%%`. An interface owned by another file and repeated only for context is marked `<<external>>` and must match its owning file.
 - A backend class implementing an interface is a realization, `IBuffer <|.. MetalBuffer`; the solid `<|--` is only for interface-to-interface inheritance. `..>` means creates/uses, `-->` means a retained reference.
 - Keep the header comments that mark the design as proposed and native types as conceptual.

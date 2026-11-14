@@ -12,8 +12,9 @@ classDiagram
     }
     class MetalBuffer {
         -BufferDesc m_desc
-        -MappedRange m_mapped_range
+        -bool m_mapped
         -MTLBuffer m_buffer
+        -MetalDeviceContext m_context
         +getDesc() BufferDesc
         +map(MapDesc) MapResult
         +unmap() void
@@ -22,7 +23,7 @@ classDiagram
         -BufferDesc m_desc
         -MappedRange m_mapped_range
         -VkBuffer m_buffer
-        -VkDeviceMemory m_memory
+        -VmaAllocation m_allocation
         +getDesc() BufferDesc
         +map(MapDesc) MapResult
         +unmap() void
@@ -42,12 +43,14 @@ classDiagram
     class MetalTexture {
         -TextureDesc m_desc
         -MTLTexture m_texture
+        -MetalDeviceContext m_context
         +getDesc() TextureDesc
+        +setHandle(MTLTexture) void
     }
     class VulkanTexture {
         -TextureDesc m_desc
         -VkImage m_image
-        -VkDeviceMemory m_memory
+        -VmaAllocation m_allocation
         +getDesc() TextureDesc
     }
     class GLTexture {
@@ -61,9 +64,10 @@ classDiagram
     }
     class MetalTextureView {
         -TextureViewDesc m_desc
-        -TextureRef m_texture
-        -MTLTexture m_texture_view
+        -MTLTexture m_view
+        -MetalDeviceContext m_context
         +getTexture() TextureRef
+        +handle() MTLTexture
     }
     class VulkanTextureView {
         -TextureViewDesc m_desc

@@ -26,16 +26,17 @@ classDiagram
     class ISwapchain {
         <<interface>>
         +acquire(AcquireDesc) AcquireResult
-        +resize(Extent) Result
+        +resize(Extent) Result~void~
     }
     class MetalSwapchain {
         -SwapchainDesc m_desc
-        -SurfaceRef m_surface
+        -CAMetalLayer m_layer
         -TextureList m_backbuffers
-        -uint32 m_current_image
-        -CAMetalDrawable m_drawable
+        -CAMetalDrawableList m_drawables
+        -uint32 m_next_image
         +acquire(AcquireDesc) AcquireResult
-        +resize(Extent) Result
+        +resize(Extent2D) Result~void~
+        +takeDrawable(uint32) CAMetalDrawable
     }
     class VulkanSwapchain {
         -SwapchainDesc m_desc
@@ -44,7 +45,7 @@ classDiagram
         -uint32 m_current_image
         -VkSwapchainKHR m_swapchain
         +acquire(AcquireDesc) AcquireResult
-        +resize(Extent) Result
+        +resize(Extent) Result~void~
     }
     class GLSwapchain {
         -SwapchainDesc m_desc
@@ -53,7 +54,7 @@ classDiagram
         -uint32 m_current_image
         -GLWindowSurface m_window_surface
         +acquire(AcquireDesc) AcquireResult
-        +resize(Extent) Result
+        +resize(Extent) Result~void~
     }
     class ITexture {
         <<external>>
