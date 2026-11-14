@@ -89,12 +89,48 @@ struct RasterState {
 };
 
 /**
- * @brief Depth test state.
+ * @brief What a stencil test does to the stored stencil value.
+ */
+enum class StencilOp {
+    Keep,           /**< Leave the value. */
+    Zero,           /**< Set it to 0. */
+    Replace,        /**< Set it to the reference value (IRenderEncoder::setStencilReference). */
+    IncrementClamp, /**< Add 1, saturating at the maximum. */
+    DecrementClamp, /**< Subtract 1, saturating at 0. */
+    Invert,         /**< Flip every bit. */
+    IncrementWrap,  /**< Add 1, wrapping to 0. */
+    DecrementWrap,  /**< Subtract 1, wrapping to the maximum. */
+};
+
+/**
+ * @brief Stencil test and update for one face (the same state is used for front and back faces).
+ *
+ * @details
+ * A fragment passes when `(reference & read_mask) compare (stored & read_mask)` holds, with the reference set by
+ * IRenderEncoder::setStencilReference (0 at the start of every render pass).
+ */
+struct StencilFaceState {
+    CompareOp compare = CompareOp::Always;     /**< Test between the reference and the stored value. */
+    StencilOp fail_op = StencilOp::Keep;       /**< When the stencil test fails. */
+    StencilOp depth_fail_op = StencilOp::Keep; /**< When the stencil test passes but the depth test fails. */
+    StencilOp pass_op = StencilOp::Keep;       /**< When both tests pass. */
+};
+
+/**
+ * @brief Depth and stencil test state.
+ *
+ * @details
+ * The stencil test needs a render pass whose depth/stencil attachment has a stencil format
+ * (e.g. Format::D32FloatS8Uint); it is ignored otherwise.
  */
 struct DepthStencilState {
     bool depth_test = false;                   /**< Compare fragment depth against the depth buffer. */
     bool depth_write = false;                  /**< Write passing fragments' depth. */
     CompareOp depth_compare = CompareOp::Less; /**< Comparison used by the depth test. */
+    bool stencil_test = false;                 /**< Run the stencil test and updates in `stencil`. */
+    StencilFaceState stencil;                  /**< Stencil test and updates (both faces). */
+    std::uint8_t stencil_read_mask = 0xff;     /**< Bits compared by the stencil test. */
+    std::uint8_t stencil_write_mask = 0xff;    /**< Bits written by stencil updates. */
 };
 
 /**

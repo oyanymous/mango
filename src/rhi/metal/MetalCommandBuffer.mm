@@ -125,15 +125,13 @@ RenderEncoderRef MetalCommandBuffer::beginRender(RenderBeginDesc desc) {
         return nullptr;
     }
     encoder.label = toNSString(pass_desc.label);
-    // The render area is the target's extent, which may be smaller than the attachments (as in the Vulkan backend).
-    [encoder setViewport:MTLViewport{0.0, 0.0, static_cast<double>(extent.width), static_cast<double>(extent.height),
-                                     0.0, 1.0}];
-    [encoder setScissorRect:MTLScissorRect{0, 0, extent.width, extent.height}];
+    // The viewport and scissor (the target's extent, which may be smaller than the attachments) are applied by the
+    // encoder before the first draw: Metal validation rejects a scissor that is replaced before any draw used it.
 
     retain(std::move(desc.render_pass));
     retain(std::move(desc.target));
     m_state = RecordingState::Encoding;
-    return std::make_unique<MetalRenderEncoder>(shared_from_this(), encoder);
+    return std::make_unique<MetalRenderEncoder>(shared_from_this(), encoder, extent);
 }
 
 ComputeEncoderRef MetalCommandBuffer::beginCompute() {

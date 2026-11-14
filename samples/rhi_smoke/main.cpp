@@ -23,8 +23,11 @@
 
 #if defined(MANGO_RHI_VULKAN)
 #include <volk.h>
-
+#endif
+#if defined(MANGO_RHI_VULKAN) || defined(MANGO_RHI_METAL)
 #include "fill.comp.h"
+#include "fullscreen.vert.h"
+#include "red.frag.h"
 #endif
 
 namespace {
@@ -322,7 +325,7 @@ void testBufferRoundTrip(rhi::IDevice& device) {
     check((*cmd)->begin() && (*cmd)->end(), "command buffer can be re-recorded");
 }
 
-#if defined(MANGO_RHI_VULKAN)
+#if defined(MANGO_RHI_VULKAN) || defined(MANGO_RHI_METAL)
 // Dispatch fill.comp on the compute queue into a storage buffer, then read it back: values[i] == i * i + 7.
 void testCompute(rhi::IDevice& device) {
     constexpr std::uint32_t kCount = 1024; // 16 workgroups of 64
@@ -653,6 +656,134 @@ void testOffscreenClear(rhi::IDevice& device) {
     (*depth_readback)->unmap();
 }
 
+#if defined(MANGO_RHI_VULKAN) || defined(MANGO_RHI_METAL)
+// Draws full-screen triangles restricted by scissor rectangles and by a stencil mask, reads back and checks pixels.
+void testScissorAndStencil(rhi::IDevice& device) {
+    constexpr std::uint32_t kSize = 32;
+    auto color = device.createTexture({.format = rhi::Format::RGBA8Unorm,
+                                       .extent = {kSize, kSize},
+                                       .usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::CopySrc});
+    auto depth_stencil = device.createTexture(
+        {.format = rhi::Format::D32FloatS8Uint, .extent = {kSize, kSize}, .usage = rhi::TextureUsage::DepthStencil});
+    auto readback = device.createBuffer(
+        {.size = kSize * kSize * 4, .usage = rhi::BufferUsage::CopyDst, .memory = rhi::MemoryLocation::GpuToCpu});
+    auto vertex = device.createShader(
+        {.stage = rhi::ShaderStage::Vertex, .spirv = {std::begin(fullscreen_vert_spv), std::end(fullscreen_vert_spv)}});
+    auto fragment = device.createShader(
+        {.stage = rhi::ShaderStage::Fragment, .spirv = {std::begin(red_frag_spv), std::end(red_frag_spv)}});
+    auto layout = device.createPipelineLayout({});
+    auto pass = device.createRenderPass({
+        .color_attachments = {{.format = rhi::Format::RGBA8Unorm}},
+        .depth_stencil_attachment = rhi::AttachmentDesc{.format = rhi::Format::D32FloatS8Uint,
+                                                        .store_op = rhi::StoreOp::DontCare,
+                                                        .stencil_load_op = rhi::LoadOp::Clear},
+    });
+    if (!color || !depth_stencil || !readback || !vertex || !fragment || !layout || !pass) {
+        check(false, "scissor/stencil resources created");
+        return;
+    }
+    auto color_view = device.createTextureView({.texture = *color});
+    auto depth_view = device.createTextureView({.texture = *depth_stencil});
+    if (!color_view || !depth_view) {
+        check(false, "scissor/stencil views created");
+        return;
+    }
+    auto target = device.createRenderTarget({.render_pass = *pass,
+                                             .color_attachments = {*color_view},
+                                             .depth_stencil_attachment = *depth_view,
+                                             .extent = {kSize, kSize}});
+    auto pipeline = [&](rhi::DepthStencilState state, rhi::ColorWriteMask mask) {
+        return device.createGraphicsPipeline({.layout = *layout,
+                                              .vertex_shader = *vertex,
+                                              .fragment_shader = *fragment,
+                                              .depth_stencil = state,
+                                              .blend = {{.write_mask = mask}},
+                                              .render_pass = *pass});
+    };
+    auto plain = pipeline({}, rhi::ColorWriteMask::All);
+    auto write_stencil = pipeline(
+        {.stencil_test = true, .stencil = {.compare = rhi::CompareOp::Always, .pass_op = rhi::StencilOp::Replace}},
+        rhi::ColorWriteMask::None);
+    auto test_stencil =
+        pipeline({.stencil_test = true, .stencil = {.compare = rhi::CompareOp::Equal}}, rhi::ColorWriteMask::All);
+    check(plain && write_stencil && test_stencil, "pipelines with stencil state created");
+    auto cmd = device.createCommandBuffer({});
+    if (!target || !plain || !write_stencil || !test_stencil || !cmd || !(*cmd)->begin()) {
+        check(false, "scissor/stencil command buffer begins");
+        return;
+    }
+    (*cmd)->barrier(
+        {.textures = {
+             {.texture = *color, .before = rhi::ResourceState::Undefined, .after = rhi::ResourceState::RenderTarget},
+             {.texture = *depth_stencil,
+              .before = rhi::ResourceState::Undefined,
+              .after = rhi::ResourceState::DepthStencilWrite},
+         }});
+    {
+        rhi::RenderEncoderRef render =
+            (*cmd)->beginRender({.render_pass = *pass, .target = *target, .clear_colors = {{0.0f, 0.0f, 0.0f, 1.0f}}});
+        // Top-left 4x4 corner through the scissor alone.
+        render->setPipeline(*plain);
+        render->setScissor({0, 0, 4, 4});
+        render->draw({.vertex_count = 3});
+        // Entirely outside the target: clamped to nothing, draws nothing.
+        render->setScissor({-10, -10, 5, 5});
+        render->draw({.vertex_count = 3});
+        // Stencil 1 in the centre 16x16, no colour written.
+        render->setPipeline(*write_stencil);
+        render->setStencilReference(1);
+        render->setScissor({8, 8, 16, 16});
+        render->draw({.vertex_count = 3});
+        // Colour where the stencil equals 1; the scissor now covers more than the target and is clamped.
+        render->setPipeline(*test_stencil);
+        render->setScissor({0, 0, 1000, 1000});
+        render->draw({.vertex_count = 3});
+        render->end();
+    }
+    (*cmd)->barrier(
+        {.textures = {
+             {.texture = *color, .before = rhi::ResourceState::RenderTarget, .after = rhi::ResourceState::CopySrc}}});
+    {
+        rhi::CopyEncoderRef copy = (*cmd)->beginCopy();
+        copy->copyBufferTexture({.direction = rhi::CopyDirection::TextureToBuffer,
+                                 .buffer = {.buffer = *readback},
+                                 .texture = {.texture = *color},
+                                 .extent = {kSize, kSize}});
+        copy->end();
+    }
+    auto fence = device.createFence({});
+    if (!(*cmd)->end() || !fence ||
+        !device.getQueue(rhi::QueueType::Graphics)->submit({.command_buffers = {*cmd}, .fence = *fence}) ||
+        !(*fence)->wait(std::chrono::seconds(5))) {
+        check(false, "scissor/stencil frame finished");
+        return;
+    }
+    auto pixels = (*readback)->map({});
+    if (!pixels) {
+        check(false, "scissor/stencil read-back maps");
+        return;
+    }
+    auto red = [&](std::uint32_t x, std::uint32_t y) { return (*pixels)[(y * kSize + x) * 4] == std::byte{255}; };
+    bool scissor_ok = true;
+    bool stencil_ok = true;
+    for (std::uint32_t y = 0; y < kSize; ++y) {
+        for (std::uint32_t x = 0; x < kSize; ++x) {
+            const bool in_corner = x < 4 && y < 4;
+            const bool in_centre = x >= 8 && x < 24 && y >= 8 && y < 24;
+            if (in_corner != red(x, y) && !in_centre) {
+                scissor_ok = false;
+            }
+            if (in_centre != red(x, y) && !in_corner) {
+                stencil_ok = false;
+            }
+        }
+    }
+    (*readback)->unmap();
+    check(scissor_ok, "scissor rectangles restrict draws (and are clamped to the target)");
+    check(stencil_ok, "stencil writes and tests mask draws");
+}
+#endif
+
 void testFactory() {
     rhi::RHIFactory factory;
     rhi::BackendList available = factory.availableBackends();
@@ -752,7 +883,10 @@ void testBackend(rhi::Backend backend) {
             testTextureRoundTrip(**device, caps);
             testLifetime(**device);
             testOffscreenClear(**device);
+#if defined(MANGO_RHI_VULKAN) || defined(MANGO_RHI_METAL)
+            testScissorAndStencil(**device);
             testCompute(**device);
+#endif
         }
 
         // Adapters keep the native instance alive on their own; dropping the instance first must be safe.

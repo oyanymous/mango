@@ -28,8 +28,9 @@ public:
      * @brief Records into @p command_buffer, which it keeps alive.
      *
      * @param command_buffer The command buffer, in the Encoding state, inside a begun render pass.
+     * @param extent The render target's extent; scissor rectangles are clamped to it.
      */
-    explicit VulkanRenderEncoder(std::shared_ptr<VulkanCommandBuffer> command_buffer);
+    VulkanRenderEncoder(std::shared_ptr<VulkanCommandBuffer> command_buffer, Extent2D extent);
     /**
      * @brief Ends the render pass if end() was not called.
      */
@@ -41,6 +42,9 @@ public:
     void setIndexBuffer(IndexBufferBinding binding) override;
     void draw(DrawDesc desc) override;
     void drawIndexed(DrawIndexedDesc desc) override;
+    void setViewport(Viewport viewport) override;
+    void setScissor(ScissorRect rect) override;
+    void setStencilReference(std::uint32_t reference) override;
     /**
      * @brief Records vkCmdEndRenderPass and returns the command buffer to the Recording state.
      */
@@ -49,6 +53,8 @@ private:
     std::shared_ptr<VulkanCommandBuffer> m_command_buffer;
     PipelineRef m_pipeline;
     bool m_ended = false;
+    Extent2D m_extent;
+    bool m_scissor_empty = false; // the clamped scissor has no area; draws are skipped
     VkCommandBuffer m_native_commands = VK_NULL_HANDLE;
 };
 

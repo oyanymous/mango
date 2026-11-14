@@ -62,6 +62,9 @@ classDiagram
         +setIndexBuffer(IndexBufferBinding) void
         +draw(DrawDesc) void
         +drawIndexed(DrawIndexedDesc) void
+        +setViewport(Viewport) void
+        +setScissor(ScissorRect) void
+        +setStencilReference(uint32_t) void
         +end() void
     }
     class MetalRenderEncoder {

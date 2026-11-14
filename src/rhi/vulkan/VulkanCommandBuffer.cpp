@@ -261,11 +261,13 @@ RenderEncoderRef VulkanCommandBuffer::beginRender(RenderBeginDesc desc) {
                               0.0f, 1.0f};
     vkCmdSetViewport(m_command_buffer, 0, 1, &viewport);
     vkCmdSetScissor(m_command_buffer, 0, 1, &begin_info.renderArea);
+    // Every pipeline makes the stencil reference dynamic too; IRenderEncoder promises it starts at 0.
+    vkCmdSetStencilReference(m_command_buffer, VK_STENCIL_FACE_FRONT_AND_BACK, 0);
 
     retain(std::move(desc.render_pass));
     retain(std::move(desc.target));
     m_state = RecordingState::Encoding;
-    return std::make_unique<VulkanRenderEncoder>(shared_from_this());
+    return std::make_unique<VulkanRenderEncoder>(shared_from_this(), extent);
 }
 
 ComputeEncoderRef VulkanCommandBuffer::beginCompute() {

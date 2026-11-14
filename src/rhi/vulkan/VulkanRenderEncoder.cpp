@@ -5,6 +5,8 @@
 
 #include "VulkanRenderEncoder.h"
 
+#include <algorithm>
+#include <cstdint>
 #include <vector>
 
 #include "VulkanBindGroup.h"
@@ -14,8 +16,8 @@
 
 namespace rhi::vulkan {
 
-VulkanRenderEncoder::VulkanRenderEncoder(std::shared_ptr<VulkanCommandBuffer> command_buffer)
-    : m_command_buffer(std::move(command_buffer)), m_native_commands(m_command_buffer->handle()) {
+VulkanRenderEncoder::VulkanRenderEncoder(std::shared_ptr<VulkanCommandBuffer> command_buffer, Extent2D extent)
+    : m_command_buffer(std::move(command_buffer)), m_native_commands(m_command_buffer->handle()), m_extent(extent) {
 }
 
 VulkanRenderEncoder::~VulkanRenderEncoder() {
@@ -59,12 +61,45 @@ void VulkanRenderEncoder::setIndexBuffer(IndexBufferBinding binding) {
 }
 
 void VulkanRenderEncoder::draw(DrawDesc desc) {
+    if (m_scissor_empty) {
+        return;
+    }
     vkCmdDraw(m_native_commands, desc.vertex_count, desc.instance_count, desc.first_vertex, desc.first_instance);
 }
 
 void VulkanRenderEncoder::drawIndexed(DrawIndexedDesc desc) {
+    if (m_scissor_empty) {
+        return;
+    }
     vkCmdDrawIndexed(m_native_commands, desc.index_count, desc.instance_count, desc.first_index, desc.vertex_offset,
                      desc.first_instance);
+}
+
+void VulkanRenderEncoder::setViewport(Viewport viewport) {
+    const VkViewport native{viewport.x,      viewport.y,         viewport.width,
+                            viewport.height, viewport.min_depth, viewport.max_depth};
+    vkCmdSetViewport(m_native_commands, 0, 1, &native);
+}
+
+void VulkanRenderEncoder::setScissor(ScissorRect rect) {
+    // Vulkan requires the scissor inside the framebuffer, so clamp; an empty result skips draws instead.
+    const std::int64_t width = m_extent.width;
+    const std::int64_t height = m_extent.height;
+    const std::int64_t x0 = std::clamp<std::int64_t>(rect.x, 0, width);
+    const std::int64_t y0 = std::clamp<std::int64_t>(rect.y, 0, height);
+    const std::int64_t x1 = std::clamp<std::int64_t>(static_cast<std::int64_t>(rect.x) + rect.width, 0, width);
+    const std::int64_t y1 = std::clamp<std::int64_t>(static_cast<std::int64_t>(rect.y) + rect.height, 0, height);
+    m_scissor_empty = x1 <= x0 || y1 <= y0;
+    if (m_scissor_empty) {
+        return;
+    }
+    const VkRect2D native{{static_cast<std::int32_t>(x0), static_cast<std::int32_t>(y0)},
+                          {static_cast<std::uint32_t>(x1 - x0), static_cast<std::uint32_t>(y1 - y0)}};
+    vkCmdSetScissor(m_native_commands, 0, 1, &native);
+}
+
+void VulkanRenderEncoder::setStencilReference(std::uint32_t reference) {
+    vkCmdSetStencilReference(m_native_commands, VK_STENCIL_FACE_FRONT_AND_BACK, reference & 0xffu);
 }
 
 void VulkanRenderEncoder::end() {

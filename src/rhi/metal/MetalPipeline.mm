@@ -167,6 +167,29 @@ Error pipelineError(const char* what, NSError* error) {
                  std::string(what) + " failed: " + (error ? error.localizedDescription.UTF8String : "unknown error")};
 }
 
+/** @brief The Metal stencil operation of a StencilOp. */
+MTLStencilOperation toMTLStencilOperation(StencilOp op) {
+    switch (op) {
+    case StencilOp::Keep:
+        return MTLStencilOperationKeep;
+    case StencilOp::Zero:
+        return MTLStencilOperationZero;
+    case StencilOp::Replace:
+        return MTLStencilOperationReplace;
+    case StencilOp::IncrementClamp:
+        return MTLStencilOperationIncrementClamp;
+    case StencilOp::DecrementClamp:
+        return MTLStencilOperationDecrementClamp;
+    case StencilOp::Invert:
+        return MTLStencilOperationInvert;
+    case StencilOp::IncrementWrap:
+        return MTLStencilOperationIncrementWrap;
+    case StencilOp::DecrementWrap:
+        return MTLStencilOperationDecrementWrap;
+    }
+    return MTLStencilOperationKeep;
+}
+
 } // namespace
 
 Result<BindGroupLayoutRef> MetalBindGroupLayout::create(BindGroupLayoutDesc desc) {
@@ -323,6 +346,19 @@ Result<PipelineRef> MetalPipeline::createGraphics(std::shared_ptr<MetalDeviceCon
                                                 ? toMTLCompareFunction(desc.depth_stencil.depth_compare)
                                                 : MTLCompareFunctionAlways;
     depth_descriptor.depthWriteEnabled = desc.depth_stencil.depth_test && desc.depth_stencil.depth_write;
+    if (desc.depth_stencil.stencil_test && pass.depth_stencil_attachment &&
+        hasStencil(pass.depth_stencil_attachment->format)) {
+        const StencilFaceState& face = desc.depth_stencil.stencil;
+        MTLStencilDescriptor* stencil = [[MTLStencilDescriptor alloc] init];
+        stencil.stencilCompareFunction = toMTLCompareFunction(face.compare);
+        stencil.stencilFailureOperation = toMTLStencilOperation(face.fail_op);
+        stencil.depthFailureOperation = toMTLStencilOperation(face.depth_fail_op);
+        stencil.depthStencilPassOperation = toMTLStencilOperation(face.pass_op);
+        stencil.readMask = desc.depth_stencil.stencil_read_mask;
+        stencil.writeMask = desc.depth_stencil.stencil_write_mask;
+        depth_descriptor.frontFaceStencil = stencil;
+        depth_descriptor.backFaceStencil = stencil;
+    }
 
     auto pipeline = std::make_shared<MetalPipeline>(std::move(context), PipelineKind::Graphics, desc.layout);
     pipeline->m_render_state = render_state;
