@@ -23,9 +23,10 @@ public:
 
     /// Records vkCmdCopyBuffer and retains both buffers.
     void copyBuffer(BufferCopyDesc desc) override;
-    /// Not implemented yet (step 7); records nothing.
+    /// Records vkCmdCopyImage (one mip level and layer, all aspects) and retains both textures.
     void copyTexture(TextureCopyDesc desc) override;
-    /// Not implemented yet (step 7); records nothing.
+    /// Records vkCmdCopyBufferToImage / vkCmdCopyImageToBuffer (one mip level and layer; depth only for
+    /// depth/stencil formats) and retains the buffer and texture.
     void copyBufferTexture(BufferTextureCopyDesc desc) override;
     void end() override;
 private:

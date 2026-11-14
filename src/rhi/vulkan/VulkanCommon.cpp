@@ -113,4 +113,69 @@ VkPipelineStageFlags toVkPipelineStages(PipelineStage stages) {
     return flags != 0 ? flags : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 }
 
+VkFormat toVkFormat(Format format) {
+    switch (format) {
+    case Format::Undefined:
+        return VK_FORMAT_UNDEFINED;
+    case Format::R8Unorm:
+        return VK_FORMAT_R8_UNORM;
+    case Format::RG8Unorm:
+        return VK_FORMAT_R8G8_UNORM;
+    case Format::RGBA8Unorm:
+        return VK_FORMAT_R8G8B8A8_UNORM;
+    case Format::RGBA8Srgb:
+        return VK_FORMAT_R8G8B8A8_SRGB;
+    case Format::BGRA8Unorm:
+        return VK_FORMAT_B8G8R8A8_UNORM;
+    case Format::BGRA8Srgb:
+        return VK_FORMAT_B8G8R8A8_SRGB;
+    case Format::R16Float:
+        return VK_FORMAT_R16_SFLOAT;
+    case Format::RG16Float:
+        return VK_FORMAT_R16G16_SFLOAT;
+    case Format::RGBA16Float:
+        return VK_FORMAT_R16G16B16A16_SFLOAT;
+    case Format::R32Uint:
+        return VK_FORMAT_R32_UINT;
+    case Format::R32Float:
+        return VK_FORMAT_R32_SFLOAT;
+    case Format::RG32Float:
+        return VK_FORMAT_R32G32_SFLOAT;
+    case Format::RGB32Float:
+        return VK_FORMAT_R32G32B32_SFLOAT;
+    case Format::RGBA32Float:
+        return VK_FORMAT_R32G32B32A32_SFLOAT;
+    case Format::D16Unorm:
+        return VK_FORMAT_D16_UNORM;
+    case Format::D24UnormS8Uint:
+        return VK_FORMAT_D24_UNORM_S8_UINT;
+    case Format::D32Float:
+        return VK_FORMAT_D32_SFLOAT;
+    case Format::D32FloatS8Uint:
+        return VK_FORMAT_D32_SFLOAT_S8_UINT;
+    }
+    return VK_FORMAT_UNDEFINED;
+}
+
+VkImageAspectFlags aspectsOf(Format format) {
+    switch (format) {
+    case Format::D16Unorm:
+    case Format::D32Float:
+        return VK_IMAGE_ASPECT_DEPTH_BIT;
+    case Format::D24UnormS8Uint:
+    case Format::D32FloatS8Uint:
+        return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+    default:
+        return VK_IMAGE_ASPECT_COLOR_BIT;
+    }
+}
+
+VkCompareOp toVkCompareOp(CompareOp op) {
+    // The enumerators are declared in Vulkan's order.
+    static_assert(static_cast<int>(CompareOp::Never) == VK_COMPARE_OP_NEVER &&
+                  static_cast<int>(CompareOp::GreaterOrEqual) == VK_COMPARE_OP_GREATER_OR_EQUAL &&
+                  static_cast<int>(CompareOp::Always) == VK_COMPARE_OP_ALWAYS);
+    return static_cast<VkCompareOp>(static_cast<int>(op));
+}
+
 } // namespace rhi::vulkan

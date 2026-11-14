@@ -35,4 +35,16 @@ Error toError(VkResult result, std::string_view what);
 /// @param stages Stages as a bit set.
 VkPipelineStageFlags toVkPipelineStages(PipelineStage stages);
 
+/// Maps an RHI format to its VkFormat. Format::Undefined maps to VK_FORMAT_UNDEFINED.
+/// @param format Format to map.
+VkFormat toVkFormat(Format format);
+
+/// The image aspects a format has: COLOR, or DEPTH and/or STENCIL for depth/stencil formats.
+/// @param format Texture format.
+VkImageAspectFlags aspectsOf(Format format);
+
+/// Maps a CompareOp to its VkCompareOp.
+/// @param op Comparison.
+VkCompareOp toVkCompareOp(CompareOp op);
+
 } // namespace rhi::vulkan

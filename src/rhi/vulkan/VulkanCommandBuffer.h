@@ -49,7 +49,7 @@ public:
     VulkanCommandBuffer& operator=(const VulkanCommandBuffer&) = delete;
 
     Result<void> begin() override;
-    /// Records buffer barriers. Texture barriers are not supported yet (step 7) and are ignored.
+    /// Records buffer and texture barriers in one vkCmdPipelineBarrier; image layouts follow from the states.
     void barrier(BarrierBatch batch) override;
     /// Not implemented yet (step 8); returns null.
     RenderEncoderRef beginRender(RenderBeginDesc desc) override;

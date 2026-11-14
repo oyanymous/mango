@@ -6,6 +6,7 @@
 #include "VulkanBuffer.h"
 #include "VulkanCopyEncoder.h"
 #include "VulkanDevice.h"
+#include "VulkanTexture.h"
 
 namespace rhi::vulkan {
 
@@ -53,6 +54,34 @@ StageAccess toStageAccess(ResourceState state) {
         return {VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0};
     }
     return {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT};
+}
+
+/// The image layout a texture in a given state is in. States only buffers use map to GENERAL.
+VkImageLayout toImageLayout(ResourceState state) {
+    switch (state) {
+    case ResourceState::Undefined:
+        return VK_IMAGE_LAYOUT_UNDEFINED;
+    case ResourceState::CopySrc:
+        return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    case ResourceState::CopyDst:
+        return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    case ResourceState::ShaderRead:
+        return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    case ResourceState::RenderTarget:
+        return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    case ResourceState::DepthStencilWrite:
+        return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    case ResourceState::DepthStencilRead:
+        return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+    case ResourceState::Present:
+        return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    case ResourceState::ShaderWrite:
+    case ResourceState::VertexBuffer:
+    case ResourceState::IndexBuffer:
+    case ResourceState::UniformBuffer:
+        return VK_IMAGE_LAYOUT_GENERAL;
+    }
+    return VK_IMAGE_LAYOUT_GENERAL;
 }
 
 } // namespace
@@ -111,13 +140,13 @@ Result<void> VulkanCommandBuffer::begin() {
 }
 
 void VulkanCommandBuffer::barrier(BarrierBatch batch) {
-    if (m_state != RecordingState::Recording || batch.buffers.empty()) {
+    if (m_state != RecordingState::Recording) {
         return;
     }
-    // shortcut: texture barriers are ignored until step 7 adds VulkanTexture and layout tracking.
     VkPipelineStageFlags src_stages = 0;
     VkPipelineStageFlags dst_stages = 0;
-    std::vector<VkBufferMemoryBarrier> barriers;
+
+    std::vector<VkBufferMemoryBarrier> buffer_barriers;
     for (BufferBarrier& b : batch.buffers) {
         if (!b.buffer) {
             continue;
@@ -136,14 +165,44 @@ void VulkanCommandBuffer::barrier(BarrierBatch batch) {
         barrier.buffer = static_cast<const VulkanBuffer&>(*b.buffer).handle();
         barrier.offset = b.offset;
         barrier.size = b.size == kWholeSize ? VK_WHOLE_SIZE : b.size;
-        barriers.push_back(barrier);
+        buffer_barriers.push_back(barrier);
         retain(std::move(b.buffer));
     }
-    if (barriers.empty()) {
+
+    std::vector<VkImageMemoryBarrier> image_barriers;
+    for (TextureBarrier& t : batch.textures) {
+        if (!t.texture) {
+            continue;
+        }
+        const StageAccess before = toStageAccess(t.before);
+        const StageAccess after = toStageAccess(t.after);
+        src_stages |= before.stages;
+        dst_stages |= after.stages;
+
+        const auto& texture = static_cast<const VulkanTexture&>(*t.texture);
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.srcAccessMask = before.access;
+        barrier.dstAccessMask = after.access;
+        barrier.oldLayout = toImageLayout(t.before);
+        barrier.newLayout = toImageLayout(t.after);
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = texture.handle();
+        // Barriers cover every aspect, so depth and stencil of one texture always share a layout.
+        // kRemaining equals VK_REMAINING_MIP_LEVELS / VK_REMAINING_ARRAY_LAYERS.
+        barrier.subresourceRange = {aspectsOf(texture.getDesc().format), t.range.base_mip_level,
+                                    t.range.mip_level_count, t.range.base_array_layer, t.range.array_layer_count};
+        image_barriers.push_back(barrier);
+        retain(std::move(t.texture));
+    }
+
+    if (buffer_barriers.empty() && image_barriers.empty()) {
         return;
     }
     vkCmdPipelineBarrier(m_command_buffer, src_stages, dst_stages, 0, 0, nullptr,
-                         static_cast<std::uint32_t>(barriers.size()), barriers.data(), 0, nullptr);
+                         static_cast<std::uint32_t>(buffer_barriers.size()), buffer_barriers.data(),
+                         static_cast<std::uint32_t>(image_barriers.size()), image_barriers.data());
 }
 
 RenderEncoderRef VulkanCommandBuffer::beginRender(RenderBeginDesc) {

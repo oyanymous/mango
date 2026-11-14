@@ -10,6 +10,7 @@
 #include "VulkanFence.h"
 #include "VulkanQueue.h"
 #include "VulkanSemaphore.h"
+#include "VulkanTexture.h"
 
 namespace rhi::vulkan {
 
@@ -51,16 +52,16 @@ Result<BufferRef> VulkanDevice::createBuffer(BufferDesc desc) {
     return VulkanBuffer::create(m_device, std::move(desc));
 }
 
-Result<TextureRef> VulkanDevice::createTexture(TextureDesc) {
-    return notImplemented("createTexture", 7);
+Result<TextureRef> VulkanDevice::createTexture(TextureDesc desc) {
+    return VulkanTexture::create(m_device, std::move(desc));
 }
 
-Result<TextureViewRef> VulkanDevice::createTextureView(TextureViewDesc) {
-    return notImplemented("createTextureView", 7);
+Result<TextureViewRef> VulkanDevice::createTextureView(TextureViewDesc desc) {
+    return VulkanTextureView::create(m_device, std::move(desc));
 }
 
-Result<SamplerRef> VulkanDevice::createSampler(SamplerDesc) {
-    return notImplemented("createSampler", 7);
+Result<SamplerRef> VulkanDevice::createSampler(SamplerDesc desc) {
+    return VulkanSampler::create(m_device, std::move(desc), m_desc.features.sampler_anisotropy);
 }
 
 Result<ShaderRef> VulkanDevice::createShader(ShaderDesc) {

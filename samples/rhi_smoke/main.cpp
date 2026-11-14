@@ -292,6 +292,132 @@ void testBufferRoundTrip(rhi::IDevice& device) {
     check((*cmd)->begin() && (*cmd)->end(), "command buffer can be re-recorded");
 }
 
+// Upload a 64x64 image, copy a 32x32 region of it into a second texture, read that back and compare.
+// Also creates views and samplers.
+void testTextureRoundTrip(rhi::IDevice& device, const rhi::Capabilities& caps) {
+    constexpr std::uint32_t kSize = 64;
+    constexpr std::uint32_t kRegion = 32;
+    constexpr rhi::Offset3D kOrigin{16, 8, 0};
+    constexpr std::uint32_t kTexel = 4; // RGBA8
+
+    auto bad = device.createTexture({.format = rhi::Format::Undefined, .usage = rhi::TextureUsage::Sampled});
+    check(!bad && bad.error().code == rhi::ErrorCode::InvalidArgument, "texture without a format is rejected");
+
+    auto source = device.createTexture({
+        .format = rhi::Format::RGBA8Unorm,
+        .extent = {kSize, kSize},
+        .usage = rhi::TextureUsage::CopyDst | rhi::TextureUsage::CopySrc | rhi::TextureUsage::Sampled,
+        .label = "source",
+    });
+    auto region = device.createTexture({
+        .format = rhi::Format::RGBA8Unorm,
+        .extent = {kRegion, kRegion},
+        .usage = rhi::TextureUsage::CopyDst | rhi::TextureUsage::CopySrc,
+    });
+    auto upload = device.createBuffer(
+        {.size = kSize * kSize * kTexel, .usage = rhi::BufferUsage::CopySrc, .memory = rhi::MemoryLocation::CpuToGpu});
+    auto readback = device.createBuffer({.size = kRegion * kRegion * kTexel,
+                                         .usage = rhi::BufferUsage::CopyDst,
+                                         .memory = rhi::MemoryLocation::GpuToCpu});
+    if (!source || !region || !upload || !readback) {
+        check(false, "textures and buffers created");
+        return;
+    }
+
+    auto view = device.createTextureView({.texture = *source});
+    check(view && (*view)->getTexture() == *source, "texture view created and retains its texture");
+    check(!device.createTextureView({}), "texture view without a texture is rejected");
+
+    auto depth = device.createTexture(
+        {.format = rhi::Format::D32Float, .extent = {kSize, kSize}, .usage = rhi::TextureUsage::DepthStencil});
+    check(depth && device.createTextureView({.texture = *depth, .aspect = rhi::TextureAspect::DepthOnly}),
+          "depth texture and depth view created");
+
+    check(static_cast<bool>(device.createSampler({})), "default sampler created");
+    check(static_cast<bool>(device.createSampler({.compare = rhi::CompareOp::LessOrEqual})), "comparison sampler");
+    if (caps.features.sampler_anisotropy) {
+        check(static_cast<bool>(device.createSampler({.max_anisotropy = caps.limits.max_sampler_anisotropy})),
+              "anisotropic sampler created");
+    }
+
+    // Texel (x, y) of the source holds bytes {x, y, x ^ y, 255}.
+    auto mapped = (*upload)->map({});
+    if (!mapped) {
+        return;
+    }
+    for (std::uint32_t y = 0; y < kSize; ++y) {
+        for (std::uint32_t x = 0; x < kSize; ++x) {
+            std::byte* texel = mapped->data() + (y * kSize + x) * kTexel;
+            texel[0] = static_cast<std::byte>(x);
+            texel[1] = static_cast<std::byte>(y);
+            texel[2] = static_cast<std::byte>(x ^ y);
+            texel[3] = std::byte{255};
+        }
+    }
+    (*upload)->unmap();
+
+    auto cmd = device.createCommandBuffer({});
+    if (!cmd || !(*cmd)->begin()) {
+        check(false, "texture command buffer begins");
+        return;
+    }
+    (*cmd)->barrier(
+        {.textures = {
+             {.texture = *source, .before = rhi::ResourceState::Undefined, .after = rhi::ResourceState::CopyDst}}});
+    {
+        rhi::CopyEncoderRef copy = (*cmd)->beginCopy();
+        copy->copyBufferTexture(
+            {.buffer = {.buffer = *upload}, .texture = {.texture = *source}, .extent = {kSize, kSize}});
+        copy->end();
+    }
+    (*cmd)->barrier(
+        {.textures = {
+             {.texture = *source, .before = rhi::ResourceState::CopyDst, .after = rhi::ResourceState::CopySrc},
+             {.texture = *region, .before = rhi::ResourceState::Undefined, .after = rhi::ResourceState::CopyDst},
+         }});
+    {
+        rhi::CopyEncoderRef copy = (*cmd)->beginCopy();
+        copy->copyTexture({.src = {.texture = *source, .origin = kOrigin},
+                           .dst = {.texture = *region},
+                           .extent = {kRegion, kRegion}});
+        copy->end();
+    }
+    (*cmd)->barrier(
+        {.textures = {
+             {.texture = *region, .before = rhi::ResourceState::CopyDst, .after = rhi::ResourceState::CopySrc}}});
+    {
+        rhi::CopyEncoderRef copy = (*cmd)->beginCopy();
+        copy->copyBufferTexture({.direction = rhi::CopyDirection::TextureToBuffer,
+                                 .buffer = {.buffer = *readback},
+                                 .texture = {.texture = *region},
+                                 .extent = {kRegion, kRegion}});
+        copy->end();
+    }
+    check(static_cast<bool>((*cmd)->end()), "texture copies recorded");
+
+    auto fence = device.createFence({});
+    if (!fence) {
+        return;
+    }
+    check(device.getQueue(rhi::QueueType::Graphics)->submit({.command_buffers = {*cmd}, .fence = *fence}) &&
+              (*fence)->wait(std::chrono::seconds(5)),
+          "texture copies finished");
+
+    auto result = (*readback)->map({});
+    bool same = static_cast<bool>(result);
+    for (std::uint32_t y = 0; same && y < kRegion; ++y) {
+        for (std::uint32_t x = 0; same && x < kRegion; ++x) {
+            const std::byte* texel = result->data() + (y * kRegion + x) * kTexel;
+            const std::uint32_t sx = x + kOrigin.x;
+            const std::uint32_t sy = y + kOrigin.y;
+            same = texel[0] == static_cast<std::byte>(sx) && texel[1] == static_cast<std::byte>(sy) &&
+                   texel[2] == static_cast<std::byte>(sx ^ sy) && texel[3] == std::byte{255};
+        }
+    }
+    check(same, "texture round trip: read-back region matches the source texels");
+    (*readback)->unmap();
+}
+
 void testInstance() {
 #if defined(MANGO_RHI_VULKAN)
     rhi::RHIFactory factory;
@@ -366,6 +492,7 @@ void testInstance() {
                         transfer == graphics ? "shared with graphics" : "dedicated");
             testSync(**device);
             testBufferRoundTrip(**device);
+            testTextureRoundTrip(**device, caps);
             devices.push_back(*device);
         }
 
