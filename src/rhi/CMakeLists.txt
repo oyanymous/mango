@@ -141,6 +141,10 @@ if (MANGO_RHI_METAL)
         metal/MetalRenderEncoder.mm
         metal/MetalSwapchain.h
         metal/MetalSwapchain.mm
+        metal/MetalShader.h
+        metal/MetalShader.mm
+        metal/MetalPipeline.h
+        metal/MetalPipeline.mm
     )
     target_sources(RHI PRIVATE ${RHI_METAL_SOURCES})
 
@@ -151,7 +155,8 @@ if (MANGO_RHI_METAL)
     set_source_files_properties(${RHI_METAL_SOURCES} PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
 
     # Metal stays a PRIVATE dependency: no Metal or Objective-C type may appear in a public RHI header.
-    target_link_libraries(RHI PRIVATE "-framework Metal" "-framework QuartzCore" "-framework Foundation")
+    target_link_libraries(RHI PRIVATE "-framework Metal" "-framework QuartzCore" "-framework Foundation"
+                          spirv-cross-msl)
     target_compile_definitions(RHI PUBLIC MANGO_RHI_METAL=1)
 endif ()
 

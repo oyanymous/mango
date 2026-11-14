@@ -11,9 +11,11 @@
 #include "MetalBuffer.h"
 #include "MetalCommandBuffer.h"
 #include "MetalFence.h"
+#include "MetalPipeline.h"
 #include "MetalQueue.h"
 #include "MetalRenderPass.h"
 #include "MetalSemaphore.h"
+#include "MetalShader.h"
 #include "MetalSwapchain.h"
 #include "MetalTexture.h"
 
@@ -76,20 +78,20 @@ Result<SamplerRef> MetalDevice::createSampler(SamplerDesc desc) {
     return MetalSampler::create(m_context, std::move(desc), m_desc.features.sampler_anisotropy);
 }
 
-Result<ShaderRef> MetalDevice::createShader(ShaderDesc) {
-    return notImplemented("createShader");
+Result<ShaderRef> MetalDevice::createShader(ShaderDesc desc) {
+    return MetalShader::create(m_context, std::move(desc));
 }
 
-Result<PipelineLayoutRef> MetalDevice::createPipelineLayout(PipelineLayoutDesc) {
-    return notImplemented("createPipelineLayout");
+Result<PipelineLayoutRef> MetalDevice::createPipelineLayout(PipelineLayoutDesc desc) {
+    return MetalPipelineLayout::create(std::move(desc));
 }
 
-Result<PipelineRef> MetalDevice::createGraphicsPipeline(GraphicsPipelineDesc) {
-    return notImplemented("createGraphicsPipeline");
+Result<PipelineRef> MetalDevice::createGraphicsPipeline(GraphicsPipelineDesc desc) {
+    return MetalPipeline::createGraphics(m_context, std::move(desc), m_desc.features.fill_mode_wireframe);
 }
 
-Result<PipelineRef> MetalDevice::createComputePipeline(ComputePipelineDesc) {
-    return notImplemented("createComputePipeline");
+Result<PipelineRef> MetalDevice::createComputePipeline(ComputePipelineDesc desc) {
+    return MetalPipeline::createCompute(m_context, std::move(desc));
 }
 
 Result<RenderPassRef> MetalDevice::createRenderPass(RenderPassDesc desc) {
@@ -100,8 +102,8 @@ Result<RenderTargetRef> MetalDevice::createRenderTarget(RenderTargetDesc desc) {
     return MetalRenderTarget::create(std::move(desc));
 }
 
-Result<BindGroupLayoutRef> MetalDevice::createBindGroupLayout(BindGroupLayoutDesc) {
-    return notImplemented("createBindGroupLayout");
+Result<BindGroupLayoutRef> MetalDevice::createBindGroupLayout(BindGroupLayoutDesc desc) {
+    return MetalBindGroupLayout::create(std::move(desc));
 }
 
 Result<BindGroupRef> MetalDevice::createBindGroup(BindGroupDesc) {

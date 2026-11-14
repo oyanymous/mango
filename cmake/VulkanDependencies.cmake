@@ -9,8 +9,7 @@
 
 include(FetchContent)
 
-# Keep Vulkan-Headers and volk on the same SDK release.
-set(MANGO_VULKAN_SDK_TAG vulkan-sdk-1.4.357.0)
+# Vulkan-Headers and volk use the SDK release in MANGO_VULKAN_SDK_TAG (set in the root CMakeLists.txt).
 
 FetchContent_Declare(
     VulkanHeaders

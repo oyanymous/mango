@@ -7,9 +7,12 @@
  *
  * Validation is on; every validation warning or error is printed, and the program exits non-zero if there was
  * any. Resizing and minimizing the window recreate the swapchain.
+ *
+ * Usage: `rhi_triangle [--backend vulkan|metal]`; without the option it uses the first available backend.
  */
 
 #include <array>
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -18,6 +21,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <span>
+#include <string>
+#include <string_view>
 #include <thread>
 #include <type_traits>
 #include <vector>
@@ -33,7 +38,7 @@ namespace {
 constexpr std::size_t kFramesInFlight = 2;
 constexpr rhi::Format kBackbufferFormat = rhi::Format::BGRA8Unorm;
 
-/** @brief One interleaved vertex: clip-space position (y points down in Vulkan) and texture coordinate. */
+/** @brief One interleaved vertex: clip-space position (+y points down, on every backend) and texture coordinate. */
 struct Vertex {
     float x, y; /**< Position. */
     float u, v; /**< Texture coordinate. */
@@ -304,16 +309,44 @@ void renderFrame(Renderer& r, const Window& window) {
     r.frame_index = (r.frame_index + 1) % kFramesInFlight;
 }
 
+/** @brief The backend named by `--backend`, or the first available one. Exits on an unknown or unavailable name. */
+rhi::Backend chooseBackend(int argc, char** argv, const rhi::RHIFactory& factory) {
+    const rhi::BackendList available = factory.availableBackends();
+    for (int i = 1; i + 1 < argc; ++i) {
+        if (std::string_view(argv[i]) != "--backend") {
+            continue;
+        }
+        const std::string_view name = argv[i + 1];
+        for (rhi::Backend backend : available) {
+            std::string lower(rhi::toString(backend));
+            for (char& c : lower) {
+                c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            }
+            if (name == lower) {
+                return backend;
+            }
+        }
+        std::fprintf(stderr, "backend '%.*s' is not available\n", static_cast<int>(name.size()), name.data());
+        std::exit(EXIT_FAILURE);
+    }
+    if (available.empty()) {
+        std::fprintf(stderr, "no RHI backend is available\n");
+        std::exit(EXIT_FAILURE);
+    }
+    return available[0];
+}
+
 } // namespace
 
-int main() {
+int main(int argc, char** argv) {
     Application app;
-    Window window("rhi_triangle");
-    window.display();
-
-    int problems = 0;
     rhi::RHIFactory factory;
-    auto instance = orExit(factory.createInstance(rhi::Backend::Vulkan,
+    const rhi::Backend backend = chooseBackend(argc, argv, factory);
+    std::printf("Backend: %s\n", std::string(rhi::toString(backend)).c_str());
+
+    // Before the window: on macOS creating a window initializes Metal, after which validation cannot be turned on.
+    int problems = 0;
+    auto instance = orExit(factory.createInstance(backend,
                                                   {
                                                       .application_name = "rhi_triangle",
                                                       .enable_validation = true,
@@ -330,14 +363,19 @@ int main() {
                                                   }),
                            "createInstance");
 
+    Window window("rhi_triangle");
+    window.display();
     const NativeWindow native = window.nativeWindow();
-    auto surface = orExit(
-        instance->createSurface({.window = rhi::Win32WindowHandle{.hinstance = native.hinstance, .hwnd = native.hwnd}}),
-        "createSurface");
+#if defined(__APPLE__)
+    const rhi::NativeWindowHandle handle = rhi::MetalLayerHandle{.layer = native.metal_layer};
+#else
+    const rhi::NativeWindowHandle handle = rhi::Win32WindowHandle{.hinstance = native.hinstance, .hwnd = native.hwnd};
+#endif
+    auto surface = orExit(instance->createSurface({.window = handle}), "createSurface");
 
     rhi::AdapterList adapters = instance->enumerateAdapters();
     if (adapters.empty()) {
-        std::fprintf(stderr, "no Vulkan 1.2 adapter\n");
+        std::fprintf(stderr, "no adapter\n");
         return EXIT_FAILURE;
     }
     std::printf("Adapter: %s\n", adapters[0]->getCapabilities().name.c_str());

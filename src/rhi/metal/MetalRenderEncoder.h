@@ -13,9 +13,15 @@
 namespace rhi::metal {
 
 class MetalCommandBuffer;
+class MetalPipeline;
 
 /**
  * @brief Records one render pass. Ends itself when destroyed.
+ *
+ * @details
+ * Vertex buffer slot N binds to Metal buffer index `kVertexBufferBase - N`. Draws need a pipeline, and indexed draws
+ * an index buffer, set first; otherwise they are skipped. Bind groups bind through the current pipeline's layout, so
+ * set the pipeline before them (as in the Vulkan backend).
  */
 class MetalRenderEncoder final : public IRenderEncoder {
 public:
@@ -38,6 +44,10 @@ public:
 private:
     std::shared_ptr<MetalCommandBuffer> m_command_buffer;
     id<MTLRenderCommandEncoder> m_encoder = nil;
+    std::shared_ptr<const MetalPipeline> m_pipeline; // the current pipeline (primitive type, binding remap)
+    id<MTLBuffer> m_index_buffer = nil;              // set by setIndexBuffer, used by drawIndexed
+    std::uint64_t m_index_offset = 0;
+    MTLIndexType m_index_type = MTLIndexTypeUInt32;
     bool m_ended = false;
 };
 
