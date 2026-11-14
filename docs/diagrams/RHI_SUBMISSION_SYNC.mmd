@@ -1,0 +1,111 @@
+classDiagram
+    direction LR
+    %% Proposed design, not source-verified. Native type names are conceptual.
+    %% Interfaces declare behavior; concrete backend classes hold implementation state.
+    %% Queue submission and synchronization
+    %% External references mirror the public APIs in their owning RHI files.
+    class IQueue {
+        <<interface>>
+        +submit(SubmitDesc) Result
+        +present(PresentDesc) Result
+    }
+    class MetalQueue {
+        -QueueType m_queue_type
+        -CommandBufferList m_pending_submissions
+        -MTLCommandQueue m_queue
+        +submit(SubmitDesc) Result
+        +present(PresentDesc) Result
+    }
+    class VulkanQueue {
+        -QueueType m_queue_type
+        -CommandBufferList m_pending_submissions
+        -VkQueue m_queue
+        +submit(SubmitDesc) Result
+        +present(PresentDesc) Result
+    }
+    class GLQueue {
+        -QueueType m_queue_type
+        -CommandBufferList m_pending_submissions
+        -GLContext m_context
+        +submit(SubmitDesc) Result
+        +present(PresentDesc) Result
+    }
+    class IFence {
+        <<interface>>
+        +wait(Timeout) Result
+        +isSignaled() bool
+        +reset() Result
+    }
+    class MetalFence {
+        -FenceDesc m_desc
+        -uint64 m_submission_value
+        -MetalCompletionState m_completion
+        +wait(Timeout) Result
+        +isSignaled() bool
+        +reset() Result
+    }
+    class VulkanFence {
+        -FenceDesc m_desc
+        -uint64 m_submission_value
+        -VkFence m_fence
+        +wait(Timeout) Result
+        +isSignaled() bool
+        +reset() Result
+    }
+    class GLFence {
+        -FenceDesc m_desc
+        -uint64 m_submission_value
+        -GLsync m_sync
+        +wait(Timeout) Result
+        +isSignaled() bool
+        +reset() Result
+    }
+    class ISemaphore {
+        <<interface>>
+        +getKind() SemaphoreKind
+    }
+    class MetalSemaphore {
+        -SemaphoreKind m_kind
+        -uint64 m_value
+        -MetalEventState m_event_state
+        +getKind() SemaphoreKind
+    }
+    class VulkanSemaphore {
+        -SemaphoreKind m_kind
+        -uint64 m_value
+        -VkSemaphore m_semaphore
+        +getKind() SemaphoreKind
+    }
+    class GLSemaphore {
+        -SemaphoreKind m_kind
+        -uint64 m_value
+        -GLSemaphoreState m_sync_state
+        +getKind() SemaphoreKind
+    }
+    class ICommandBuffer {
+        <<external>>
+        +begin() Result
+        +barrier(BarrierBatch) void
+        +beginRender(RenderBeginDesc) RenderEncoderRef
+        +beginCompute() ComputeEncoderRef
+        +beginCopy() CopyEncoderRef
+        +end() Result
+    }
+    class ISwapchain {
+        <<external>>
+        +acquire(AcquireDesc) AcquireResult
+        +resize(Extent) Result
+    }
+    IQueue <|.. MetalQueue
+    IQueue <|.. VulkanQueue
+    IQueue <|.. GLQueue
+    IFence <|.. MetalFence
+    IFence <|.. VulkanFence
+    IFence <|.. GLFence
+    ISemaphore <|.. MetalSemaphore
+    ISemaphore <|.. VulkanSemaphore
+    ISemaphore <|.. GLSemaphore
+    IQueue ..> ICommandBuffer : submits and retains
+    IQueue ..> IFence : signals CPU completion
+    IQueue ..> ISemaphore : GPU waits and signals
+    IQueue ..> ISwapchain : presents

@@ -46,6 +46,10 @@ Each library exports **its own directory** as its include path (`Core` via `INTE
 
 `src/main.cpp` is the exception: it uses `"platform/Application.h"` / `"ui/Widget.h"`, which resolve only because it sits at the repo root and quoted includes search the including file's directory first.
 
+## Design docs
+
+`docs/diagrams/` holds Mermaid UML diagrams of the planned RHI (GPU abstraction over Metal, Vulkan and GL). Its own `docs/diagrams/CLAUDE.md` has the diagram conventions and validation steps.
+
 ## Conventions
 
 - Member fields use the `m_` prefix with snake_case (`m_impl`, `m_window_delegate`); headers use `#pragma once`.
