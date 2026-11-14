@@ -109,6 +109,24 @@ if (MANGO_RHI_VULKAN)
     endif ()
 endif ()
 
+if (MANGO_RHI_METAL)
+    set(RHI_METAL_SOURCES
+        metal/MetalDeviceFactory.h
+        metal/MetalDeviceFactory.mm
+    )
+    target_sources(RHI PRIVATE ${RHI_METAL_SOURCES})
+
+    # Backend headers are private to RHI and included bare ("MetalDeviceFactory.h").
+    target_include_directories(RHI PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/metal")
+
+    # ARC for the Metal backend only; the rest of the project uses manual reference counting.
+    set_source_files_properties(${RHI_METAL_SOURCES} PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+
+    # Metal stays a PRIVATE dependency: no Metal or Objective-C type may appear in a public RHI header.
+    target_link_libraries(RHI PRIVATE "-framework Metal" "-framework QuartzCore" "-framework Foundation")
+    target_compile_definitions(RHI PUBLIC MANGO_RHI_METAL=1)
+endif ()
+
 # Compiles every public header on its own (twice, to check #pragma once), so a header that misses
 # an include fails the build. Only RHI's own include path is visible, which also proves that no
 # public header needs Vulkan.

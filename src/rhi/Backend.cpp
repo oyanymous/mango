@@ -22,8 +22,14 @@ std::string_view toString(Backend backend) {
 }
 
 std::span<const Backend> compiledBackends() {
-#if defined(MANGO_RHI_VULKAN)
+#if defined(MANGO_RHI_VULKAN) && defined(MANGO_RHI_METAL)
+    static constexpr std::array backends{Backend::Vulkan, Backend::Metal};
+    return backends;
+#elif defined(MANGO_RHI_VULKAN)
     static constexpr std::array backends{Backend::Vulkan};
+    return backends;
+#elif defined(MANGO_RHI_METAL)
+    static constexpr std::array backends{Backend::Metal};
     return backends;
 #else
     return {};

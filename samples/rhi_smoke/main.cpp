@@ -2,8 +2,9 @@
  * @file
  * @brief rhi_smoke: headless checks of the RHI, run by CTest.
  *
- * Runs every check, prints `[ OK ]` / `[FAIL]` per check, and exits non-zero if any failed. With the Vulkan
- * backend it also creates a validated instance, lists the adapters, and fails on any validation warning.
+ * Runs every check, prints `[ OK ]` / `[FAIL]` per check, and exits non-zero if any failed. For every backend
+ * RHIFactory lists as available, it creates a validated instance, lists the adapters, runs the device checks on
+ * each, and fails on any validation warning.
  */
 
 #include <algorithm>
@@ -140,15 +141,29 @@ void testBackends() {
     }
     std::printf("\n");
 
+    // In the order compiledBackends() promises.
+    std::vector<rhi::Backend> expected;
 #if defined(MANGO_RHI_VULKAN)
-    check(rhi::compiledBackends().size() == 1 && rhi::compiledBackends()[0] == rhi::Backend::Vulkan,
-          "Vulkan backend is compiled in");
+    expected.push_back(rhi::Backend::Vulkan);
+#endif
+#if defined(MANGO_RHI_METAL)
+    expected.push_back(rhi::Backend::Metal);
+#endif
+    check(std::ranges::equal(rhi::compiledBackends(), expected), "compiled backends match the MANGO_RHI_* options");
 
+#if defined(MANGO_RHI_VULKAN)
     std::printf("Vulkan headers: %u.%u.%u\n", VK_API_VERSION_MAJOR(VK_HEADER_VERSION_COMPLETE),
                 VK_API_VERSION_MINOR(VK_HEADER_VERSION_COMPLETE), VK_API_VERSION_PATCH(VK_HEADER_VERSION_COMPLETE));
 
     // volk opens the loader that ships with the GPU driver (vulkan-1.dll / libvulkan).
     VkResult result = volkInitialize();
+#if defined(__APPLE__)
+    // macOS has no Vulkan driver unless MoltenVK is installed, which the build does not provide yet.
+    if (result != VK_SUCCESS) {
+        std::printf("Vulkan loader not found (no MoltenVK); skipping the Vulkan checks\n");
+        return;
+    }
+#endif
     check(result == VK_SUCCESS, "volk finds the Vulkan loader");
     if (result != VK_SUCCESS) {
         return;
@@ -162,8 +177,6 @@ void testBackends() {
                     VK_API_VERSION_MINOR(loader_version), VK_API_VERSION_PATCH(loader_version));
         check(loader_version >= VK_API_VERSION_1_2, "Vulkan loader supports 1.2");
     }
-#else
-    check(rhi::compiledBackends().empty(), "no backend compiled in");
 #endif
 }
 
@@ -600,15 +613,36 @@ void testOffscreenClear(rhi::IDevice& device) {
     (*depth_readback)->unmap();
 }
 
-void testInstance() {
-#if defined(MANGO_RHI_VULKAN)
+void testFactory() {
     rhi::RHIFactory factory;
     rhi::BackendList available = factory.availableBackends();
-    check(available.size() == 1 && available[0] == rhi::Backend::Vulkan, "RHIFactory lists Vulkan as available");
+    std::printf("Available backends:");
+    for (rhi::Backend backend : available) {
+        std::printf(" %s", std::string(rhi::toString(backend)).c_str());
+    }
+    std::printf("\n");
+    check(std::ranges::all_of(available,
+                              [](rhi::Backend backend) {
+                                  return std::ranges::find(rhi::compiledBackends(), backend) !=
+                                         rhi::compiledBackends().end();
+                              }),
+          "RHIFactory lists only compiled-in backends as available");
+#if defined(MANGO_RHI_VULKAN)
+    const bool has_vulkan_loader = volkInitialize() == VK_SUCCESS;
+    check((std::ranges::find(available, rhi::Backend::Vulkan) != available.end()) == has_vulkan_loader,
+          "RHIFactory lists Vulkan exactly when its loader is found");
+#endif
 
-    check(!factory.createInstance(rhi::Backend::Metal, {}) &&
-              factory.createInstance(rhi::Backend::Metal, {}).error().code == rhi::ErrorCode::BackendUnavailable,
+    auto gl = factory.createInstance(rhi::Backend::GL, {});
+    check(!gl && gl.error().code == rhi::ErrorCode::BackendUnavailable,
           "RHIFactory rejects a backend that is not compiled in");
+}
+
+// Creates a validated instance of one backend and runs the device checks on every adapter.
+void testBackend(rhi::Backend backend) {
+    const std::string name(rhi::toString(backend));
+    std::printf("== %s ==\n", name.c_str());
+    rhi::RHIFactory factory;
 
     // Every warning or error from the driver or the validation layer counts as a failure.
     int problems = 0;
@@ -621,7 +655,7 @@ void testInstance() {
                 if (message.severity == rhi::DebugSeverity::Warning || message.severity == rhi::DebugSeverity::Error) {
                     ++problems;
                 }
-                if (message.message.starts_with("using VK_LAYER_KHRONOS_validation")) {
+                if (message.message.starts_with("using ")) {
                     layer_in_use = message.message;
                 }
                 std::printf("  [debug] %.*s\n", static_cast<int>(message.message.size()), message.message.data());
@@ -629,21 +663,21 @@ void testInstance() {
     };
 
     {
-        auto instance = factory.createInstance(rhi::Backend::Vulkan, desc);
+        auto instance = factory.createInstance(backend, desc);
         check(static_cast<bool>(instance),
-              instance ? "Vulkan instance created with validation" : instance.error().message.c_str());
+              instance ? "instance created with validation" : instance.error().message.c_str());
         if (!instance) {
             return;
         }
 
         rhi::AdapterList adapters = (*instance)->enumerateAdapters();
-        check(!adapters.empty(), "at least one Vulkan 1.2 adapter");
+        check(!adapters.empty(), "at least one adapter");
         check((*instance)->enumerateAdapters().size() == adapters.size(), "adapters are enumerated once and cached");
 
         for (const rhi::AdapterRef& adapter : adapters) {
             rhi::Capabilities caps = adapter->getCapabilities();
-            std::printf("Adapter: %s (%s), Vulkan %u.%u.%u, vendor 0x%04x device 0x%04x\n", caps.name.c_str(),
-                        adapterTypeName(caps.type), caps.api_version_major, caps.api_version_minor,
+            std::printf("Adapter: %s (%s), %s %u.%u.%u, vendor 0x%04x device 0x%04x\n", caps.name.c_str(),
+                        adapterTypeName(caps.type), name.c_str(), caps.api_version_major, caps.api_version_minor,
                         caps.api_version_patch, caps.vendor_id, caps.device_id);
             std::printf("  max 2D texture %u, max bind groups %u, max colour attachments %u, anisotropy %s (%.0fx)\n",
                         caps.limits.max_texture_dimension_2d, caps.limits.max_bind_groups,
@@ -680,18 +714,22 @@ void testInstance() {
             devices.push_back(*device);
         }
 
-        // Adapters keep the VkInstance alive on their own; dropping the instance first must be safe.
+        // Adapters keep the native instance alive on their own; dropping the instance first must be safe.
         instance = rhi::Error{};
         check(adapters.empty() || !adapters[0]->getCapabilities().name.empty(), "adapters outlive their instance");
 
-        // Devices and queues keep the VkDevice and VkInstance alive; validation reports leaks on destruction.
+        // Devices and queues keep the native device and instance alive; validation reports leaks on destruction.
         adapters.clear();
         rhi::QueueRef queue = devices.empty() ? nullptr : devices[0]->getQueue(rhi::QueueType::Graphics);
         devices.clear();
         check(devices.empty() && (adapters.empty() || queue), "queues outlive their device");
     }
 
-#if defined(MANGO_VULKAN_VALIDATION)
+    if (backend != rhi::Backend::Vulkan) {
+        check(problems == 0, "no validation warnings or errors");
+        return;
+    }
+#if defined(MANGO_RHI_VULKAN) && defined(MANGO_VULKAN_VALIDATION)
     // The layer built from source is on the same pinned SDK tag as the Vulkan headers.
     const std::string expected_layer = "using VK_LAYER_KHRONOS_validation " +
                                        std::to_string(VK_API_VERSION_MAJOR(VK_HEADER_VERSION_COMPLETE)) + "." +
@@ -702,7 +740,6 @@ void testInstance() {
 #else
     std::printf("Validation layer not built (MANGO_VULKAN_VALIDATION=OFF); %d warning(s)/error(s)\n", problems);
 #endif
-#endif
 }
 
 } // namespace
@@ -712,7 +749,10 @@ int main() {
     testTypes();
     testInterfaces();
     testBackends();
-    testInstance();
+    testFactory();
+    for (rhi::Backend backend : rhi::RHIFactory().availableBackends()) {
+        testBackend(backend);
+    }
 
     if (g_failures != 0) {
         std::printf("%d check(s) failed\n", g_failures);

@@ -15,7 +15,7 @@ namespace rhi {
  */
 enum class Backend {
     Vulkan, /**< Vulkan 1.2+ (MoltenVK on macOS). Implemented in rhi::vulkan. */
-    Metal,  /**< Apple Metal. Designed (see docs/diagrams), not implemented. */
+    Metal,  /**< Apple Metal (macOS 13+). Being implemented in rhi::metal, see docs/RHI_METAL_PLAN.md. */
     GL,     /**< OpenGL. Designed (see docs/diagrams), not implemented. */
 };
 
@@ -27,7 +27,8 @@ enum class Backend {
 std::string_view toString(Backend backend);
 
 /**
- * @brief The backends compiled into this build, e.g. Vulkan when the `MANGO_RHI_VULKAN` CMake option is ON.
+ * @brief The backends compiled into this build, in order: Vulkan when the `MANGO_RHI_VULKAN` CMake option is ON,
+ * then Metal when `MANGO_RHI_METAL` is ON (Apple only).
  *
  * @details
  * A compiled backend may still be unusable at run time (no driver); RHIFactory::availableBackends() checks that.

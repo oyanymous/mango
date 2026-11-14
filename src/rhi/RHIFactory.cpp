@@ -13,6 +13,10 @@
 #include "VulkanDeviceFactory.h"
 #endif
 
+#if defined(MANGO_RHI_METAL)
+#include "MetalDeviceFactory.h"
+#endif
+
 namespace rhi {
 
 namespace {
@@ -33,6 +37,14 @@ DeviceFactoryRef factoryFor(Backend backend) {
         return nullptr;
 #endif
     case Backend::Metal:
+#if defined(MANGO_RHI_METAL)
+    {
+        static const DeviceFactoryRef factory = std::make_shared<metal::MetalDeviceFactory>();
+        return factory;
+    }
+#else
+        return nullptr;
+#endif
     case Backend::GL:
         return nullptr;
     }
@@ -51,6 +63,8 @@ bool hasDriver(Backend backend) {
         return false;
 #endif
     case Backend::Metal:
+        // Not usable yet: MetalDeviceFactory cannot create instances (docs/RHI_METAL_PLAN.md, step 2).
+        return false;
     case Backend::GL:
         return false;
     }

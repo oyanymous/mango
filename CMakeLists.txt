@@ -1,4 +1,9 @@
 cmake_minimum_required(VERSION 3.24)
+# Oldest macOS the Metal backend supports (Metal 3). Must be set before project(); ignored on other systems.
+# FORCE only replaces an empty value (which project() caches when none is given), never a developer's choice.
+if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING "Minimum macOS version to target" FORCE)
+endif()
 project(Mango LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -17,6 +22,12 @@ if(MSVC)
 endif()
 
 option(MANGO_RHI_VULKAN "Build the Vulkan RHI backend" ON)
+option(MANGO_RHI_METAL "Build the Metal RHI backend (Apple only)" ${APPLE})
+# Metal exists only on Apple systems; force off a value copied from another machine's cache or command line.
+if(MANGO_RHI_METAL AND NOT APPLE)
+    message(WARNING "Disabling MANGO_RHI_METAL: Metal is only available on Apple systems.")
+    set(MANGO_RHI_METAL OFF CACHE BOOL "" FORCE)
+endif()
 # Off by default with MinGW: the layer's SPIRV-Tools dependency forces -static on MinGW, and CLion's bundled MinGW
 # cannot link statically (missing __ms_vsnprintf / __intrinsic_setjmpex). Use the MSVC `windows` preset instead.
 if(MINGW)
