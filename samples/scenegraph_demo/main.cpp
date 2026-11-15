@@ -35,7 +35,7 @@
 
 namespace {
 
-/** @brief Whether @p flag appears among the arguments. */
+/// Whether @p flag appears among the arguments.
 bool hasFlag(int argc, char** argv, std::string_view flag) {
     for (int i = 1; i < argc; ++i) {
         if (argv[i] == flag) {
@@ -45,7 +45,7 @@ bool hasFlag(int argc, char** argv, std::string_view flag) {
     return false;
 }
 
-/** @brief The value after @p flag, or null. */
+/// The value after @p flag, or null.
 const char* flagValue(int argc, char** argv, std::string_view flag) {
     for (int i = 1; i + 1 < argc; ++i) {
         if (argv[i] == flag) {
@@ -55,7 +55,7 @@ const char* flagValue(int argc, char** argv, std::string_view flag) {
     return nullptr;
 }
 
-/** @brief The backend named by `--backend`, or the first available one. Exits on an unknown or unavailable name. */
+/// The backend named by `--backend`, or the first available one. Exits on an unknown or unavailable name.
 rhi::Backend chooseBackend(int argc, char** argv, const rhi::RHIFactory& factory) {
     const rhi::BackendList available = factory.availableBackends();
     if (const char* name = flagValue(argc, argv, "--backend")) {
@@ -78,7 +78,7 @@ rhi::Backend chooseBackend(int argc, char** argv, const rhi::RHIFactory& factory
     return available[0];
 }
 
-/** @brief Writes premultiplied RGBA8 pixels (opaque here, so premultiplication does not matter) as a binary PPM. */
+/// Writes premultiplied RGBA8 pixels (opaque here, so premultiplication does not matter) as a binary PPM.
 bool writePpm(const char* path, const std::vector<std::uint8_t>& rgba, std::uint32_t width, std::uint32_t height) {
     std::FILE* file = std::fopen(path, "wb");
     if (file == nullptr) {
@@ -91,7 +91,7 @@ bool writePpm(const char* path, const std::vector<std::uint8_t>& rgba, std::uint
     return std::fclose(file) == 0;
 }
 
-/** @brief A 64x64 checkerboard texture. */
+/// A 64x64 checkerboard texture.
 std::shared_ptr<sg::Texture> checkerboard() {
     constexpr std::uint32_t kSize = 64;
     std::vector<std::uint8_t> pixels(kSize * kSize * 4);
@@ -108,7 +108,7 @@ std::shared_ptr<sg::Texture> checkerboard() {
     return sg::Texture::fromRgba8(kSize, kSize, std::move(pixels));
 }
 
-/** @brief The animated parts of the scene. */
+/// The animated parts of the scene.
 struct Scene {
     sg::RootNode root;
     sg::TransformNode* fit = nullptr;     // scales the 900 x 600 design to the window
@@ -117,7 +117,7 @@ struct Scene {
     sg::OpacityNode* pulse = nullptr;     // fades a rectangle
 };
 
-/** @brief Builds the demo scene, in logical units (the window starts at 900 x 600). */
+/// Builds the demo scene, in logical units (the window starts at 900 x 600).
 void buildScene(Scene& scene) {
     scene.fit = scene.root.emplaceChild<sg::TransformNode>();
     sg::Node& top = *scene.fit;
@@ -158,7 +158,7 @@ void buildScene(Scene& scene) {
                                        sg::Material::flatColor({0.2f, 0.2f, 0.8f, 1.0f}));
 }
 
-/** @brief Scales the 900 x 600 design to fit a window of @p size pixels at @p dpr pixels per unit. */
+/// Scales the 900 x 600 design to fit a window of @p size pixels at @p dpr pixels per unit.
 void fitToWindow(Scene& scene, WindowSize size, float dpr) {
     const float scale = std::min(size.width / dpr / 900.0f, size.height / dpr / 600.0f);
     if (scale > 0.0f) {
@@ -166,7 +166,7 @@ void fitToWindow(Scene& scene, WindowSize size, float dpr) {
     }
 }
 
-/** @brief Moves the animated nodes to their state at frame @p frame. */
+/// Moves the animated nodes to their state at frame @p frame.
 void animate(Scene& scene, std::uint64_t frame) {
     const float t = static_cast<float>(frame) / 60.0f;
     scene.spinner->setMatrix(sg::Transform2D::translation(640, 160) * sg::Transform2D::rotation(t * 0.8f));

@@ -15,14 +15,14 @@ namespace sg {
 
 namespace {
 
-/** @brief The traversal's state for one subtree. */
+/// The traversal's state for one subtree.
 struct Traversal {
     float device_pixel_ratio = 1.0f;
     UpdateVisitor* visitor = nullptr;
     UpdateStats stats;
 };
 
-/** @brief World state passed from a parent to its children. */
+/// World state passed from a parent to its children.
 struct Inherited {
     Transform2D world;
     float opacity = 1.0f;
@@ -33,14 +33,11 @@ struct Inherited {
 
 } // namespace
 
-/**
- * @brief The traversal itself; a friend of Node and ClipNode, so it can write their world state.
- */
+/// The traversal itself; a friend of Node and ClipNode, so it can write their world state.
 struct UpdatePassAccess {
     /**
-     * @brief Visits @p node: refreshes its world state when needed, reports it, then recurses into dirty children.
+     * Visits @p node: refreshes its world state when needed, reports it, then recurses into dirty children.
      *
-     * @details
      * `inherited_changed` means the parent's world state changed, so this node's must be recomputed; `is_new` means
      * the node sits in a subtree just added to the tree (so even content below layers must be computed).
      */

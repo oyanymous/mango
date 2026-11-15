@@ -14,9 +14,7 @@
 
 namespace {
 
-/**
- * @brief The client-area size of @p window in pixels; 0 x 0 while it is minimized (as on Win32).
- */
+/// The client-area size of @p window in pixels; 0 x 0 while it is minimized (as on Win32).
 WindowSize pixelSize(NSWindow* window) {
     if ([window isMiniaturized]) {
         return {0, 0};
@@ -28,10 +26,7 @@ WindowSize pixelSize(NSWindow* window) {
 
 } // namespace
 
-/**
- * @brief The NSWindow delegate: forwards size changes to the resize callback and quits the loop when the window
- * closes.
- */
+/// The NSWindow delegate: forwards size changes to the resize callback and quits the loop when the window closes.
 @interface WindowDelegate : NSObject <NSWindowDelegate> {
 @public
     std::function<void(WindowSize)>*
@@ -42,9 +37,7 @@ WindowSize pixelSize(NSWindow* window) {
 
 @implementation WindowDelegate
 
-/**
- * @brief Calls the resize callback with the window's current pixel size.
- */
+/// Calls the resize callback with the window's current pixel size.
 - (void)notifyResize:(NSWindow*)window {
     if (m_resize_callback && *m_resize_callback) {
         (*m_resize_callback)(pixelSize(window));
@@ -76,9 +69,7 @@ WindowSize pixelSize(NSWindow* window) {
 
 @end
 
-/**
- * @brief Native AppKit state of a Window.
- */
+/// Native AppKit state of a Window.
 struct Window::Impl {
     NSWindow* m_window = nil;                          /**< The window; retained (manual reference counting). */
     WindowDelegate* m_window_delegate = nil;           /**< Its delegate; retained. */

@@ -21,11 +21,9 @@ namespace rhi::metal {
 
 namespace {
 
-/**
- * @brief Turns on Metal API and shader validation for this process. Metal reads these variables when it creates its
- * first device, so they only work if nothing in the process has used Metal yet. Values the developer already set win.
- * Warnings assert like errors, so any validation message stops the program (as it fails the Vulkan smoke test).
- */
+/// Turns on Metal API and shader validation for this process. Metal reads these variables when it creates its first
+/// device, so they only work if nothing in the process has used Metal yet. Values the developer already set win.
+/// Warnings assert like errors, so any validation message stops the program (as it fails the Vulkan smoke test).
 void enableValidationLayer() {
     setenv("MTL_DEBUG_LAYER", "1", 0);
     setenv("MTL_DEBUG_LAYER_ERROR_MODE", "assert", 0);
@@ -33,9 +31,7 @@ void enableValidationLayer() {
     setenv("MTL_SHADER_VALIDATION", "1", 0);
 }
 
-/**
- * @brief True if @p device is wrapped by the API validation layer (its class is then `MTLDebugDevice`).
- */
+/// True if @p device is wrapped by the API validation layer (its class is then `MTLDebugDevice`).
 bool isValidated(id<MTLDevice> device) {
     return [NSStringFromClass([device class]) containsString:@"Debug"];
 }

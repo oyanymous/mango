@@ -16,9 +16,7 @@ namespace rhi::vulkan {
 
 namespace {
 
-/**
- * @brief Maps a PresentMode to its VkPresentModeKHR.
- */
+/// Maps a PresentMode to its VkPresentModeKHR.
 VkPresentModeKHR toVkPresentMode(PresentMode mode) {
     switch (mode) {
     case PresentMode::Fifo:
@@ -31,9 +29,7 @@ VkPresentModeKHR toVkPresentMode(PresentMode mode) {
     return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-/**
- * @brief Maps the TextureUsage bits a backbuffer can have to VkImageUsageFlags.
- */
+/// Maps the TextureUsage bits a backbuffer can have to VkImageUsageFlags.
 VkImageUsageFlags toVkSwapchainUsage(TextureUsage usage) {
     VkImageUsageFlags flags = 0;
     if (hasFlag(usage, TextureUsage::RenderTarget)) {

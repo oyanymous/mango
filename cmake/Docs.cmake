@@ -48,15 +48,16 @@ set(DOXYGEN_PROJECT_BRIEF "Cross-platform renderer and rendering hardware interf
 set(DOXYGEN_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/docs")
 set(DOXYGEN_USE_MDFILE_AS_MAINPAGE "${CMAKE_SOURCE_DIR}/docs/Mainpage.md")
 set(DOXYGEN_WARN_LOGFILE "${CMAKE_BINARY_DIR}/docs/warnings.log")
-set(DOXYGEN_WARN_IF_UNDOCUMENTED YES)
-# Not WARN_NO_PARAMDOC: simple getters document their result in the brief instead of a @return.
-# Wrong or missing @param names are still reported (WARN_IF_DOC_ERROR / WARN_IF_INCOMPLETE_DOC).
-set(DOXYGEN_WARN_IF_INCOMPLETE_DOC YES)
-set(DOXYGEN_EXTRACT_ALL NO)
+# Comments are written only where they add something the signature does not say, so undocumented members are
+# extracted silently and partly documented parameter lists are fine. Wrong @param names are still reported
+# (WARN_IF_DOC_ERROR).
+set(DOXYGEN_WARN_IF_UNDOCUMENTED NO)
+set(DOXYGEN_WARN_IF_INCOMPLETE_DOC NO)
+set(DOXYGEN_EXTRACT_ALL YES)
 set(DOXYGEN_EXTRACT_PRIVATE NO)
 set(DOXYGEN_EXTRACT_STATIC YES)
 set(DOXYGEN_EXTRACT_ANON_NSPACES NO)
-set(DOXYGEN_JAVADOC_AUTOBRIEF YES) # the first sentence of a /// block is its brief description
+set(DOXYGEN_JAVADOC_AUTOBRIEF YES) # the first sentence of a comment is its brief description
 set(DOXYGEN_SORT_MEMBER_DOCS NO)   # keep declaration order
 set(DOXYGEN_FULL_PATH_NAMES NO)
 set(DOXYGEN_GENERATE_TREEVIEW YES)
@@ -69,7 +70,7 @@ set(DOXYGEN_ENABLE_PREPROCESSING YES)
 set(DOXYGEN_MACRO_EXPANSION YES)
 set(DOXYGEN_EXPAND_ONLY_PREDEF YES)
 # Document the Vulkan backend as built; hide the flag-operator macro's generated operators.
-set(DOXYGEN_PREDEFINED "MANGO_RHI_VULKAN=1" "MANGO_RHI_METAL=1""MANGO_VULKAN_VALIDATION=1" "MANGO_RHI_FLAGS(Type)=")
+set(DOXYGEN_PREDEFINED "MANGO_RHI_VULKAN=1" "MANGO_RHI_METAL=1" "MANGO_VULKAN_VALIDATION=1" "MANGO_RHI_FLAGS(Type)=")
 
 doxygen_add_docs(docs
     "${CMAKE_SOURCE_DIR}/src"

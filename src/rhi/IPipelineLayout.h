@@ -1,10 +1,5 @@
 #pragma once
 
-/**
- * @file
- * @brief rhi::IPipelineLayout: the bind group layouts a pipeline uses.
- */
-
 #include <string>
 #include <vector>
 
@@ -13,27 +8,18 @@
 
 namespace rhi {
 
-/**
- * @brief Describes a pipeline layout to create with IDevice::createPipelineLayout.
- */
+/// Describes a pipeline layout to create with IDevice::createPipelineLayout.
 struct PipelineLayoutDesc {
-    /**
-     * @brief Bind group index `i` in setBindGroup() (`set = i` in the shader) uses `bind_group_layouts[i]`. Retained.
-     */
+    /// Bind group index `i` in setBindGroup() (`set = i` in the shader) uses `bind_group_layouts[i]`. Retained.
     std::vector<BindGroupLayoutRef> bind_group_layouts;
-    std::string label; /**< Debug name. */
+    std::string label;
 };
 
-/**
- * @brief The list of bind group layouts a pipeline is compiled against. Retains its bind group layouts.
- */
+/// The list of bind group layouts a pipeline is compiled against. Retains its bind group layouts.
 class IPipelineLayout {
 public:
     virtual ~IPipelineLayout() = default;
 
-    /**
-     * @brief The descriptor the layout was created with.
-     */
     virtual PipelineLayoutDesc getDesc() const = 0;
 };
 

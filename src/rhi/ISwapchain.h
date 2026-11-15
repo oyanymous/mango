@@ -1,10 +1,5 @@
 #pragma once
 
-/**
- * @file
- * @brief rhi::ISwapchain: the chain of backbuffer images presented to a surface.
- */
-
 #include <cstdint>
 #include <string>
 
@@ -17,42 +12,32 @@
 
 namespace rhi {
 
-/**
- * @brief How presented images are queued for display.
- */
+/// How presented images are queued for display.
 enum class PresentMode {
     Fifo,      /**< Vsync; waits for vertical blank. Always supported. */
     Mailbox,   /**< Vsync without blocking; the newest frame replaces a queued one. */
     Immediate, /**< No vsync; lowest latency, may tear. */
 };
 
-/**
- * @brief Describes a swapchain to create with IDevice::createSwapchain.
- */
+/// Describes a swapchain to create with IDevice::createSwapchain.
 struct SwapchainDesc {
-    SurfaceRef surface;                              /**< Surface to present to; retained. */
-    Extent2D extent;                                 /**< Backbuffer size, normally the window's client size. */
-    Format format = Format::BGRA8Unorm;              /**< Backbuffer format. */
-    std::uint32_t image_count = 3;                   /**< Minimum number of images; the backend may create more. */
-    PresentMode present_mode = PresentMode::Fifo;    /**< Presentation mode. */
+    SurfaceRef surface;                 /**< Surface to present to; retained. */
+    Extent2D extent;                    /**< Backbuffer size, normally the window's client size. */
+    Format format = Format::BGRA8Unorm; /**< Backbuffer format. */
+    std::uint32_t image_count = 3;      /**< Minimum number of images; the backend may create more. */
+    PresentMode present_mode = PresentMode::Fifo;
     TextureUsage usage = TextureUsage::RenderTarget; /**< How backbuffers will be used. */
-    std::string label;                               /**< Debug name. */
+    std::string label;
 };
 
-/**
- * @brief Parameters for ISwapchain::acquire.
- */
+/// Parameters for ISwapchain::acquire.
 struct AcquireDesc {
-    /**
-     * @brief Binary semaphore signaled when the image is ready to be rendered to; wait on it in the frame's submit.
-     */
+    /// Binary semaphore signaled when the image is ready to be rendered to; wait on it in the frame's submit.
     SemaphoreRef signal_semaphore;
     Timeout timeout = kWaitForever; /**< Maximum CPU wait for an image. */
 };
 
-/**
- * @brief The outcome of ISwapchain::acquire.
- */
+/// The outcome of ISwapchain::acquire.
 enum class AcquireStatus {
     Success,    /**< An image was acquired. */
     Suboptimal, /**< An image was acquired, but the swapchain should be resized soon. */
@@ -61,9 +46,7 @@ enum class AcquireStatus {
     Error,      /**< Acquisition failed (e.g. surface or device lost). */
 };
 
-/**
- * @brief The result of ISwapchain::acquire.
- */
+/// The result of ISwapchain::acquire.
 struct AcquireResult {
     AcquireStatus status = AcquireStatus::Error; /**< Outcome. */
     std::uint32_t image_index = 0;               /**< Index to pass to PresentDesc::image_index. */
@@ -71,9 +54,8 @@ struct AcquireResult {
 };
 
 /**
- * @brief The chain of backbuffer images presented to a surface.
+ * The chain of backbuffer images presented to a surface.
  *
- * @details
  * Per frame: acquire() an image, render into its texture (barrier it to ResourceState::RenderTarget, then to
  * ResourceState::Present), submit, then IQueue::present the image.
  */
@@ -82,20 +64,16 @@ public:
     virtual ~ISwapchain() = default;
 
     /**
-     * @brief Acquires the next backbuffer to render into.
+     * Acquires the next backbuffer to render into.
      *
-     * @param desc Semaphore to signal and timeout.
      * @return The image and status; check AcquireResult::status before using it.
      */
     virtual AcquireResult acquire(AcquireDesc desc) = 0;
 
     /**
-     * @brief Recreates the backbuffers at a new size, e.g. after the window was resized.
+     * Recreates the backbuffers at a new size, e.g. after the window was resized.
      *
-     * @details
      * Backbuffer textures returned before must no longer be in use by the GPU.
-     *
-     * @param extent New size.
      */
     virtual Result<void> resize(Extent2D extent) = 0;
 };

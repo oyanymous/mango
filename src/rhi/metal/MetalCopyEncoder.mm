@@ -15,17 +15,13 @@ namespace rhi::metal {
 
 namespace {
 
-/**
- * @brief A texel offset as an `MTLOrigin`.
- */
+/// A texel offset as an `MTLOrigin`.
 MTLOrigin toMTLOrigin(const Offset3D& offset) {
     return MTLOriginMake(static_cast<NSUInteger>(offset.x), static_cast<NSUInteger>(offset.y),
                          static_cast<NSUInteger>(offset.z));
 }
 
-/**
- * @brief An extent as an `MTLSize`.
- */
+/// An extent as an `MTLSize`.
 MTLSize toMTLSize(const Extent3D& extent) {
     return MTLSizeMake(extent.width, extent.height, extent.depth);
 }

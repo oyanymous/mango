@@ -21,17 +21,13 @@ namespace rhi::metal {
 
 namespace {
 
-/**
- * @brief An event and the value to wait for or signal.
- */
+/// An event and the value to wait for or signal.
 struct EventValue {
     id<MTLSharedEvent> event = nil;
     std::uint64_t value = 0;
 };
 
-/**
- * @brief Reports @p command_buffer's error, if it failed, as DebugSeverity::Error. Runs in a completion handler.
- */
+/// Reports @p command_buffer's error, if it failed, as DebugSeverity::Error. Runs in a completion handler.
 void reportFailure(const MetalDebugReporter& reporter, id<MTLCommandBuffer> command_buffer) {
     if (command_buffer.status != MTLCommandBufferStatusError) {
         return;

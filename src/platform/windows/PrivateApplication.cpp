@@ -7,9 +7,7 @@
 
 #include <windows.h>
 
-/**
- * @brief Win32 needs no per-application state yet.
- */
+/// Win32 needs no per-application state yet.
 struct PrivateApplication::Impl {};
 
 PrivateApplication::PrivateApplication() : m_impl(std::make_unique<Impl>()) {

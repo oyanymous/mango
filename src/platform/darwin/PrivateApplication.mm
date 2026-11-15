@@ -11,20 +11,14 @@
 #include <memory>
 
 
-/**
- * @brief The NSApplication delegate. Currently only opts in to secure restorable state.
- */
+/// The NSApplication delegate. Currently only opts in to secure restorable state.
 @interface AppDelegate : NSObject <NSApplicationDelegate>
 @end
 
-/**
- * @brief Private AppDelegate state.
- */
+/// Private AppDelegate state.
 @interface AppDelegate ()
 
-/**
- * @brief Window outlet from the Xcode application template; unused (windows are created by Window).
- */
+/// Window outlet from the Xcode application template; unused (windows are created by Window).
 @property (strong) IBOutlet NSWindow* window;
 @end
 
@@ -44,9 +38,7 @@
 
 @end
 
-/**
- * @brief Native AppKit state of the application.
- */
+/// Native AppKit state of the application.
 struct PrivateApplication::Impl {
     NSApplication* m_app;                     /**< `[NSApplication sharedApplication]`. */
     id<NSApplicationDelegate> m_app_delegate; /**< An AppDelegate; retained (manual reference counting). */

@@ -24,9 +24,7 @@ namespace rhi::metal {
 
 namespace {
 
-/**
- * @brief Debug name of a queue, e.g. "smoke device graphics queue".
- */
+/// Debug name of a queue, e.g. "smoke device graphics queue".
 NSString* queueLabel(const std::string& device_label, const char* type) {
     std::string label = device_label.empty() ? std::string(type) : device_label + " " + type;
     return toNSString(label + " queue");

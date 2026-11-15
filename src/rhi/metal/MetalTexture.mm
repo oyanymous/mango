@@ -11,9 +11,7 @@ namespace rhi::metal {
 
 namespace {
 
-/**
- * @brief The texture type of a texture as created.
- */
+/// The texture type of a texture as created.
 MTLTextureType textureType(const TextureDesc& desc) {
     switch (desc.dimension) {
     case TextureDimension::Texture2D:
@@ -29,9 +27,7 @@ MTLTextureType textureType(const TextureDesc& desc) {
     return MTLTextureType2D;
 }
 
-/**
- * @brief The texture type of a view: the explicit dimension, or the one matching the texture and layer count.
- */
+/// The texture type of a view: the explicit dimension, or the one matching the texture and layer count.
 MTLTextureType viewType(const TextureDesc& texture, std::optional<TextureViewDimension> dimension,
                         std::uint32_t layer_count) {
     if (!dimension) {
@@ -56,10 +52,8 @@ MTLTextureType viewType(const TextureDesc& texture, std::optional<TextureViewDim
     return MTLTextureType2D;
 }
 
-/**
- * @brief True if Metal can view @p from as @p to without `MTLTextureUsagePixelFormatView`: the same format, or the
- * sRGB/linear twin of an 8-bit RGBA/BGRA format.
- */
+/// True if Metal can view @p from as @p to without `MTLTextureUsagePixelFormatView`: the same format, or the
+/// sRGB/linear twin of an 8-bit RGBA/BGRA format.
 bool isCompatibleViewFormat(Format from, Format to) {
     if (from == to) {
         return true;
@@ -68,9 +62,7 @@ bool isCompatibleViewFormat(Format from, Format to) {
     return same_pair(Format::RGBA8Unorm, Format::RGBA8Srgb) || same_pair(Format::BGRA8Unorm, Format::BGRA8Srgb);
 }
 
-/**
- * @brief Metal sampler address mode of an AddressMode.
- */
+/// Metal sampler address mode of an AddressMode.
 MTLSamplerAddressMode toMTLAddressMode(AddressMode mode) {
     switch (mode) {
     case AddressMode::Repeat:

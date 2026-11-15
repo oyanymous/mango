@@ -30,9 +30,7 @@ VkAttachmentStoreOp toVkStoreOp(StoreOp op) {
     return op == StoreOp::Store ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE;
 }
 
-/**
- * @brief One attachment description; it stays in @p layout for the whole pass.
- */
+/// One attachment description; it stays in @p layout for the whole pass.
 VkAttachmentDescription toVkAttachment(const AttachmentDesc& desc, VkImageLayout layout) {
     VkAttachmentDescription attachment{};
     attachment.format = toVkFormat(desc.format);

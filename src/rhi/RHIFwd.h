@@ -41,7 +41,7 @@ class ISemaphore;
 class IDeviceFactory;
 
 /**
- * @brief @name Reference-counted handles
+ * @name Reference-counted handles
  * Whoever holds a Ref keeps the object alive ("retains" in the design diagrams). Objects that depend on
  * others retain them too, e.g. a texture view retains its texture.
  * @{
@@ -68,11 +68,11 @@ using FenceRef = std::shared_ptr<IFence>;                     /**< Handle to an 
 using SemaphoreRef = std::shared_ptr<ISemaphore>;             /**< Handle to an ISemaphore. */
 using DeviceFactoryRef = std::shared_ptr<IDeviceFactory>;     /**< Handle to an IDeviceFactory. */
 /**
- * @brief @}
+ * @}
  */
 
 /**
- * @brief @name Encoder handles
+ * @name Encoder handles
  * Encoders are scoped to one recording pass of their command buffer, so they are owned uniquely.
  * @{
  */
@@ -80,7 +80,7 @@ using RenderEncoderRef = std::unique_ptr<IRenderEncoder>;   /**< Owning pointer 
 using ComputeEncoderRef = std::unique_ptr<IComputeEncoder>; /**< Owning pointer to an IComputeEncoder. */
 using CopyEncoderRef = std::unique_ptr<ICopyEncoder>;       /**< Owning pointer to an ICopyEncoder. */
 /**
- * @brief @}
+ * @}
  */
 
 using BackendList = std::vector<Backend>;    /**< A list of backends. */

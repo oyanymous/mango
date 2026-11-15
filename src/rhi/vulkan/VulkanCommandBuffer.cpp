@@ -18,17 +18,13 @@ namespace rhi::vulkan {
 
 namespace {
 
-/**
- * @brief The pipeline stages and memory accesses a resource in a given state is used with.
- */
+/// The pipeline stages and memory accesses a resource in a given state is used with.
 struct StageAccess {
     VkPipelineStageFlags stages;
     VkAccessFlags access;
 };
 
-/**
- * @brief Maps a ResourceState to the stages and accesses that use it, for barriers.
- */
+/// Maps a ResourceState to the stages and accesses that use it, for barriers.
 StageAccess toStageAccess(ResourceState state) {
     constexpr VkPipelineStageFlags kShaders = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
                                               VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
@@ -66,9 +62,7 @@ StageAccess toStageAccess(ResourceState state) {
     return {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT};
 }
 
-/**
- * @brief The image layout a texture in a given state is in. States only buffers use map to GENERAL.
- */
+/// The image layout a texture in a given state is in. States only buffers use map to GENERAL.
 VkImageLayout toImageLayout(ResourceState state) {
     switch (state) {
     case ResourceState::Undefined:

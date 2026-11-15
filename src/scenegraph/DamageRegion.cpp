@@ -9,7 +9,7 @@ namespace sg {
 
 namespace {
 
-/** @brief Whether two rectangles overlap or share an edge (merging those never adds undamaged pixels in a line). */
+/// Whether two rectangles overlap or share an edge (merging those never adds undamaged pixels in a line).
 bool touches(const IntRect& a, const IntRect& b) {
     return a.x <= b.right() && b.x <= a.right() && a.y <= b.bottom() && b.y <= a.bottom();
 }

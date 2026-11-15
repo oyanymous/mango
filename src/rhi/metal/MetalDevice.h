@@ -1,10 +1,5 @@
 #pragma once
 
-/**
- * @file
- * @brief rhi::metal::MetalDevice: the Metal logical device.
- */
-
 #include <array>
 #include <memory>
 
@@ -14,16 +9,15 @@
 namespace rhi::metal {
 
 /**
- * @brief A Metal device: the shared MetalDeviceContext plus one MetalQueue per QueueType.
+ * A Metal device: the shared MetalDeviceContext plus one MetalQueue per QueueType.
  *
- * @details
  * Every object it creates holds the context, so objects may outlive the device. Metal objects are thread-safe, but
  * like the Vulkan backend this one is not: use a device and its objects from one thread at a time.
  */
 class MetalDevice final : public IDevice {
 public:
     /**
-     * @brief Creates the device's queues and wraps them.
+     * Creates the device's queues and wraps them.
      *
      * @param context Device context, shared with every object the device creates.
      * @param desc The descriptor it was created with (features already checked by the adapter).
@@ -31,17 +25,13 @@ public:
     static Result<DeviceRef> create(std::shared_ptr<MetalDeviceContext> context, DeviceDesc desc);
 
     /**
-     * @brief Wraps a context and its queues. Use create().
+     * Wraps a context and its queues. Use create().
      *
-     * @param context Device context.
-     * @param desc The descriptor it was created with.
      * @param queues One queue per QueueType, indexed by it.
      */
     MetalDevice(std::shared_ptr<MetalDeviceContext> context, DeviceDesc desc, std::array<QueueRef, 3> queues);
 
-    /**
-     * @brief Returns the queue of a type. Every type has its own `MTLCommandQueue`.
-     */
+    /// Returns the queue of a type. Every type has its own `MTLCommandQueue`.
     QueueRef getQueue(QueueType type) override;
 
     Result<BufferRef> createBuffer(BufferDesc desc) override;

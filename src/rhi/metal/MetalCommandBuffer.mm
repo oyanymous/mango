@@ -17,9 +17,7 @@ namespace rhi::metal {
 
 namespace {
 
-/**
- * @brief The Metal load action of a LoadOp.
- */
+/// The Metal load action of a LoadOp.
 MTLLoadAction toMTLLoadAction(LoadOp op) {
     switch (op) {
     case LoadOp::Load:
@@ -32,9 +30,7 @@ MTLLoadAction toMTLLoadAction(LoadOp op) {
     return MTLLoadActionDontCare;
 }
 
-/**
- * @brief The Metal store action of a StoreOp.
- */
+/// The Metal store action of a StoreOp.
 MTLStoreAction toMTLStoreAction(StoreOp op) {
     return op == StoreOp::Store ? MTLStoreActionStore : MTLStoreActionDontCare;
 }

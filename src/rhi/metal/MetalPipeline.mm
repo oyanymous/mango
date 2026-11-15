@@ -17,16 +17,12 @@ namespace rhi::metal {
 
 namespace {
 
-/**
- * @brief Argument-table sizes available to bind groups (buffers stop below the vertex buffers).
- */
+/// Argument-table sizes available to bind groups (buffers stop below the vertex buffers).
 constexpr std::uint32_t kMaxBindGroupBuffers = kVertexBufferBase + 1 - 8;
 constexpr std::uint32_t kMaxTextures = 128; /**< Textures per stage on every Mac2-family GPU. */
 constexpr std::uint32_t kMaxSamplers = 16;  /**< Samplers per stage. */
 
-/**
- * @brief The Metal vertex format of an attribute Format, or `MTLVertexFormatInvalid`.
- */
+/// The Metal vertex format of an attribute Format, or `MTLVertexFormatInvalid`.
 MTLVertexFormat toMTLVertexFormat(Format format) {
     switch (format) {
     case Format::R8Unorm:
@@ -58,9 +54,7 @@ MTLVertexFormat toMTLVertexFormat(Format format) {
     }
 }
 
-/**
- * @brief The Metal blend factor of a BlendFactor.
- */
+/// The Metal blend factor of a BlendFactor.
 MTLBlendFactor toMTLBlendFactor(BlendFactor factor) {
     switch (factor) {
     case BlendFactor::Zero:
@@ -87,9 +81,7 @@ MTLBlendFactor toMTLBlendFactor(BlendFactor factor) {
     return MTLBlendFactorOne;
 }
 
-/**
- * @brief The Metal blend operation of a BlendOp.
- */
+/// The Metal blend operation of a BlendOp.
 MTLBlendOperation toMTLBlendOperation(BlendOp op) {
     switch (op) {
     case BlendOp::Add:
@@ -106,9 +98,7 @@ MTLBlendOperation toMTLBlendOperation(BlendOp op) {
     return MTLBlendOperationAdd;
 }
 
-/**
- * @brief The Metal colour write mask of a ColorWriteMask.
- */
+/// The Metal colour write mask of a ColorWriteMask.
 MTLColorWriteMask toMTLColorWriteMask(ColorWriteMask mask) {
     MTLColorWriteMask result = MTLColorWriteMaskNone;
     if (hasFlag(mask, ColorWriteMask::Red)) {
@@ -126,9 +116,7 @@ MTLColorWriteMask toMTLColorWriteMask(ColorWriteMask mask) {
     return result;
 }
 
-/**
- * @brief What draws assemble, and the topology class the pipeline needs, for a PrimitiveTopology.
- */
+/// What draws assemble, and the topology class the pipeline needs, for a PrimitiveTopology.
 std::pair<MTLPrimitiveType, MTLPrimitiveTopologyClass> toMTLPrimitive(PrimitiveTopology topology) {
     switch (topology) {
     case PrimitiveTopology::PointList:
@@ -145,9 +133,7 @@ std::pair<MTLPrimitiveType, MTLPrimitiveTopologyClass> toMTLPrimitive(PrimitiveT
     return {MTLPrimitiveTypeTriangle, MTLPrimitiveTopologyClassTriangle};
 }
 
-/**
- * @brief Compiles @p shader for @p layout, after checking it is a MetalShader of @p stage.
- */
+/// Compiles @p shader for @p layout, after checking it is a MetalShader of @p stage.
 Result<MetalFunction> compileStage(const ShaderRef& shader, ShaderStage stage, const MetalPipelineLayout& layout) {
     if (!shader) {
         return Error{ErrorCode::InvalidArgument, "pipeline: a required shader is null"};
@@ -159,15 +145,13 @@ Result<MetalFunction> compileStage(const ShaderRef& shader, ShaderStage stage, c
     return metal_shader.compile(layout);
 }
 
-/**
- * @brief Error from a failed Metal pipeline state creation.
- */
+/// Error from a failed Metal pipeline state creation.
 Error pipelineError(const char* what, NSError* error) {
     return Error{ErrorCode::InitializationFailed,
                  std::string(what) + " failed: " + (error ? error.localizedDescription.UTF8String : "unknown error")};
 }
 
-/** @brief The Metal stencil operation of a StencilOp. */
+/// The Metal stencil operation of a StencilOp.
 MTLStencilOperation toMTLStencilOperation(StencilOp op) {
     switch (op) {
     case StencilOp::Keep:

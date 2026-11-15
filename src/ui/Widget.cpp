@@ -19,9 +19,8 @@
 namespace {
 
 /**
- * @brief The RHI instance and device every widget renderer uses, and the list of renderers to drive.
+ * The RHI instance and device every widget renderer uses, and the list of renderers to drive.
  *
- * @details
  * Created on the first top-level display() with the first available backend. The application's frame callback
  * (on demand) renders every registered renderer that has something to draw.
  */
@@ -36,7 +35,7 @@ struct RenderContext {
         return context;
     }
 
-    /** @brief Creates the instance and device on first use; false (with a message) if no GPU is usable. */
+    /// Creates the instance and device on first use; false (with a message) if no GPU is usable.
     bool ensureDevice() {
         if (device) {
             return true;
@@ -90,7 +89,7 @@ struct RenderContext {
     }
 };
 
-/** @brief A UI colour as a scene graph colour. */
+/// A UI colour as a scene graph colour.
 sg::ColorF toColorF(const Color& color) {
     return {color.redF(), color.greenF(), color.blueF(), color.alphaF()};
 }

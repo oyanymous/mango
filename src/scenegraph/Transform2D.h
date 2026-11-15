@@ -1,10 +1,5 @@
 #pragma once
 
-/**
- * @file
- * @brief sg::Transform2D: a 2D affine transform.
- */
-
 #include <algorithm>
 #include <cmath>
 #include <optional>
@@ -15,9 +10,8 @@
 namespace sg {
 
 /**
- * @brief A 2D affine transform, `x' = a*x + c*y + tx`, `y' = b*x + d*y + ty` (the CSS `matrix(a, b, c, d, tx, ty)`).
+ * A 2D affine transform, `x' = a*x + c*y + tx`, `y' = b*x + d*y + ty` (the CSS `matrix(a, b, c, d, tx, ty)`).
  *
- * @details
  * Composition reads right to left, as with matrices: `(A * B).map(p) == A.map(B.map(p))`. With +Y pointing down a
  * positive rotation turns clockwise on screen.
  */
@@ -29,26 +23,21 @@ struct Transform2D {
     float tx = 0.0f; /**< X translation. */
     float ty = 0.0f; /**< Y translation. */
 
-    /** @brief Member-wise equality. */
 
     friend bool operator==(const Transform2D&, const Transform2D&) = default;
 
-    /** @brief The identity transform. */
     static constexpr Transform2D identity() { return {}; }
-    /** @brief A translation by (@p x, @p y). */
     static constexpr Transform2D translation(float x, float y) { return {1.0f, 0.0f, 0.0f, 1.0f, x, y}; }
-    /** @brief A scale by @p sx horizontally and @p sy vertically, about the origin. */
+    /// A scale by @p sx horizontally and @p sy vertically, about the origin.
     static constexpr Transform2D scaling(float sx, float sy) { return {sx, 0.0f, 0.0f, sy, 0.0f, 0.0f}; }
-    /** @brief A rotation by @p radians about the origin (clockwise on screen, since +Y points down). */
+    /// A rotation by @p radians about the origin (clockwise on screen, since +Y points down).
     static Transform2D rotation(float radians) {
         const float cs = std::cos(radians);
         const float sn = std::sin(radians);
         return {cs, sn, -sn, cs, 0.0f, 0.0f};
     }
 
-    /**
-     * @brief The composition: applies @p rhs first, then @p lhs.
-     */
+    /// The composition: applies @p rhs first, then @p lhs.
     friend constexpr Transform2D operator*(const Transform2D& lhs, const Transform2D& rhs) {
         return {lhs.a * rhs.a + lhs.c * rhs.b,
                 lhs.b * rhs.a + lhs.d * rhs.b,
@@ -58,12 +47,9 @@ struct Transform2D {
                 lhs.b * rhs.tx + lhs.d * rhs.ty + lhs.ty};
     }
 
-    /** @brief Maps a point. */
     [[nodiscard]] constexpr PointF map(PointF p) const { return {a * p.x + c * p.y + tx, b * p.x + d * p.y + ty}; }
 
-    /**
-     * @brief The bounding box of @p rect after mapping its four corners; empty for an empty rectangle.
-     */
+    /// The bounding box of @p rect after mapping its four corners; empty for an empty rectangle.
     [[nodiscard]] RectF mapRect(const RectF& rect) const {
         if (rect.isEmpty()) {
             return {};
@@ -79,14 +65,10 @@ struct Transform2D {
         return {x0, y0, x1 - x0, y1 - y0};
     }
 
-    /**
-     * @brief Whether axis-aligned rectangles stay axis-aligned (no rotation or shear; flips and scales allowed).
-     */
+    /// Whether axis-aligned rectangles stay axis-aligned (no rotation or shear; flips and scales allowed).
     [[nodiscard]] constexpr bool isAxisAligned() const { return b == 0.0f && c == 0.0f; }
 
-    /**
-     * @brief The inverse transform, or nothing when the transform is singular (e.g. a zero scale).
-     */
+    /// The inverse transform, or nothing when the transform is singular (e.g. a zero scale).
     [[nodiscard]] std::optional<Transform2D> inverted() const {
         const float det = a * d - b * c;
         if (std::abs(det) < 1.0e-12f) {

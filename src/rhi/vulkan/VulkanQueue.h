@@ -1,10 +1,5 @@
 #pragma once
 
-/**
- * @file
- * @brief rhi::vulkan::VulkanQueue: a VkQueue of one queue family.
- */
-
 #include <cstdint>
 #include <deque>
 #include <map>
@@ -21,9 +16,8 @@ class VulkanDeviceHandle;
 class VulkanSemaphore;
 
 /**
- * @brief The Vulkan IQueue. Created by VulkanAdapter::createDevice, one per used queue family.
+ * The Vulkan IQueue. Created by VulkanAdapter::createDevice, one per used queue family.
  *
- * @details
  * Every submission also signals an internal timeline semaphore. Until that value is reached the queue keeps
  * the submission's command buffers, semaphores and fence alive, so callers may drop them right after submit().
  * A present's wait semaphores are kept until the same swapchain image is presented again (it must have been
@@ -33,9 +27,8 @@ class VulkanSemaphore;
 class VulkanQueue final : public IQueue {
 public:
     /**
-     * @brief Wraps queue 0 of a queue family and creates its timeline semaphore.
+     * Wraps queue 0 of a queue family and creates its timeline semaphore.
      *
-     * @param device Owner of the VkDevice; kept alive by the queue.
      * @param type The QueueType the queue was created for.
      * @param family_index Queue family the queue belongs to.
      * @return The queue, or the error from creating the timeline semaphore.
@@ -44,48 +37,41 @@ public:
                                                        std::uint32_t family_index);
 
     /**
-     * @brief Wraps queue 0 of a queue family. Use create().
+     * Wraps queue 0 of a queue family. Use create().
      *
-     * @param device Owner of the VkDevice.
      * @param type The QueueType the queue was created for.
      * @param family_index Queue family the queue belongs to.
      * @param timeline The queue's own timeline semaphore, at value 0.
      */
     VulkanQueue(std::shared_ptr<VulkanDeviceHandle> device, QueueType type, std::uint32_t family_index,
                 std::shared_ptr<VulkanSemaphore> timeline);
-    /**
-     * @brief Waits for the queue to go idle, then releases everything it still holds.
-     */
+    /// Waits for the queue to go idle, then releases everything it still holds.
     ~VulkanQueue() override;
 
     VulkanQueue(const VulkanQueue&) = delete;
     VulkanQueue& operator=(const VulkanQueue&) = delete;
 
     /**
-     * @brief Submits with vkQueueSubmit and keeps the submission's objects alive until it finishes.
+     * Submits with vkQueueSubmit and keeps the submission's objects alive until it finishes.
      *
      * @return InvalidArgument when a command buffer is null or not ended (a submitted one must be begun and
      *         ended again first), or a semaphore is null; otherwise the vkQueueSubmit result.
      */
     Result<void> submit(SubmitDesc desc) override;
     /**
-     * @brief Presents with vkQueuePresentKHR and keeps the wait semaphores alive (see the class details).
+     * Presents with vkQueuePresentKHR and keeps the wait semaphores alive (see the class details).
      *
      * @return Success, or ErrorCode::OutOfDate when the swapchain is out of date, suboptimal (the image was still
      *         presented) or has a zero extent.
      */
     Result<void> present(PresentDesc desc) override;
 
-    /**
-     * @brief The QueueType the queue was created for.
-     */
+    /// The QueueType the queue was created for.
     QueueType type() const { return m_queue_type; }
-    /**
-     * @brief Queue family index, needed for command pools and ownership transfers.
-     */
+    /// Queue family index, needed for command pools and ownership transfers.
     std::uint32_t familyIndex() const { return m_family_index; }
 private:
-    /** @brief One submission's objects, held until the timeline reaches `value`. */
+    /// One submission's objects, held until the timeline reaches `value`.
     struct InFlight {
         std::uint64_t value = 0;                       /**< Timeline value the submission signals. */
         std::vector<CommandBufferRef> command_buffers; /**< Submitted command buffers. */

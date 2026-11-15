@@ -32,7 +32,7 @@ namespace {
 
 int g_failures = 0; // failed checks so far
 
-/** @brief Prints the outcome of one check and counts failures. */
+/// Prints the outcome of one check and counts failures.
 void check(bool condition, const std::string& what) {
     std::printf("%s %s\n", condition ? "[ OK ]" : "[FAIL]", what.c_str());
     if (!condition) {
@@ -88,7 +88,7 @@ void testTree() {
     check(root.removeChild(a) == nullptr, "removeChild of a non-child returns null");
 }
 
-/** @brief Counts observer notifications and what the update pass reports. */
+/// Counts observer notifications and what the update pass reports.
 struct Recorder : sg::NodeObserver, sg::UpdateVisitor {
     int dirty_notifications = 0;
     int removed_notifications = 0;
@@ -229,7 +229,7 @@ void testRangeAllocator() {
 
 constexpr std::uint32_t kSize = 64;
 
-/** @brief One RGBA8 pixel of a read-back canvas. */
+/// One RGBA8 pixel of a read-back canvas.
 struct Pixel {
     int r, g, b, a;
 };
@@ -251,7 +251,7 @@ constexpr Pixel kRed{255, 0, 0, 255};
 constexpr Pixel kGreen{0, 255, 0, 255};
 constexpr Pixel kBlue{0, 0, 255, 255};
 
-/** @brief An offscreen renderer of kSize x kSize (or @p size) with a white background. */
+/// An offscreen renderer of kSize x kSize (or @p size) with a white background.
 std::unique_ptr<sg::Renderer> makeRenderer(const rhi::DeviceRef& device, std::uint32_t size = kSize) {
     auto renderer = sg::Renderer::create({.device = device, .size = {size, size}, .label = "test"});
     if (!renderer) {
@@ -261,7 +261,7 @@ std::unique_ptr<sg::Renderer> makeRenderer(const rhi::DeviceRef& device, std::ui
     return std::move(renderer).value();
 }
 
-/** @brief Renders and reads back; empty on failure. */
+/// Renders and reads back; empty on failure.
 std::vector<std::uint8_t> renderAndRead(sg::Renderer& renderer) {
     auto stats = renderer.render();
     if (!stats) {
