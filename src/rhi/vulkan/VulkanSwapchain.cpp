@@ -190,7 +190,7 @@ Result<void> VulkanSwapchain::recreate() {
         .label = m_desc.label,
     };
     for (VkImage image : images) {
-        m_backbuffers.push_back(std::make_shared<VulkanTexture>(m_device, texture_desc, image, VK_NULL_HANDLE));
+        m_backbuffers.push_back(std::make_shared<VulkanTexture>(m_device, texture_desc, image));
     }
     return {};
 }

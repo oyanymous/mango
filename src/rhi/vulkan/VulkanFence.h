@@ -14,9 +14,8 @@ class VulkanFence final : public IFence {
 public:
     static Result<FenceRef> create(std::shared_ptr<VulkanDeviceHandle> device, FenceDesc desc);
 
-    /// Takes ownership of a created VkFence. Use create().
-    VulkanFence(std::shared_ptr<VulkanDeviceHandle> device, VkFence fence);
-    ~VulkanFence() override;
+    /// Takes ownership of a created fence. Use create().
+    VulkanFence(std::shared_ptr<VulkanDeviceHandle> device, vk::raii::Fence fence);
 
     VulkanFence(const VulkanFence&) = delete;
     VulkanFence& operator=(const VulkanFence&) = delete;
@@ -26,10 +25,10 @@ public:
     Result<void> reset() override;
 
     /// The VkFence, for VkQueue submissions.
-    VkFence handle() const { return m_fence; }
+    VkFence handle() const { return static_cast<VkFence>(*m_fence); }
 private:
-    VkFence m_fence = VK_NULL_HANDLE;
-    std::shared_ptr<VulkanDeviceHandle> m_device;
+    std::shared_ptr<VulkanDeviceHandle> m_device; // first: destroyed after the fence
+    vk::raii::Fence m_fence;
 };
 
 } // namespace rhi::vulkan

@@ -15,25 +15,24 @@ class VulkanSemaphore final : public ISemaphore {
 public:
     static Result<SemaphoreRef> create(std::shared_ptr<VulkanDeviceHandle> device, SemaphoreDesc desc);
 
-    /// Takes ownership of a created VkSemaphore. Use create().
-    VulkanSemaphore(std::shared_ptr<VulkanDeviceHandle> device, SemaphoreKind kind, VkSemaphore semaphore);
-    ~VulkanSemaphore() override;
+    /// Takes ownership of a created semaphore. Use create().
+    VulkanSemaphore(std::shared_ptr<VulkanDeviceHandle> device, SemaphoreKind kind, vk::raii::Semaphore semaphore);
 
     VulkanSemaphore(const VulkanSemaphore&) = delete;
     VulkanSemaphore& operator=(const VulkanSemaphore&) = delete;
 
     SemaphoreKind getKind() const override;
-    /// Reads the counter with vkGetSemaphoreCounterValue (Timeline only).
+    /// Reads the counter with vkGetSemaphoreCounterValue (Timeline only; 0 for Binary or on device loss).
     std::uint64_t getValue() const override;
     /// Signals with vkSignalSemaphore (Timeline only).
     Result<void> signal(std::uint64_t value) override;
 
     /// The VkSemaphore, for VkQueue submissions.
-    VkSemaphore handle() const { return m_semaphore; }
+    VkSemaphore handle() const { return static_cast<VkSemaphore>(*m_semaphore); }
 private:
+    std::shared_ptr<VulkanDeviceHandle> m_device; // first: destroyed after the semaphore
     SemaphoreKind m_kind;
-    VkSemaphore m_semaphore = VK_NULL_HANDLE;
-    std::shared_ptr<VulkanDeviceHandle> m_device;
+    vk::raii::Semaphore m_semaphore;
 };
 
 } // namespace rhi::vulkan

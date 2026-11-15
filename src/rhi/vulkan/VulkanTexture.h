@@ -2,17 +2,14 @@
 
 #include <memory>
 
-#include <vk_mem_alloc.h>
-
 #include "ISampler.h"
 #include "ITexture.h"
 #include "ITextureView.h"
 #include "Result.h"
 #include "VulkanCommon.h"
+#include "VulkanDevice.h"
 
 namespace rhi::vulkan {
-
-class VulkanDeviceHandle;
 
 /**
  * The Vulkan ITexture: a VkImage with VMA-allocated memory. Created by VulkanDevice::createTexture.
@@ -29,16 +26,11 @@ public:
      */
     static Result<TextureRef> create(std::shared_ptr<VulkanDeviceHandle> device, TextureDesc desc);
 
-    /**
-     * Takes ownership of a created image and allocation. Use create().
-     *
-     * @param allocation Its memory, or VK_NULL_HANDLE for an image owned elsewhere (a swapchain backbuffer),
-     *                   which is then not destroyed with the texture.
-     */
-    VulkanTexture(std::shared_ptr<VulkanDeviceHandle> device, TextureDesc desc, VkImage image,
-                  VmaAllocation allocation);
-    /// Destroys the image and frees its memory, unless the image is owned elsewhere.
-    ~VulkanTexture() override;
+    /// Takes ownership of a created image and its memory. Use create().
+    VulkanTexture(std::shared_ptr<VulkanDeviceHandle> device, TextureDesc desc, VmaAllocationPtr allocation,
+                  vk::raii::Image image);
+    /// Wraps an image owned elsewhere (a swapchain backbuffer), which is not destroyed with the texture.
+    VulkanTexture(std::shared_ptr<VulkanDeviceHandle> device, TextureDesc desc, VkImage borrowed_image);
 
     VulkanTexture(const VulkanTexture&) = delete;
     VulkanTexture& operator=(const VulkanTexture&) = delete;
@@ -46,12 +38,14 @@ public:
     TextureDesc getDesc() const override;
 
     /// The VkImage, for recording commands and creating views.
-    VkImage handle() const { return m_image; }
+    VkImage handle() const { return m_handle; }
 private:
-    TextureDesc m_desc;
-    VkImage m_image = VK_NULL_HANDLE;
-    VmaAllocation m_allocation = VK_NULL_HANDLE;
+    // Destroyed in reverse order: image, then its memory, then (maybe) the device.
     std::shared_ptr<VulkanDeviceHandle> m_device;
+    TextureDesc m_desc;
+    VmaAllocationPtr m_allocation; // null for a borrowed image
+    vk::raii::Image m_image;       // null for a borrowed image
+    VkImage m_handle;
 };
 
 /// The Vulkan ITextureView: a VkImageView. Created by VulkanDevice::createTextureView.
@@ -69,8 +63,7 @@ public:
      *
      * @param desc The descriptor it was created with (retains the texture).
      */
-    VulkanTextureView(std::shared_ptr<VulkanDeviceHandle> device, TextureViewDesc desc, VkImageView image_view);
-    ~VulkanTextureView() override;
+    VulkanTextureView(std::shared_ptr<VulkanDeviceHandle> device, TextureViewDesc desc, vk::raii::ImageView image_view);
 
     VulkanTextureView(const VulkanTextureView&) = delete;
     VulkanTextureView& operator=(const VulkanTextureView&) = delete;
@@ -78,11 +71,11 @@ public:
     TextureRef getTexture() const override;
 
     /// The VkImageView, for framebuffers and descriptors.
-    VkImageView handle() const { return m_image_view; }
+    VkImageView handle() const { return static_cast<VkImageView>(*m_image_view); }
 private:
+    std::shared_ptr<VulkanDeviceHandle> m_device; // first: destroyed after the view
     TextureViewDesc m_desc;
-    VkImageView m_image_view = VK_NULL_HANDLE;
-    std::shared_ptr<VulkanDeviceHandle> m_device;
+    vk::raii::ImageView m_image_view;
 };
 
 /// The Vulkan ISampler: a VkSampler. Created by VulkanDevice::createSampler.
@@ -98,8 +91,7 @@ public:
                                      bool anisotropy_enabled);
 
     /// Takes ownership of a created sampler. Use create().
-    VulkanSampler(std::shared_ptr<VulkanDeviceHandle> device, SamplerDesc desc, VkSampler sampler);
-    ~VulkanSampler() override;
+    VulkanSampler(std::shared_ptr<VulkanDeviceHandle> device, SamplerDesc desc, vk::raii::Sampler sampler);
 
     VulkanSampler(const VulkanSampler&) = delete;
     VulkanSampler& operator=(const VulkanSampler&) = delete;
@@ -107,11 +99,11 @@ public:
     SamplerDesc getDesc() const override;
 
     /// The VkSampler, for descriptors.
-    VkSampler handle() const { return m_sampler; }
+    VkSampler handle() const { return static_cast<VkSampler>(*m_sampler); }
 private:
+    std::shared_ptr<VulkanDeviceHandle> m_device; // first: destroyed after the sampler
     SamplerDesc m_desc;
-    VkSampler m_sampler = VK_NULL_HANDLE;
-    std::shared_ptr<VulkanDeviceHandle> m_device;
+    vk::raii::Sampler m_sampler;
 };
 
 } // namespace rhi::vulkan

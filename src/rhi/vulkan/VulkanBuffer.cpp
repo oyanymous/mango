@@ -67,19 +67,25 @@ Result<BufferRef> VulkanBuffer::create(std::shared_ptr<VulkanDeviceHandle> devic
         result != VK_SUCCESS) {
         return toError(result, "vmaCreateBuffer");
     }
-    return BufferRef(std::make_shared<VulkanBuffer>(std::move(device), std::move(desc), buffer, allocation));
+    // Owned from here on, so an early return cannot leak them.
+    VmaAllocationPtr owned_allocation(allocation, {device->m_allocator.get()});
+    vk::raii::Buffer owned_buffer(device->m_device, buffer, nullptr);
+    return BufferRef(std::make_shared<VulkanBuffer>(std::move(device), std::move(desc), std::move(owned_allocation),
+                                                    std::move(owned_buffer)));
 }
 
-VulkanBuffer::VulkanBuffer(std::shared_ptr<VulkanDeviceHandle> device, BufferDesc desc, VkBuffer buffer,
-                           VmaAllocation allocation)
-    : m_desc(std::move(desc)), m_buffer(buffer), m_allocation(allocation), m_device(std::move(device)) {
+VulkanBuffer::VulkanBuffer(std::shared_ptr<VulkanDeviceHandle> device, BufferDesc desc, VmaAllocationPtr allocation,
+                           vk::raii::Buffer buffer)
+    : m_device(std::move(device)),
+      m_desc(std::move(desc)),
+      m_allocation(std::move(allocation)),
+      m_buffer(std::move(buffer)) {
 }
 
 VulkanBuffer::~VulkanBuffer() {
     if (m_mapped) {
-        vmaUnmapMemory(m_device->m_allocator.get(), m_allocation);
+        vmaUnmapMemory(allocator(), m_allocation.get());
     }
-    vmaDestroyBuffer(m_device->m_allocator.get(), m_buffer, m_allocation);
 }
 
 BufferDesc VulkanBuffer::getDesc() const {
@@ -104,13 +110,13 @@ MapResult VulkanBuffer::map(MapDesc desc) {
     }
 
     void* data = nullptr;
-    if (VkResult result = vmaMapMemory(m_device->m_allocator.get(), m_allocation, &data); result != VK_SUCCESS) {
+    if (VkResult result = vmaMapMemory(allocator(), m_allocation.get(), &data); result != VK_SUCCESS) {
         return toError(result, "vmaMapMemory");
     }
     // A no-op on coherent memory; needed to see GPU writes on non-coherent memory.
-    if (VkResult result = vmaInvalidateAllocation(m_device->m_allocator.get(), m_allocation, desc.offset, desc.size);
+    if (VkResult result = vmaInvalidateAllocation(allocator(), m_allocation.get(), desc.offset, desc.size);
         result != VK_SUCCESS) {
-        vmaUnmapMemory(m_device->m_allocator.get(), m_allocation);
+        vmaUnmapMemory(allocator(), m_allocation.get());
         return toError(result, "vmaInvalidateAllocation");
     }
     m_mapped = true;
@@ -122,8 +128,8 @@ void VulkanBuffer::unmap() {
     if (!m_mapped) {
         return;
     }
-    vmaFlushAllocation(m_device->m_allocator.get(), m_allocation, m_mapped_range.offset, m_mapped_range.size);
-    vmaUnmapMemory(m_device->m_allocator.get(), m_allocation);
+    vmaFlushAllocation(allocator(), m_allocation.get(), m_mapped_range.offset, m_mapped_range.size);
+    vmaUnmapMemory(allocator(), m_allocation.get());
     m_mapped = false;
 }
 

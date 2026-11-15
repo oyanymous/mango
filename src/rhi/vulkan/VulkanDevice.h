@@ -19,6 +19,20 @@ struct VmaAllocatorDeleter {
 /// Owns a VMA allocator (VmaAllocator is a pointer to the opaque VmaAllocator_T).
 using VmaAllocatorPtr = std::unique_ptr<VmaAllocator_T, VmaAllocatorDeleter>;
 
+/// Frees a VMA allocation. The allocation must not be mapped, and @c allocator must still exist.
+struct VmaAllocationDeleter {
+    VmaAllocator allocator = VK_NULL_HANDLE;
+    void operator()(VmaAllocation allocation) const { vmaFreeMemory(allocator, allocation); }
+};
+
+/**
+ * Owns the memory of a buffer or image.
+ *
+ * Declare it before the vk::raii::Buffer or vk::raii::Image that uses the memory, so the buffer or image is
+ * destroyed first, as vmaDestroyBuffer / vmaDestroyImage would do.
+ */
+using VmaAllocationPtr = std::unique_ptr<VmaAllocation_T, VmaAllocationDeleter>;
+
 /**
  * Owns the VkDevice and its VMA allocator.
  *
