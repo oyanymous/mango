@@ -52,14 +52,14 @@ public:
     VulkanQueue& operator=(const VulkanQueue&) = delete;
 
     /**
-     * Submits with vkQueueSubmit and keeps the submission's objects alive until it finishes.
+     * Submits and keeps the submission's objects alive until it finishes.
      *
      * @return InvalidArgument when a command buffer is null or not ended (a submitted one must be begun and
-     *         ended again first), or a semaphore is null; otherwise the vkQueueSubmit result.
+     *         ended again first), or a semaphore is null; otherwise the vkQueueSubmit error.
      */
     Result<void> submit(SubmitDesc desc) override;
     /**
-     * Presents with vkQueuePresentKHR and keeps the wait semaphores alive (see the class details).
+     * Presents and keeps the wait semaphores alive (see the class details).
      *
      * @return Success, or ErrorCode::OutOfDate when the swapchain is out of date, suboptimal (the image was still
      *         presented) or has a zero extent.
@@ -82,15 +82,15 @@ private:
     // Releases every submission the GPU finished.
     void retireFinished();
 
+    std::shared_ptr<VulkanDeviceHandle> m_device; // first: m_queue uses its dispatch table
     QueueType m_queue_type;
     std::uint32_t m_family_index;
-    VkQueue m_queue = VK_NULL_HANDLE;
+    vk::raii::Queue m_queue;
     std::shared_ptr<VulkanSemaphore> m_timeline;
     std::uint64_t m_last_value = 0;   // the value the latest submission signals
     std::deque<InFlight> m_in_flight; // oldest first
     // Keyed by swapchain (identity only, never dereferenced) and image index.
     std::map<std::pair<const void*, std::uint32_t>, std::vector<SemaphoreRef>> m_presented;
-    std::shared_ptr<VulkanDeviceHandle> m_device;
 };
 
 } // namespace rhi::vulkan

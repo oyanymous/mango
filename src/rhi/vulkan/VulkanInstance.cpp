@@ -88,7 +88,7 @@ AdapterList VulkanInstance::enumerateAdapters() {
     // On failure (out of memory) the list stays empty, which callers already handle.
     auto physical_devices = m_instance->m_instance.enumeratePhysicalDevices();
     for (const vk::raii::PhysicalDevice& physical_device : physical_devices.value) {
-        if (auto adapter = VulkanAdapter::create(m_instance, static_cast<VkPhysicalDevice>(*physical_device))) {
+        if (auto adapter = VulkanAdapter::create(m_instance, physical_device)) {
             m_adapters.push_back(std::move(*adapter));
         }
     }

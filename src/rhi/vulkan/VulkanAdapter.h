@@ -9,20 +9,20 @@
 
 namespace rhi::vulkan {
 
-/// The Vulkan IAdapter: wraps a VkPhysicalDevice and its queried Capabilities.
+/// The Vulkan IAdapter: wraps a physical device and its queried Capabilities.
 class VulkanAdapter final : public IAdapter {
 public:
     /**
      * Queries a physical device and wraps it if the backend can use it.
      *
-     * @param physical_device Device from vkEnumeratePhysicalDevices.
+     * @param physical_device From the instance's enumeratePhysicalDevices().
      * @return The adapter, or nothing for GPUs below Vulkan 1.2 or without timeline semaphores.
      */
     static std::optional<AdapterRef> create(std::shared_ptr<VulkanInstanceHandle> instance,
-                                            VkPhysicalDevice physical_device);
+                                            const vk::raii::PhysicalDevice& physical_device);
 
     /// Wraps a physical device whose capabilities were already queried. Use create().
-    VulkanAdapter(std::shared_ptr<VulkanInstanceHandle> instance, VkPhysicalDevice physical_device,
+    VulkanAdapter(std::shared_ptr<VulkanInstanceHandle> instance, vk::raii::PhysicalDevice physical_device,
                   Capabilities capabilities);
 
     Capabilities getCapabilities() const override;
@@ -31,9 +31,9 @@ public:
     /// families, timeline semaphores, VK_KHR_swapchain (if available) and a VMA allocator.
     Result<DeviceRef> createDevice(DeviceDesc desc) override;
 private:
+    std::shared_ptr<VulkanInstanceHandle> m_instance; // first: m_physical_device uses its dispatch table
     Capabilities m_capabilities;
-    VkPhysicalDevice m_physical_device = VK_NULL_HANDLE;
-    std::shared_ptr<VulkanInstanceHandle> m_instance;
+    vk::raii::PhysicalDevice m_physical_device;
 };
 
 } // namespace rhi::vulkan

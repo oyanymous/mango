@@ -98,7 +98,7 @@ Result<CommandBufferRef> VulkanCommandBuffer::create(std::shared_ptr<VulkanDevic
     pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     pool_info.queueFamilyIndex = family_index;
     VkCommandPool pool = VK_NULL_HANDLE;
-    if (VkResult result = vkCreateCommandPool(device->m_device, &pool_info, nullptr, &pool); result != VK_SUCCESS) {
+    if (VkResult result = vkCreateCommandPool(device->vkDevice(), &pool_info, nullptr, &pool); result != VK_SUCCESS) {
         return toError(result, "vkCreateCommandPool");
     }
 
@@ -108,9 +108,9 @@ Result<CommandBufferRef> VulkanCommandBuffer::create(std::shared_ptr<VulkanDevic
     allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocate_info.commandBufferCount = 1;
     VkCommandBuffer command_buffer = VK_NULL_HANDLE;
-    if (VkResult result = vkAllocateCommandBuffers(device->m_device, &allocate_info, &command_buffer);
+    if (VkResult result = vkAllocateCommandBuffers(device->vkDevice(), &allocate_info, &command_buffer);
         result != VK_SUCCESS) {
-        vkDestroyCommandPool(device->m_device, pool, nullptr);
+        vkDestroyCommandPool(device->vkDevice(), pool, nullptr);
         return toError(result, "vkAllocateCommandBuffers");
     }
     return CommandBufferRef(
@@ -123,7 +123,7 @@ VulkanCommandBuffer::VulkanCommandBuffer(std::shared_ptr<VulkanDeviceHandle> dev
 }
 
 VulkanCommandBuffer::~VulkanCommandBuffer() {
-    vkDestroyCommandPool(m_device->m_device, m_pool, nullptr);
+    vkDestroyCommandPool(m_device->vkDevice(), m_pool, nullptr);
 }
 
 Result<void> VulkanCommandBuffer::begin() {
@@ -138,7 +138,7 @@ Result<void> VulkanCommandBuffer::begin() {
     }
     // The previous submission finished, so its resources can go.
     m_retained_resources.clear();
-    if (VkResult result = vkResetCommandPool(m_device->m_device, m_pool, 0); result != VK_SUCCESS) {
+    if (VkResult result = vkResetCommandPool(m_device->vkDevice(), m_pool, 0); result != VK_SUCCESS) {
         return toError(result, "vkResetCommandPool");
     }
     VkCommandBufferBeginInfo begin_info{};

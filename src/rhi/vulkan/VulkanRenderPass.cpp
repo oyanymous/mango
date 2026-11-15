@@ -87,7 +87,7 @@ Result<RenderPassRef> VulkanRenderPass::create(std::shared_ptr<VulkanDeviceHandl
     pass_info.pSubpasses = &subpass;
 
     VkRenderPass render_pass = VK_NULL_HANDLE;
-    if (VkResult result = vkCreateRenderPass(device->m_device, &pass_info, nullptr, &render_pass);
+    if (VkResult result = vkCreateRenderPass(device->vkDevice(), &pass_info, nullptr, &render_pass);
         result != VK_SUCCESS) {
         return toError(result, "vkCreateRenderPass");
     }
@@ -100,7 +100,7 @@ VulkanRenderPass::VulkanRenderPass(std::shared_ptr<VulkanDeviceHandle> device, R
 }
 
 VulkanRenderPass::~VulkanRenderPass() {
-    vkDestroyRenderPass(m_device->m_device, m_render_pass, nullptr);
+    vkDestroyRenderPass(m_device->vkDevice(), m_render_pass, nullptr);
 }
 
 RenderPassDesc VulkanRenderPass::getDesc() const {
@@ -141,7 +141,7 @@ Result<RenderTargetRef> VulkanRenderTarget::create(std::shared_ptr<VulkanDeviceH
     framebuffer_info.layers = 1;
 
     VkFramebuffer framebuffer = VK_NULL_HANDLE;
-    if (VkResult result = vkCreateFramebuffer(device->m_device, &framebuffer_info, nullptr, &framebuffer);
+    if (VkResult result = vkCreateFramebuffer(device->vkDevice(), &framebuffer_info, nullptr, &framebuffer);
         result != VK_SUCCESS) {
         return toError(result, "vkCreateFramebuffer");
     }
@@ -154,7 +154,7 @@ VulkanRenderTarget::VulkanRenderTarget(std::shared_ptr<VulkanDeviceHandle> devic
 }
 
 VulkanRenderTarget::~VulkanRenderTarget() {
-    vkDestroyFramebuffer(m_device->m_device, m_framebuffer, nullptr);
+    vkDestroyFramebuffer(m_device->vkDevice(), m_framebuffer, nullptr);
 }
 
 RenderTargetDesc VulkanRenderTarget::getDesc() const {

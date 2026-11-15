@@ -7,8 +7,9 @@
 
 #include <algorithm>
 #include <array>
-#include <cstring>
 #include <set>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include "VulkanDevice.h"
@@ -19,15 +20,15 @@ namespace rhi::vulkan {
 namespace {
 
 /// Maps a Vulkan device type to AdapterType.
-AdapterType toAdapterType(VkPhysicalDeviceType type) {
+AdapterType toAdapterType(vk::PhysicalDeviceType type) {
     switch (type) {
-    case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+    case vk::PhysicalDeviceType::eDiscreteGpu:
         return AdapterType::DiscreteGpu;
-    case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+    case vk::PhysicalDeviceType::eIntegratedGpu:
         return AdapterType::IntegratedGpu;
-    case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+    case vk::PhysicalDeviceType::eVirtualGpu:
         return AdapterType::VirtualGpu;
-    case VK_PHYSICAL_DEVICE_TYPE_CPU:
+    case vk::PhysicalDeviceType::eCpu:
         return AdapterType::Cpu;
     default:
         return AdapterType::Unknown;
@@ -35,7 +36,7 @@ AdapterType toAdapterType(VkPhysicalDeviceType type) {
 }
 
 /// Copies the Vulkan limits the RHI exposes into Limits.
-Limits toLimits(const VkPhysicalDeviceLimits& vk) {
+Limits toLimits(const vk::PhysicalDeviceLimits& vk) {
     Limits limits;
     limits.max_texture_dimension_2d = vk.maxImageDimension2D;
     limits.max_texture_array_layers = vk.maxImageArrayLayers;
@@ -45,8 +46,8 @@ Limits toLimits(const VkPhysicalDeviceLimits& vk) {
     limits.max_vertex_attributes = vk.maxVertexInputAttributes;
     limits.max_vertex_buffers = vk.maxVertexInputBindings;
     limits.max_color_attachments = vk.maxColorAttachments;
-    std::copy_n(vk.maxComputeWorkGroupCount, 3, limits.max_compute_workgroup_count.begin());
-    std::copy_n(vk.maxComputeWorkGroupSize, 3, limits.max_compute_workgroup_size.begin());
+    std::copy_n(vk.maxComputeWorkGroupCount.begin(), 3, limits.max_compute_workgroup_count.begin());
+    std::copy_n(vk.maxComputeWorkGroupSize.begin(), 3, limits.max_compute_workgroup_size.begin());
     limits.max_compute_invocations_per_workgroup = vk.maxComputeWorkGroupInvocations;
     limits.max_sampler_anisotropy = vk.maxSamplerAnisotropy;
     return limits;
@@ -55,41 +56,39 @@ Limits toLimits(const VkPhysicalDeviceLimits& vk) {
 } // namespace
 
 std::optional<AdapterRef> VulkanAdapter::create(std::shared_ptr<VulkanInstanceHandle> instance,
-                                                VkPhysicalDevice physical_device) {
-    VkPhysicalDeviceProperties properties{};
-    vkGetPhysicalDeviceProperties(physical_device, &properties);
+                                                const vk::raii::PhysicalDevice& physical_device) {
+    const vk::PhysicalDeviceProperties properties = physical_device.getProperties();
     if (properties.apiVersion < kApiVersion) {
         return std::nullopt;
     }
 
-    VkPhysicalDeviceVulkan12Features features12{};
-    features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-    VkPhysicalDeviceFeatures2 features{};
-    features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    features.pNext = &features12;
-    vkGetPhysicalDeviceFeatures2(physical_device, &features);
-    if (!features12.timelineSemaphore) {
+    const auto features =
+        physical_device.getFeatures2<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan12Features>();
+    const vk::PhysicalDeviceFeatures& features10 = features.get<vk::PhysicalDeviceFeatures2>().features;
+    if (!features.get<vk::PhysicalDeviceVulkan12Features>().timelineSemaphore) {
         return std::nullopt; // ISemaphore's Timeline kind and fence bookkeeping rely on it
     }
 
     Capabilities capabilities;
-    capabilities.name = properties.deviceName;
+    capabilities.name = std::string(properties.deviceName);
     capabilities.type = toAdapterType(properties.deviceType);
     capabilities.vendor_id = properties.vendorID;
     capabilities.device_id = properties.deviceID;
     capabilities.api_version_major = VK_API_VERSION_MAJOR(properties.apiVersion);
     capabilities.api_version_minor = VK_API_VERSION_MINOR(properties.apiVersion);
     capabilities.api_version_patch = VK_API_VERSION_PATCH(properties.apiVersion);
-    capabilities.features.sampler_anisotropy = features.features.samplerAnisotropy == VK_TRUE;
-    capabilities.features.fill_mode_wireframe = features.features.fillModeNonSolid == VK_TRUE;
+    capabilities.features.sampler_anisotropy = features10.samplerAnisotropy == vk::True;
+    capabilities.features.fill_mode_wireframe = features10.fillModeNonSolid == vk::True;
     capabilities.limits = toLimits(properties.limits);
 
     return AdapterRef(std::make_shared<VulkanAdapter>(std::move(instance), physical_device, std::move(capabilities)));
 }
 
-VulkanAdapter::VulkanAdapter(std::shared_ptr<VulkanInstanceHandle> instance, VkPhysicalDevice physical_device,
+VulkanAdapter::VulkanAdapter(std::shared_ptr<VulkanInstanceHandle> instance, vk::raii::PhysicalDevice physical_device,
                              Capabilities capabilities)
-    : m_capabilities(std::move(capabilities)), m_physical_device(physical_device), m_instance(std::move(instance)) {
+    : m_instance(std::move(instance)),
+      m_capabilities(std::move(capabilities)),
+      m_physical_device(std::move(physical_device)) {
 }
 
 Capabilities VulkanAdapter::getCapabilities() const {
@@ -99,11 +98,11 @@ Capabilities VulkanAdapter::getCapabilities() const {
 namespace {
 
 /// Index of the first queue family that has all of @p required and none of @p excluded, or -1.
-int findQueueFamily(const std::vector<VkQueueFamilyProperties>& families, VkQueueFlags required,
-                    VkQueueFlags excluded) {
+int findQueueFamily(const std::vector<vk::QueueFamilyProperties>& families, vk::QueueFlags required,
+                    vk::QueueFlags excluded) {
     for (std::size_t i = 0; i < families.size(); ++i) {
-        const VkQueueFlags flags = families[i].queueFlags;
-        if (families[i].queueCount > 0 && (flags & required) == required && (flags & excluded) == 0) {
+        const vk::QueueFlags flags = families[i].queueFlags;
+        if (families[i].queueCount > 0 && (flags & required) == required && !(flags & excluded)) {
             return static_cast<int>(i);
         }
     }
@@ -111,9 +110,9 @@ int findQueueFamily(const std::vector<VkQueueFamilyProperties>& families, VkQueu
 }
 
 /// Whether the physical device exposes a device extension.
-bool hasDeviceExtension(const std::vector<VkExtensionProperties>& extensions, const char* name) {
+bool hasDeviceExtension(const std::vector<vk::ExtensionProperties>& extensions, std::string_view name) {
     return std::any_of(extensions.begin(), extensions.end(),
-                       [name](const VkExtensionProperties& e) { return std::strcmp(e.extensionName, name) == 0; });
+                       [name](const vk::ExtensionProperties& e) { return std::string_view(e.extensionName) == name; });
 }
 
 } // namespace
@@ -126,92 +125,89 @@ Result<DeviceRef> VulkanAdapter::createDevice(DeviceDesc desc) {
         return Error{ErrorCode::Unsupported, "fill_mode_wireframe is not supported by " + m_capabilities.name};
     }
 
-    std::uint32_t family_count = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(m_physical_device, &family_count, nullptr);
-    std::vector<VkQueueFamilyProperties> families(family_count);
-    vkGetPhysicalDeviceQueueFamilyProperties(m_physical_device, &family_count, families.data());
+    const std::vector<vk::QueueFamilyProperties> families = m_physical_device.getQueueFamilyProperties();
 
     // Vulkan guarantees a graphics+compute family on any device with graphics. Compute and transfer prefer
     // dedicated families (async work) and fall back to the graphics family, as IDevice::getQueue documents.
-    const int graphics = findQueueFamily(families, VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, 0);
+    using Queue = vk::QueueFlagBits;
+    const int graphics = findQueueFamily(families, Queue::eGraphics | Queue::eCompute, {});
     if (graphics < 0) {
         return Error{ErrorCode::Unsupported, m_capabilities.name + " has no graphics+compute queue family"};
     }
-    int compute = findQueueFamily(families, VK_QUEUE_COMPUTE_BIT, VK_QUEUE_GRAPHICS_BIT);
-    int transfer = findQueueFamily(families, VK_QUEUE_TRANSFER_BIT, VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT);
+    int compute = findQueueFamily(families, Queue::eCompute, Queue::eGraphics);
+    int transfer = findQueueFamily(families, Queue::eTransfer, Queue::eGraphics | Queue::eCompute);
     compute = compute < 0 ? graphics : compute;
     transfer = transfer < 0 ? graphics : transfer;
     const std::array<int, 3> family_of = {graphics, compute, transfer}; // indexed by QueueType
 
     const float priority = 1.0f;
-    std::vector<VkDeviceQueueCreateInfo> queue_infos;
+    std::vector<vk::DeviceQueueCreateInfo> queue_infos;
     for (int family : std::set<int>(family_of.begin(), family_of.end())) {
-        VkDeviceQueueCreateInfo info{};
-        info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        info.queueFamilyIndex = static_cast<std::uint32_t>(family);
-        info.queueCount = 1;
-        info.pQueuePriorities = &priority;
-        queue_infos.push_back(info);
+        queue_infos.push_back({
+            .queueFamilyIndex = static_cast<std::uint32_t>(family),
+            .queueCount = 1,
+            .pQueuePriorities = &priority,
+        });
     }
 
-    std::uint32_t extension_count = 0;
-    vkEnumerateDeviceExtensionProperties(m_physical_device, nullptr, &extension_count, nullptr);
-    std::vector<VkExtensionProperties> available(extension_count);
-    vkEnumerateDeviceExtensionProperties(m_physical_device, nullptr, &extension_count, available.data());
+    // On failure the list is empty: the device is still created, without the optional extensions.
+    const std::vector<vk::ExtensionProperties> available =
+        m_physical_device.enumerateDeviceExtensionProperties(nullptr).value;
 
     std::vector<const char*> extensions;
     // Without the extension only presentation is unavailable (createSwapchain returns Unsupported).
-    const bool swapchain = hasDeviceExtension(available, VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    const bool swapchain = hasDeviceExtension(available, vk::KHRSwapchainExtensionName);
     if (swapchain) {
-        extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+        extensions.push_back(vk::KHRSwapchainExtensionName);
     }
     // The spec requires enabling it on portability implementations (MoltenVK) whenever it is exposed.
     if (hasDeviceExtension(available, "VK_KHR_portability_subset")) {
         extensions.push_back("VK_KHR_portability_subset");
     }
 
-    VkPhysicalDeviceVulkan12Features features12{};
-    features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-    features12.timelineSemaphore = VK_TRUE; // checked in create()
-    VkPhysicalDeviceFeatures2 features{};
-    features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    features.pNext = &features12;
-    features.features.samplerAnisotropy = desc.features.sampler_anisotropy ? VK_TRUE : VK_FALSE;
-    features.features.fillModeNonSolid = desc.features.fill_mode_wireframe ? VK_TRUE : VK_FALSE;
+    vk::PhysicalDeviceVulkan12Features features12{.timelineSemaphore = vk::True}; // checked in create()
+    const vk::PhysicalDeviceFeatures2 features{
+        .pNext = &features12,
+        .features =
+            {
+                .fillModeNonSolid = desc.features.fill_mode_wireframe ? vk::True : vk::False,
+                .samplerAnisotropy = desc.features.sampler_anisotropy ? vk::True : vk::False,
+            },
+    };
 
-    VkDeviceCreateInfo create_info{};
-    create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    create_info.pNext = &features;
-    create_info.queueCreateInfoCount = static_cast<std::uint32_t>(queue_infos.size());
-    create_info.pQueueCreateInfos = queue_infos.data();
-    create_info.enabledExtensionCount = static_cast<std::uint32_t>(extensions.size());
-    create_info.ppEnabledExtensionNames = extensions.data();
+    const vk::DeviceCreateInfo create_info{
+        .pNext = &features,
+        .queueCreateInfoCount = static_cast<std::uint32_t>(queue_infos.size()),
+        .pQueueCreateInfos = queue_infos.data(),
+        .enabledExtensionCount = static_cast<std::uint32_t>(extensions.size()),
+        .ppEnabledExtensionNames = extensions.data(),
+    };
 
-    auto handle = std::make_shared<VulkanDeviceHandle>(m_instance);
-    handle->m_physical_device = m_physical_device;
+    auto handle = std::make_shared<VulkanDeviceHandle>(m_instance, m_physical_device);
     handle->m_graphics_family = static_cast<std::uint32_t>(graphics);
     handle->m_swapchain_enabled = swapchain;
-    if (VkResult result = vkCreateDevice(m_physical_device, &create_info, nullptr, &handle->m_device);
-        result != VK_SUCCESS) {
-        handle->m_device = VK_NULL_HANDLE;
-        return toError(result, "vkCreateDevice");
+    Result<vk::raii::Device> device = check(m_physical_device.createDevice(create_info), "vkCreateDevice");
+    if (!device) {
+        return device.error();
     }
-    // No volkLoadDevice: it would bind volk's global function pointers to this one device. The instance-level
-    // pointers dispatch through the loader and work for any number of devices.
+    // The device loads its own function pointers, so any number of devices can coexist.
+    handle->m_device = std::move(device).value();
 
+    // VMA loads the rest of the functions it needs through these two.
     VmaVulkanFunctions vma_functions{};
-    vma_functions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
-    vma_functions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+    vma_functions.vkGetInstanceProcAddr = m_instance->m_context.getDispatcher()->vkGetInstanceProcAddr;
+    vma_functions.vkGetDeviceProcAddr = handle->m_device.getDispatcher()->vkGetDeviceProcAddr;
     VmaAllocatorCreateInfo allocator_info{};
     allocator_info.vulkanApiVersion = kApiVersion;
-    allocator_info.physicalDevice = m_physical_device;
-    allocator_info.device = handle->m_device;
+    allocator_info.physicalDevice = handle->vkPhysicalDevice();
+    allocator_info.device = handle->vkDevice();
     allocator_info.instance = m_instance->get();
     allocator_info.pVulkanFunctions = &vma_functions;
-    if (VkResult result = vmaCreateAllocator(&allocator_info, &handle->m_allocator); result != VK_SUCCESS) {
-        handle->m_allocator = VK_NULL_HANDLE;
+    VmaAllocator allocator = VK_NULL_HANDLE;
+    if (VkResult result = vmaCreateAllocator(&allocator_info, &allocator); result != VK_SUCCESS) {
         return toError(result, "vmaCreateAllocator");
     }
+    handle->m_allocator.reset(allocator);
 
     // One queue object per family, shared by the types that fall back to it.
     std::array<QueueRef, 3> queues;

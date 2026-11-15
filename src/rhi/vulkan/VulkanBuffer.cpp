@@ -63,7 +63,7 @@ Result<BufferRef> VulkanBuffer::create(std::shared_ptr<VulkanDeviceHandle> devic
     VkBuffer buffer = VK_NULL_HANDLE;
     VmaAllocation allocation = VK_NULL_HANDLE;
     if (VkResult result =
-            vmaCreateBuffer(device->m_allocator, &buffer_info, &allocation_info, &buffer, &allocation, nullptr);
+            vmaCreateBuffer(device->m_allocator.get(), &buffer_info, &allocation_info, &buffer, &allocation, nullptr);
         result != VK_SUCCESS) {
         return toError(result, "vmaCreateBuffer");
     }
@@ -77,9 +77,9 @@ VulkanBuffer::VulkanBuffer(std::shared_ptr<VulkanDeviceHandle> device, BufferDes
 
 VulkanBuffer::~VulkanBuffer() {
     if (m_mapped) {
-        vmaUnmapMemory(m_device->m_allocator, m_allocation);
+        vmaUnmapMemory(m_device->m_allocator.get(), m_allocation);
     }
-    vmaDestroyBuffer(m_device->m_allocator, m_buffer, m_allocation);
+    vmaDestroyBuffer(m_device->m_allocator.get(), m_buffer, m_allocation);
 }
 
 BufferDesc VulkanBuffer::getDesc() const {
@@ -104,13 +104,13 @@ MapResult VulkanBuffer::map(MapDesc desc) {
     }
 
     void* data = nullptr;
-    if (VkResult result = vmaMapMemory(m_device->m_allocator, m_allocation, &data); result != VK_SUCCESS) {
+    if (VkResult result = vmaMapMemory(m_device->m_allocator.get(), m_allocation, &data); result != VK_SUCCESS) {
         return toError(result, "vmaMapMemory");
     }
     // A no-op on coherent memory; needed to see GPU writes on non-coherent memory.
-    if (VkResult result = vmaInvalidateAllocation(m_device->m_allocator, m_allocation, desc.offset, desc.size);
+    if (VkResult result = vmaInvalidateAllocation(m_device->m_allocator.get(), m_allocation, desc.offset, desc.size);
         result != VK_SUCCESS) {
-        vmaUnmapMemory(m_device->m_allocator, m_allocation);
+        vmaUnmapMemory(m_device->m_allocator.get(), m_allocation);
         return toError(result, "vmaInvalidateAllocation");
     }
     m_mapped = true;
@@ -122,8 +122,8 @@ void VulkanBuffer::unmap() {
     if (!m_mapped) {
         return;
     }
-    vmaFlushAllocation(m_device->m_allocator, m_allocation, m_mapped_range.offset, m_mapped_range.size);
-    vmaUnmapMemory(m_device->m_allocator, m_allocation);
+    vmaFlushAllocation(m_device->m_allocator.get(), m_allocation, m_mapped_range.offset, m_mapped_range.size);
+    vmaUnmapMemory(m_device->m_allocator.get(), m_allocation);
     m_mapped = false;
 }
 

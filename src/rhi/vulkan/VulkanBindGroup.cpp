@@ -72,7 +72,7 @@ Result<BindGroupLayoutRef> VulkanBindGroupLayout::create(std::shared_ptr<VulkanD
     info.bindingCount = static_cast<std::uint32_t>(bindings.size());
     info.pBindings = bindings.data();
     VkDescriptorSetLayout layout = VK_NULL_HANDLE;
-    if (VkResult result = vkCreateDescriptorSetLayout(device->m_device, &info, nullptr, &layout);
+    if (VkResult result = vkCreateDescriptorSetLayout(device->vkDevice(), &info, nullptr, &layout);
         result != VK_SUCCESS) {
         return toError(result, "vkCreateDescriptorSetLayout");
     }
@@ -85,7 +85,7 @@ VulkanBindGroupLayout::VulkanBindGroupLayout(std::shared_ptr<VulkanDeviceHandle>
 }
 
 VulkanBindGroupLayout::~VulkanBindGroupLayout() {
-    vkDestroyDescriptorSetLayout(m_device->m_device, m_layout, nullptr);
+    vkDestroyDescriptorSetLayout(m_device->vkDevice(), m_layout, nullptr);
 }
 
 BindGroupLayoutDesc VulkanBindGroupLayout::getDesc() const {
@@ -134,7 +134,8 @@ Result<BindGroupRef> VulkanBindGroup::create(std::shared_ptr<VulkanDeviceHandle>
     pool_info.poolSizeCount = static_cast<std::uint32_t>(sizes.size());
     pool_info.pPoolSizes = sizes.data();
     VkDescriptorPool pool = VK_NULL_HANDLE;
-    if (VkResult result = vkCreateDescriptorPool(device->m_device, &pool_info, nullptr, &pool); result != VK_SUCCESS) {
+    if (VkResult result = vkCreateDescriptorPool(device->vkDevice(), &pool_info, nullptr, &pool);
+        result != VK_SUCCESS) {
         return toError(result, "vkCreateDescriptorPool");
     }
 
@@ -145,8 +146,8 @@ Result<BindGroupRef> VulkanBindGroup::create(std::shared_ptr<VulkanDeviceHandle>
     alloc_info.descriptorSetCount = 1;
     alloc_info.pSetLayouts = &set_layout;
     VkDescriptorSet set = VK_NULL_HANDLE;
-    if (VkResult result = vkAllocateDescriptorSets(device->m_device, &alloc_info, &set); result != VK_SUCCESS) {
-        vkDestroyDescriptorPool(device->m_device, pool, nullptr);
+    if (VkResult result = vkAllocateDescriptorSets(device->vkDevice(), &alloc_info, &set); result != VK_SUCCESS) {
+        vkDestroyDescriptorPool(device->vkDevice(), pool, nullptr);
         return toError(result, "vkAllocateDescriptorSets");
     }
 
@@ -189,7 +190,7 @@ Result<BindGroupRef> VulkanBindGroup::create(std::shared_ptr<VulkanDeviceHandle>
         }
         writes.push_back(write);
     }
-    vkUpdateDescriptorSets(device->m_device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
+    vkUpdateDescriptorSets(device->vkDevice(), static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
 
     return BindGroupRef(std::make_shared<VulkanBindGroup>(std::move(device), std::move(desc), pool, set));
 }
@@ -200,7 +201,7 @@ VulkanBindGroup::VulkanBindGroup(std::shared_ptr<VulkanDeviceHandle> device, Bin
 }
 
 VulkanBindGroup::~VulkanBindGroup() {
-    vkDestroyDescriptorPool(m_device->m_device, m_pool, nullptr);
+    vkDestroyDescriptorPool(m_device->vkDevice(), m_pool, nullptr);
 }
 
 BindGroupDesc VulkanBindGroup::getDesc() const {

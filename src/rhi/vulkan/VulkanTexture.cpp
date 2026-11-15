@@ -109,7 +109,7 @@ Result<TextureRef> VulkanTexture::create(std::shared_ptr<VulkanDeviceHandle> dev
     VkImage image = VK_NULL_HANDLE;
     VmaAllocation allocation = VK_NULL_HANDLE;
     if (VkResult result =
-            vmaCreateImage(device->m_allocator, &image_info, &allocation_info, &image, &allocation, nullptr);
+            vmaCreateImage(device->m_allocator.get(), &image_info, &allocation_info, &image, &allocation, nullptr);
         result != VK_SUCCESS) {
         return toError(result, "vmaCreateImage");
     }
@@ -124,7 +124,7 @@ VulkanTexture::VulkanTexture(std::shared_ptr<VulkanDeviceHandle> device, Texture
 VulkanTexture::~VulkanTexture() {
     // Swapchain backbuffers have no allocation: the swapchain owns their images.
     if (m_allocation != VK_NULL_HANDLE) {
-        vmaDestroyImage(m_device->m_allocator, m_image, m_allocation);
+        vmaDestroyImage(m_device->m_allocator.get(), m_image, m_allocation);
     }
 }
 
@@ -160,7 +160,8 @@ Result<TextureViewRef> VulkanTextureView::create(std::shared_ptr<VulkanDeviceHan
                                   desc.range.base_array_layer, desc.range.array_layer_count};
 
     VkImageView image_view = VK_NULL_HANDLE;
-    if (VkResult result = vkCreateImageView(device->m_device, &view_info, nullptr, &image_view); result != VK_SUCCESS) {
+    if (VkResult result = vkCreateImageView(device->vkDevice(), &view_info, nullptr, &image_view);
+        result != VK_SUCCESS) {
         return toError(result, "vkCreateImageView");
     }
     return TextureViewRef(std::make_shared<VulkanTextureView>(std::move(device), std::move(desc), image_view));
@@ -172,7 +173,7 @@ VulkanTextureView::VulkanTextureView(std::shared_ptr<VulkanDeviceHandle> device,
 }
 
 VulkanTextureView::~VulkanTextureView() {
-    vkDestroyImageView(m_device->m_device, m_image_view, nullptr);
+    vkDestroyImageView(m_device->vkDevice(), m_image_view, nullptr);
 }
 
 TextureRef VulkanTextureView::getTexture() const {
@@ -204,7 +205,7 @@ Result<SamplerRef> VulkanSampler::create(std::shared_ptr<VulkanDeviceHandle> dev
     sampler_info.maxLod = desc.max_lod;
 
     VkSampler sampler = VK_NULL_HANDLE;
-    if (VkResult result = vkCreateSampler(device->m_device, &sampler_info, nullptr, &sampler); result != VK_SUCCESS) {
+    if (VkResult result = vkCreateSampler(device->vkDevice(), &sampler_info, nullptr, &sampler); result != VK_SUCCESS) {
         return toError(result, "vkCreateSampler");
     }
     return SamplerRef(std::make_shared<VulkanSampler>(std::move(device), std::move(desc), sampler));
@@ -215,7 +216,7 @@ VulkanSampler::VulkanSampler(std::shared_ptr<VulkanDeviceHandle> device, Sampler
 }
 
 VulkanSampler::~VulkanSampler() {
-    vkDestroySampler(m_device->m_device, m_sampler, nullptr);
+    vkDestroySampler(m_device->vkDevice(), m_sampler, nullptr);
 }
 
 SamplerDesc VulkanSampler::getDesc() const {

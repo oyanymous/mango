@@ -128,7 +128,7 @@ Result<ShaderRef> VulkanShader::create(std::shared_ptr<VulkanDeviceHandle> devic
     info.codeSize = desc.spirv.size() * sizeof(std::uint32_t);
     info.pCode = desc.spirv.data();
     VkShaderModule module = VK_NULL_HANDLE;
-    if (VkResult result = vkCreateShaderModule(device->m_device, &info, nullptr, &module); result != VK_SUCCESS) {
+    if (VkResult result = vkCreateShaderModule(device->vkDevice(), &info, nullptr, &module); result != VK_SUCCESS) {
         return toError(result, "vkCreateShaderModule");
     }
     return ShaderRef(std::make_shared<VulkanShader>(
@@ -141,7 +141,7 @@ VulkanShader::VulkanShader(std::shared_ptr<VulkanDeviceHandle> device, ShaderRef
 }
 
 VulkanShader::~VulkanShader() {
-    vkDestroyShaderModule(m_device->m_device, m_module, nullptr);
+    vkDestroyShaderModule(m_device->vkDevice(), m_module, nullptr);
 }
 
 ShaderReflection VulkanShader::getReflection() const {
@@ -165,7 +165,7 @@ Result<PipelineLayoutRef> VulkanPipelineLayout::create(std::shared_ptr<VulkanDev
     info.setLayoutCount = static_cast<std::uint32_t>(set_layouts.size());
     info.pSetLayouts = set_layouts.data();
     VkPipelineLayout layout = VK_NULL_HANDLE;
-    if (VkResult result = vkCreatePipelineLayout(device->m_device, &info, nullptr, &layout); result != VK_SUCCESS) {
+    if (VkResult result = vkCreatePipelineLayout(device->vkDevice(), &info, nullptr, &layout); result != VK_SUCCESS) {
         return toError(result, "vkCreatePipelineLayout");
     }
     return PipelineLayoutRef(std::make_shared<VulkanPipelineLayout>(std::move(device), std::move(desc), layout));
@@ -177,7 +177,7 @@ VulkanPipelineLayout::VulkanPipelineLayout(std::shared_ptr<VulkanDeviceHandle> d
 }
 
 VulkanPipelineLayout::~VulkanPipelineLayout() {
-    vkDestroyPipelineLayout(m_device->m_device, m_layout, nullptr);
+    vkDestroyPipelineLayout(m_device->vkDevice(), m_layout, nullptr);
 }
 
 PipelineLayoutDesc VulkanPipelineLayout::getDesc() const {
@@ -308,7 +308,7 @@ Result<PipelineRef> VulkanPipeline::createGraphics(std::shared_ptr<VulkanDeviceH
     info.subpass = 0;
 
     VkPipeline pipeline = VK_NULL_HANDLE;
-    if (VkResult result = vkCreateGraphicsPipelines(device->m_device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline);
+    if (VkResult result = vkCreateGraphicsPipelines(device->vkDevice(), VK_NULL_HANDLE, 1, &info, nullptr, &pipeline);
         result != VK_SUCCESS) {
         return toError(result, "vkCreateGraphicsPipelines");
     }
@@ -333,7 +333,7 @@ Result<PipelineRef> VulkanPipeline::createCompute(std::shared_ptr<VulkanDeviceHa
     info.layout = static_cast<const VulkanPipelineLayout&>(*desc.layout).handle();
 
     VkPipeline pipeline = VK_NULL_HANDLE;
-    if (VkResult result = vkCreateComputePipelines(device->m_device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline);
+    if (VkResult result = vkCreateComputePipelines(device->vkDevice(), VK_NULL_HANDLE, 1, &info, nullptr, &pipeline);
         result != VK_SUCCESS) {
         return toError(result, "vkCreateComputePipelines");
     }
@@ -352,7 +352,7 @@ VulkanPipeline::VulkanPipeline(std::shared_ptr<VulkanDeviceHandle> device, Pipel
 }
 
 VulkanPipeline::~VulkanPipeline() {
-    vkDestroyPipeline(m_device->m_device, m_pipeline, nullptr);
+    vkDestroyPipeline(m_device->vkDevice(), m_pipeline, nullptr);
 }
 
 PipelineKind VulkanPipeline::getKind() const {

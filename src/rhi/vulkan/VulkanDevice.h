@@ -11,33 +11,44 @@
 
 namespace rhi::vulkan {
 
+/// Destroys a VMA allocator.
+struct VmaAllocatorDeleter {
+    void operator()(VmaAllocator allocator) const { vmaDestroyAllocator(allocator); }
+};
+
+/// Owns a VMA allocator (VmaAllocator is a pointer to the opaque VmaAllocator_T).
+using VmaAllocatorPtr = std::unique_ptr<VmaAllocator_T, VmaAllocatorDeleter>;
+
 /**
  * Owns the VkDevice and its VMA allocator.
  *
  * Shared by the device, its queues and every object created from it, so the VkDevice outlives all of them
- * without the device and its queues owning each other. Keeps the instance alive in turn.
+ * without the device and its queues owning each other. Keeps the instance alive in turn. Objects holding
+ * vk::raii members must declare their `std::shared_ptr<VulkanDeviceHandle>` before them, so the device (whose
+ * dispatch table they use) is destroyed after them.
  */
 class VulkanDeviceHandle {
 public:
-    /**
-     * Creates an empty handle; VulkanAdapter::createDevice fills in the members.
-     *
-     * @param instance Owner of the VkInstance the device belongs to.
-     */
-    explicit VulkanDeviceHandle(std::shared_ptr<VulkanInstanceHandle> instance);
-    /// Waits for the GPU to go idle, then destroys the allocator and the device.
+    /// Creates a handle without a device; VulkanAdapter::createDevice fills in the members.
+    VulkanDeviceHandle(std::shared_ptr<VulkanInstanceHandle> instance, vk::raii::PhysicalDevice physical_device);
+    /// Waits for the GPU to go idle; the members then destroy the allocator and the device.
     ~VulkanDeviceHandle();
 
     VulkanDeviceHandle(const VulkanDeviceHandle&) = delete;
     VulkanDeviceHandle& operator=(const VulkanDeviceHandle&) = delete;
 
-    VkPhysicalDevice m_physical_device = VK_NULL_HANDLE; /**< The adapter's physical device. */
-    VkDevice m_device = VK_NULL_HANDLE;                  /**< The device; destroyed with the handle. */
-    VmaAllocator m_allocator = VK_NULL_HANDLE;           /**< Allocates all buffer and image memory. */
-    std::uint32_t m_graphics_family = 0;                 /**< Queue family of the graphics (present) queue. */
-    bool m_swapchain_enabled = false;                    /**< Whether VK_KHR_swapchain was enabled. */
+    /// Transitional, for the files not yet ported to vk::raii.
+    VkDevice vkDevice() const { return static_cast<VkDevice>(*m_device); }
+    /// Transitional, for the files not yet ported to vk::raii.
+    VkPhysicalDevice vkPhysicalDevice() const { return static_cast<VkPhysicalDevice>(*m_physical_device); }
 private:
-    std::shared_ptr<VulkanInstanceHandle> m_instance;
+    std::shared_ptr<VulkanInstanceHandle> m_instance; // first: destroyed after the device
+public:
+    vk::raii::PhysicalDevice m_physical_device;
+    vk::raii::Device m_device = nullptr;
+    VmaAllocatorPtr m_allocator;         /**< Allocates all buffer and image memory; destroyed before the device. */
+    std::uint32_t m_graphics_family = 0; /**< Queue family of the graphics (present) queue. */
+    bool m_swapchain_enabled = false;    /**< Whether VK_KHR_swapchain was enabled. */
 };
 
 /**

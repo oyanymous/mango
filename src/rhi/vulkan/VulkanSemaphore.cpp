@@ -20,7 +20,7 @@ Result<SemaphoreRef> VulkanSemaphore::create(std::shared_ptr<VulkanDeviceHandle>
     info.pNext = desc.kind == SemaphoreKind::Timeline ? &type_info : nullptr;
 
     VkSemaphore semaphore = VK_NULL_HANDLE;
-    if (VkResult result = vkCreateSemaphore(device->m_device, &info, nullptr, &semaphore); result != VK_SUCCESS) {
+    if (VkResult result = vkCreateSemaphore(device->vkDevice(), &info, nullptr, &semaphore); result != VK_SUCCESS) {
         return toError(result, "vkCreateSemaphore");
     }
     return SemaphoreRef(std::make_shared<VulkanSemaphore>(std::move(device), desc.kind, semaphore));
@@ -31,7 +31,7 @@ VulkanSemaphore::VulkanSemaphore(std::shared_ptr<VulkanDeviceHandle> device, Sem
 }
 
 VulkanSemaphore::~VulkanSemaphore() {
-    vkDestroySemaphore(m_device->m_device, m_semaphore, nullptr);
+    vkDestroySemaphore(m_device->vkDevice(), m_semaphore, nullptr);
 }
 
 SemaphoreKind VulkanSemaphore::getKind() const {
@@ -41,7 +41,7 @@ SemaphoreKind VulkanSemaphore::getKind() const {
 std::uint64_t VulkanSemaphore::getValue() const {
     std::uint64_t value = 0;
     if (m_kind == SemaphoreKind::Timeline) {
-        vkGetSemaphoreCounterValue(m_device->m_device, m_semaphore, &value);
+        vkGetSemaphoreCounterValue(m_device->vkDevice(), m_semaphore, &value);
     }
     return value;
 }
@@ -58,7 +58,7 @@ Result<void> VulkanSemaphore::signal(std::uint64_t value) {
     info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO;
     info.semaphore = m_semaphore;
     info.value = value;
-    if (VkResult result = vkSignalSemaphore(m_device->m_device, &info); result != VK_SUCCESS) {
+    if (VkResult result = vkSignalSemaphore(m_device->vkDevice(), &info); result != VK_SUCCESS) {
         return toError(result, "vkSignalSemaphore");
     }
     return {};

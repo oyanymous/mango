@@ -62,7 +62,7 @@ Result<SwapchainRef> VulkanSwapchain::create(std::shared_ptr<VulkanDeviceHandle>
     const VkSurfaceKHR surface = static_cast<const VulkanSurface&>(*desc.surface).handle();
 
     VkBool32 can_present = VK_FALSE;
-    vkGetPhysicalDeviceSurfaceSupportKHR(device->m_physical_device, device->m_graphics_family, surface, &can_present);
+    vkGetPhysicalDeviceSurfaceSupportKHR(device->vkPhysicalDevice(), device->m_graphics_family, surface, &can_present);
     if (!can_present) {
         return Error{ErrorCode::Unsupported, "createSwapchain: the graphics queue cannot present to this surface"};
     }
@@ -80,15 +80,15 @@ VulkanSwapchain::VulkanSwapchain(std::shared_ptr<VulkanDeviceHandle> device, Swa
 
 VulkanSwapchain::~VulkanSwapchain() {
     // Presentation may still read the images; the backbuffer textures do not own them.
-    vkDeviceWaitIdle(m_device->m_device);
+    vkDeviceWaitIdle(m_device->vkDevice());
     m_backbuffers.clear();
     if (m_swapchain != VK_NULL_HANDLE) {
-        vkDestroySwapchainKHR(m_device->m_device, m_swapchain, nullptr);
+        vkDestroySwapchainKHR(m_device->vkDevice(), m_swapchain, nullptr);
     }
 }
 
 Result<void> VulkanSwapchain::recreate() {
-    const VkPhysicalDevice physical = m_device->m_physical_device;
+    const VkPhysicalDevice physical = m_device->vkPhysicalDevice();
     const VkSurfaceKHR surface = static_cast<const VulkanSurface&>(*m_desc.surface).handle();
 
     VkSurfaceCapabilitiesKHR caps{};
@@ -112,7 +112,7 @@ Result<void> VulkanSwapchain::recreate() {
     if (extent.width == 0 || extent.height == 0) {
         // Minimized: no images until the next non-zero resize.
         if (old_swapchain != VK_NULL_HANDLE) {
-            vkDestroySwapchainKHR(m_device->m_device, old_swapchain, nullptr);
+            vkDestroySwapchainKHR(m_device->vkDevice(), old_swapchain, nullptr);
         }
         return {};
     }
@@ -127,7 +127,7 @@ Result<void> VulkanSwapchain::recreate() {
     });
     if (!format_ok) {
         if (old_swapchain != VK_NULL_HANDLE) {
-            vkDestroySwapchainKHR(m_device->m_device, old_swapchain, nullptr);
+            vkDestroySwapchainKHR(m_device->vkDevice(), old_swapchain, nullptr);
         }
         return Error{ErrorCode::Unsupported, "createSwapchain: the surface does not offer this format"};
     }
@@ -169,9 +169,9 @@ Result<void> VulkanSwapchain::recreate() {
     info.clipped = VK_TRUE;
     info.oldSwapchain = old_swapchain;
 
-    const VkResult result = vkCreateSwapchainKHR(m_device->m_device, &info, nullptr, &m_swapchain);
+    const VkResult result = vkCreateSwapchainKHR(m_device->vkDevice(), &info, nullptr, &m_swapchain);
     if (old_swapchain != VK_NULL_HANDLE) {
-        vkDestroySwapchainKHR(m_device->m_device, old_swapchain, nullptr);
+        vkDestroySwapchainKHR(m_device->vkDevice(), old_swapchain, nullptr);
     }
     if (result != VK_SUCCESS) {
         m_swapchain = VK_NULL_HANDLE;
@@ -179,9 +179,9 @@ Result<void> VulkanSwapchain::recreate() {
     }
 
     std::uint32_t count = 0;
-    vkGetSwapchainImagesKHR(m_device->m_device, m_swapchain, &count, nullptr);
+    vkGetSwapchainImagesKHR(m_device->vkDevice(), m_swapchain, &count, nullptr);
     std::vector<VkImage> images(count);
-    vkGetSwapchainImagesKHR(m_device->m_device, m_swapchain, &count, images.data());
+    vkGetSwapchainImagesKHR(m_device->vkDevice(), m_swapchain, &count, images.data());
 
     const TextureDesc texture_desc{
         .format = m_desc.format,
@@ -206,7 +206,7 @@ AcquireResult VulkanSwapchain::acquire(AcquireDesc desc) {
                                       : static_cast<std::uint64_t>(std::max<Timeout::rep>(0, desc.timeout.count()));
 
     const VkResult result =
-        vkAcquireNextImageKHR(m_device->m_device, m_swapchain, timeout, semaphore, VK_NULL_HANDLE, &m_current_image);
+        vkAcquireNextImageKHR(m_device->vkDevice(), m_swapchain, timeout, semaphore, VK_NULL_HANDLE, &m_current_image);
     switch (result) {
     case VK_SUCCESS:
         return {.status = AcquireStatus::Success,
@@ -228,7 +228,7 @@ AcquireResult VulkanSwapchain::acquire(AcquireDesc desc) {
 
 Result<void> VulkanSwapchain::resize(Extent2D extent) {
     // The old images may still be in flight or queued for presentation.
-    vkDeviceWaitIdle(m_device->m_device);
+    vkDeviceWaitIdle(m_device->vkDevice());
     m_desc.extent = extent;
     return recreate();
 }
