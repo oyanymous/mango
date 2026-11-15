@@ -16,9 +16,7 @@ namespace rhi::vulkan {
 
 namespace {
 
-/**
- * @brief Lower-case name of a severity, for stderr output.
- */
+/// Lower-case name of a severity, for stderr output.
 const char* severityName(DebugSeverity severity) {
     switch (severity) {
     case DebugSeverity::Verbose:
@@ -33,10 +31,8 @@ const char* severityName(DebugSeverity severity) {
     return "?";
 }
 
-/**
- * @brief VK_EXT_debug_utils callback: converts the severity and forwards the message to the VulkanInstanceHandle
- * passed as user data.
- */
+/// VK_EXT_debug_utils callback: converts the severity and forwards the message to the VulkanInstanceHandle passed as
+/// user data.
 VKAPI_ATTR VkBool32 VKAPI_CALL debugMessengerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
                                                       VkDebugUtilsMessageTypeFlagsEXT,
                                                       const VkDebugUtilsMessengerCallbackDataEXT* data,

@@ -17,14 +17,10 @@ namespace rhi::metal {
 
 namespace {
 
-/**
- * @brief First word of every SPIR-V module.
- */
+/// First word of every SPIR-V module.
 constexpr std::uint32_t kSpirvMagic = 0x07230203;
 
-/**
- * @brief The SPIR-V execution model of a single stage, or nothing for None, a combination, or an unsupported stage.
- */
+/// The SPIR-V execution model of a single stage, or nothing for None, a combination, or an unsupported stage.
 std::optional<spv::ExecutionModel> executionModel(ShaderStage stage) {
     switch (stage) {
     case ShaderStage::Vertex:

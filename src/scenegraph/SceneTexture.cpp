@@ -12,7 +12,7 @@ namespace sg {
 
 namespace {
 
-/** @brief Source of Texture::id(); textures may be created on any thread. */
+/// Source of Texture::id(); textures may be created on any thread.
 std::atomic<std::uint64_t> g_next_texture_id{1};
 
 } // namespace

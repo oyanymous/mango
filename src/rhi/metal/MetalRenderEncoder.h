@@ -1,10 +1,5 @@
 #pragma once
 
-/**
- * @file
- * @brief rhi::metal::MetalRenderEncoder: draws on an `MTLRenderCommandEncoder`.
- */
-
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -19,17 +14,14 @@ class MetalCommandBuffer;
 class MetalPipeline;
 
 /**
- * @brief Sets render encoder state, skipping calls that would set what is already set.
+ * Sets render encoder state, skipping calls that would set what is already set.
  *
- * @details
  * Metal API validation (with warnings asserting, as MetalInstance configures it) fails on redundant state calls,
  * e.g. the same cull mode or buffer set twice in a row, which RHI users rebinding per draw would otherwise trigger.
  */
 class MetalRenderState {
 public:
-    /**
-     * @brief Wraps @p encoder; the cache starts empty, so the first call of each kind always reaches Metal.
-     */
+    /// Wraps @p encoder; the cache starts empty, so the first call of each kind always reaches Metal.
     explicit MetalRenderState(id<MTLRenderCommandEncoder> encoder) : m_encoder(encoder) {}
 
     void setPipelineState(id<MTLRenderPipelineState> state);                        /**< `setRenderPipelineState:`. */
@@ -65,9 +57,8 @@ private:
 };
 
 /**
- * @brief Records one render pass. Ends itself when destroyed.
+ * Records one render pass. Ends itself when destroyed.
  *
- * @details
  * Vertex buffer slot N binds to Metal buffer index `kVertexBufferBase - N`. Draws need a pipeline, and indexed draws
  * an index buffer, set first; otherwise they are skipped. Bind groups bind through the current pipeline's layout, so
  * set the pipeline before them (as in the Vulkan backend).
@@ -75,10 +66,9 @@ private:
 class MetalRenderEncoder final : public IRenderEncoder {
 public:
     /**
-     * @brief Wraps an open render encoder. Created by MetalCommandBuffer::beginRender.
+     * Wraps an open render encoder. Created by MetalCommandBuffer::beginRender.
      *
      * @param command_buffer The command buffer it records into; retains the resources used.
-     * @param encoder The open render encoder.
      * @param extent The render target's extent; scissor rectangles are clamped to it.
      */
     MetalRenderEncoder(std::shared_ptr<MetalCommandBuffer> command_buffer, id<MTLRenderCommandEncoder> encoder,
@@ -112,7 +102,7 @@ private:
     bool m_viewport_dirty = true;
     bool m_scissor_dirty = true;
 
-    /** @brief Applies a changed viewport or scissor before a draw. */
+    /// Applies a changed viewport or scissor before a draw.
     void flushState();
 };
 

@@ -1,10 +1,5 @@
 #pragma once
 
-/**
- * @file
- * @brief sg::Renderer: draws a scene graph with the RHI, redrawing only what changed.
- */
-
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -17,9 +12,7 @@
 
 namespace sg {
 
-/**
- * @brief Describes a Renderer to create with Renderer::create.
- */
+/// Describes a Renderer to create with Renderer::create.
 struct RendererDesc {
     rhi::DeviceRef device;   /**< The device to render with; retained. */
     rhi::SurfaceRef surface; /**< Window surface to present to; null renders offscreen only (see readPixels()). */
@@ -27,17 +20,13 @@ struct RendererDesc {
     float device_pixel_ratio = 1.0f;                        /**< Pixels per logical unit (2 on Retina displays). */
     ColorF clear_color = ColorF::white();                   /**< Background behind the scene. */
     rhi::PresentMode present_mode = rhi::PresentMode::Fifo; /**< Presentation mode of the swapchain. */
-    /**
-     * @brief Called when the renderer needs render() to run: the scene changed, the size changed, or a frame could not
-     * be presented. Typically `Application::requestFrame`. May be empty.
-     */
+    /// Called when the renderer needs render() to run: the scene changed, the size changed, or a frame could not be
+    /// presented. Typically `Application::requestFrame`. May be empty.
     std::function<void()> request_frame;
     std::string label; /**< Debug name prefix of the GPU objects. */
 };
 
-/**
- * @brief Counters describing one render() call.
- */
+/// Counters describing one render() call.
 struct FrameStats {
     std::uint64_t frame = 0;           /**< Number of render() calls so far, this one included. */
     bool skipped = false;              /**< Nothing changed: no GPU work was recorded, submitted or presented. */
@@ -54,9 +43,8 @@ struct FrameStats {
 };
 
 /**
- * @brief Draws one scene graph into a window (or an offscreen canvas), doing as little GPU work as possible.
+ * Draws one scene graph into a window (or an offscreen canvas), doing as little GPU work as possible.
  *
- * @details
  * The scene is drawn into a persistent canvas texture that keeps its contents between frames; each frame redraws
  * only the canvas rectangles whose content changed (the damage), then copies the canvas onto the swapchain image.
  * When nothing changed, render() returns at once without touching the GPU. Geometry is grouped into batches
@@ -78,64 +66,57 @@ struct FrameStats {
 class Renderer {
 public:
     /**
-     * @brief Creates the renderer, its canvas and (with a surface) its swapchain.
+     * Creates the renderer, its canvas and (with a surface) its swapchain.
      *
      * @return The renderer, or an error: no device, a backend without the scene graph shaders (Unsupported), or a
      *         failed GPU object creation.
      */
     static rhi::Result<std::unique_ptr<Renderer>> create(RendererDesc desc);
-    /**
-     * @brief Detaches from the root. In-flight GPU work is kept alive by the RHI.
-     */
+    /// Detaches from the root. In-flight GPU work is kept alive by the RHI.
     ~Renderer();
 
     Renderer(const Renderer&) = delete;
     Renderer& operator=(const Renderer&) = delete;
 
     /**
-     * @brief Sets the scene to draw (or null for none); the next render() redraws everything.
+     * Sets the scene to draw (or null for none); the next render() redraws everything.
      *
      * @param root The root; must outlive the renderer or be destroyed (or replaced here) first.
      */
     void setRootNode(RootNode* root);
-    /** @brief The scene, or null. */
+    /// The scene, or null.
     [[nodiscard]] RootNode* rootNode() const;
 
     /**
-     * @brief Changes the size (in pixels) and pixel ratio, e.g. from a window's resize callback.
+     * Changes the size (in pixels) and pixel ratio, e.g. from a window's resize callback.
      *
-     * @details
      * Takes effect in the next render(), which redraws everything. A 0 x 0 size renders nothing.
      */
     void resize(rhi::Extent2D size, float device_pixel_ratio);
-    /** @brief The current size in pixels (after the pending resize, if any). */
+    /// The current size in pixels (after the pending resize, if any).
     [[nodiscard]] rhi::Extent2D size() const;
 
-    /** @brief Changes the background colour (redraws everything). */
+    /// Changes the background colour (redraws everything).
     void setClearColor(ColorF color);
 
-    /**
-     * @brief Whether render() has anything to do.
-     */
+    /// Whether render() has anything to do.
     [[nodiscard]] bool needsRender() const;
 
     /**
-     * @brief Updates the GPU copy of the scene and draws the damaged parts; presents when there is a surface.
+     * Updates the GPU copy of the scene and draws the damaged parts; presents when there is a surface.
      *
-     * @details
      * Waits for the GPU only when every frame in flight (two) is still busy. Returns immediately, with
      * FrameStats::skipped, when nothing changed.
      *
      * @return The frame's counters, or an error from the RHI (device lost, out of memory, ...).
      */
     rhi::Result<FrameStats> render();
-    /** @brief The counters of the last render(). */
+    /// The counters of the last render().
     [[nodiscard]] const FrameStats& lastFrameStats() const;
 
     /**
-     * @brief Reads the canvas back: `width * height * 4` bytes of RGBA8, premultiplied alpha, top row first.
+     * Reads the canvas back: `width * height * 4` bytes of RGBA8, premultiplied alpha, top row first.
      *
-     * @details
      * Waits until the GPU is idle. Shows what the last render() drew (before any pending changes).
      */
     rhi::Result<std::vector<std::uint8_t>> readPixels();

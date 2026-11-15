@@ -1,10 +1,5 @@
 #pragma once
 
-/**
- * @file
- * @brief Umbrella header: includes the whole public RHI API.
- */
-
 #include "Backend.h"
 #include "IAdapter.h"
 #include "IBindGroup.h"

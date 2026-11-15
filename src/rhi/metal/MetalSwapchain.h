@@ -1,10 +1,5 @@
 #pragma once
 
-/**
- * @file
- * @brief rhi::metal::MetalSurface and MetalSwapchain: presentation through a `CAMetalLayer`.
- */
-
 #import <QuartzCore/CAMetalLayer.h>
 
 #include <memory>
@@ -18,32 +13,22 @@ namespace rhi::metal {
 
 class MetalTexture;
 
-/**
- * @brief A `CAMetalLayer` to present to, from a MetalLayerHandle.
- */
+/// A `CAMetalLayer` to present to, from a MetalLayerHandle.
 class MetalSurface final : public ISurface {
 public:
     /**
-     * @brief Wraps the layer of a window.
+     * Wraps the layer of a window.
      *
      * @param desc A MetalLayerHandle with a non-null `CAMetalLayer*`; the layer must outlive the surface.
      * @return The surface, or InvalidArgument for another handle type or a null layer.
      */
     static Result<SurfaceRef> create(SurfaceDesc desc);
 
-    /**
-     * @brief Wraps a layer. Use create().
-     *
-     * @param desc The descriptor.
-     * @param layer The layer.
-     */
+    /// Wraps a layer. Use create().
     MetalSurface(SurfaceDesc desc, CAMetalLayer* layer);
 
     SurfaceDesc getDesc() const override;
 
-    /**
-     * @brief The layer.
-     */
     CAMetalLayer* layer() const { return m_layer; }
 private:
     SurfaceDesc m_desc;
@@ -51,9 +36,8 @@ private:
 };
 
 /**
- * @brief Backbuffers from a `CAMetalLayer`'s drawables.
+ * Backbuffers from a `CAMetalLayer`'s drawables.
  *
- * @details
  * Metal hands out a new drawable per frame rather than a fixed set of images, so the swapchain keeps one MetalTexture
  * per drawable slot (`maximumDrawableCount`, 2 or 3) and points the next slot at the drawable's texture on each
  * acquire(). Views and render targets of a backbuffer therefore stay valid across frames, until resize().
@@ -66,29 +50,21 @@ private:
 class MetalSwapchain final : public ISwapchain {
 public:
     /**
-     * @brief Configures the surface's layer for this device and creates the backbuffer slots.
+     * Configures the surface's layer for this device and creates the backbuffer slots.
      *
-     * @param context Device context; kept alive by the swapchain.
-     * @param desc Surface, size, format, image count, present mode and usage.
      * @return The swapchain, InvalidArgument for a null surface, or Unsupported for a format a `CAMetalLayer` cannot
      *         use (BGRA8Unorm, BGRA8Srgb and RGBA16Float can).
      */
     static Result<SwapchainRef> create(std::shared_ptr<MetalDeviceContext> context, SwapchainDesc desc);
 
-    /**
-     * @brief Wraps a configured layer. Use create().
-     *
-     * @param context Device context.
-     * @param desc The descriptor.
-     * @param layer The configured layer.
-     */
+    /// Wraps a configured layer. Use create().
     MetalSwapchain(std::shared_ptr<MetalDeviceContext> context, SwapchainDesc desc, CAMetalLayer* layer);
 
     AcquireResult acquire(AcquireDesc desc) override;
     Result<void> resize(Extent2D extent) override;
 
     /**
-     * @brief Takes the drawable acquired for @p image_index, for presentation.
+     * Takes the drawable acquired for @p image_index, for presentation.
      *
      * @return The drawable, or nil if that image was not acquired (or was already presented).
      */

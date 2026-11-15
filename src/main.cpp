@@ -11,11 +11,9 @@
 
 
 /**
- * @brief Creates the application and a titled top-level widget with nested child widgets, then blocks in the event
+ * Creates the application and a titled top-level widget with nested child widgets, then blocks in the event
  * loop. Nothing is redrawn while nothing changes.
  *
- * @param argc Argument count (unused).
- * @param argv Arguments (unused).
  * @return 0 when the event loop ends.
  */
 int main(int argc, char* argv[]) {

@@ -1,10 +1,5 @@
 #pragma once
 
-/**
- * @file
- * @brief rhi::IRenderEncoder: records draws inside a render pass.
- */
-
 #include <cstdint>
 #include <vector>
 
@@ -16,67 +11,50 @@
 
 namespace rhi {
 
-/**
- * @brief A vertex buffer bound to one slot.
- */
+/// A vertex buffer bound to one slot.
 struct VertexBufferBinding {
     BufferRef buffer;         /**< Buffer with BufferUsage::Vertex. */
     std::uint64_t offset = 0; /**< Byte offset of the first vertex. */
 };
 
-/**
- * @brief Binds `buffers[i]` to vertex buffer slot `first_slot + i`.
- */
+/// Binds `buffers[i]` to vertex buffer slot `first_slot + i`.
 struct VertexBufferBindings {
     std::uint32_t first_slot = 0;             /**< First slot to bind. */
     std::vector<VertexBufferBinding> buffers; /**< Buffers for consecutive slots. */
 };
 
-/**
- * @brief The index buffer for indexed draws.
- */
+/// The index buffer for indexed draws.
 struct IndexBufferBinding {
     BufferRef buffer;                         /**< Buffer with BufferUsage::Index. */
     std::uint64_t offset = 0;                 /**< Byte offset of the first index. */
     IndexFormat format = IndexFormat::Uint32; /**< Index size. */
 };
 
-/**
- * @brief A non-indexed draw.
- */
 struct DrawDesc {
-    std::uint32_t vertex_count = 0;   /**< Vertices to draw. */
-    std::uint32_t instance_count = 1; /**< Instances to draw. */
+    std::uint32_t vertex_count = 0;
+    std::uint32_t instance_count = 1;
     std::uint32_t first_vertex = 0;   /**< First vertex index. */
     std::uint32_t first_instance = 0; /**< First instance index. */
 };
 
-/**
- * @brief An indexed draw.
- */
 struct DrawIndexedDesc {
-    std::uint32_t index_count = 0;    /**< Indices to read. */
-    std::uint32_t instance_count = 1; /**< Instances to draw. */
+    std::uint32_t index_count = 0; /**< Indices to read. */
+    std::uint32_t instance_count = 1;
     std::uint32_t first_index = 0;    /**< First index in the index buffer. */
     std::int32_t vertex_offset = 0;   /**< Added to every index before reading vertices. */
     std::uint32_t first_instance = 0; /**< First instance index. */
 };
 
-/**
- * @brief A rectangle of pixels in a render target, origin at the top-left corner.
- */
+/// A rectangle of pixels in a render target, origin at the top-left corner.
 struct ScissorRect {
-    std::int32_t x = 0;       /**< Left edge. */
-    std::int32_t y = 0;       /**< Top edge. */
-    std::uint32_t width = 0;  /**< Width. */
-    std::uint32_t height = 0; /**< Height. */
-    /** @brief Member-wise equality. */
+    std::int32_t x = 0;
+    std::int32_t y = 0;
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
     friend bool operator==(const ScissorRect&, const ScissorRect&) = default;
 };
 
-/**
- * @brief The viewport: the rectangle normalized device coordinates map to, origin at the top-left corner.
- */
+/// The viewport: the rectangle normalized device coordinates map to, origin at the top-left corner.
 struct Viewport {
     float x = 0.0f;         /**< Left edge, in pixels. */
     float y = 0.0f;         /**< Top edge, in pixels. */
@@ -87,9 +65,8 @@ struct Viewport {
 };
 
 /**
- * @brief Records draws inside a render pass. Returned by ICommandBuffer::beginRender.
+ * Records draws inside a render pass. Returned by ICommandBuffer::beginRender.
  *
- * @details
  * The viewport and scissor start out covering the whole render target and the stencil reference at 0; setViewport,
  * setScissor and setStencilReference change them for following draws. Typical use:
  *
@@ -108,65 +85,53 @@ public:
     virtual ~IRenderEncoder() = default;
 
     /**
-     * @brief Sets the graphics pipeline for following draws. Retained by the command buffer.
+     * Sets the graphics pipeline for following draws. Retained by the command buffer.
      *
      * @param pipeline A PipelineKind::Graphics pipeline compatible with the current render pass.
      */
     virtual void setPipeline(PipelineRef pipeline) = 0;
     /**
-     * @brief Binds a bind group for following draws.
+     * Binds a bind group for following draws.
      *
      * @param binding Group and the index it binds to.
      */
     virtual void setBindGroup(BindGroupBinding binding) = 0;
     /**
-     * @brief Binds vertex buffers for following draws.
+     * Binds vertex buffers for following draws.
      *
      * @param bindings Buffers and the first slot.
      */
     virtual void setVertexBuffers(VertexBufferBindings bindings) = 0;
     /**
-     * @brief Binds the index buffer for following drawIndexed() calls.
+     * Binds the index buffer for following drawIndexed() calls.
      *
      * @param binding Buffer, offset and index format.
      */
     virtual void setIndexBuffer(IndexBufferBinding binding) = 0;
-    /**
-     * @brief Draws non-indexed primitives.
-     *
-     * @param desc Vertex and instance ranges.
-     */
     virtual void draw(DrawDesc desc) = 0;
-    /**
-     * @brief Draws indexed primitives with the current index buffer.
-     *
-     * @param desc Index and instance ranges.
-     */
+    /// Draws indexed primitives with the current index buffer.
     virtual void drawIndexed(DrawIndexedDesc desc) = 0;
     /**
-     * @brief Sets the viewport for following draws.
+     * Sets the viewport for following draws.
      *
      * @param viewport The viewport, in pixels of the render target.
      */
     virtual void setViewport(Viewport viewport) = 0;
     /**
-     * @brief Restricts following draws to a rectangle of the render target.
+     * Restricts following draws to a rectangle of the render target.
      *
-     * @details
      * The rectangle is clamped to the render target; a rectangle entirely outside it discards every fragment.
      *
      * @param rect The scissor rectangle, in pixels.
      */
     virtual void setScissor(ScissorRect rect) = 0;
     /**
-     * @brief Sets the reference value of the stencil test (DepthStencilState::stencil) for following draws.
+     * Sets the reference value of the stencil test (DepthStencilState::stencil) for following draws.
      *
      * @param reference The reference value; only the low 8 bits are used.
      */
     virtual void setStencilReference(std::uint32_t reference) = 0;
-    /**
-     * @brief Ends the render pass. The encoder must not be used afterwards.
-     */
+    /// Ends the render pass. The encoder must not be used afterwards.
     virtual void end() = 0;
 };
 

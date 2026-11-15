@@ -1,10 +1,5 @@
 #pragma once
 
-/**
- * @file
- * @brief rhi::IAdapter: a physical GPU, its capabilities, and device creation.
- */
-
 #include <array>
 #include <cstdint>
 #include <string>
@@ -15,9 +10,6 @@
 
 namespace rhi {
 
-/**
- * @brief The kind of GPU.
- */
 enum class AdapterType {
     Unknown,       /**< Not reported. */
     DiscreteGpu,   /**< A separate graphics card. */
@@ -26,9 +18,7 @@ enum class AdapterType {
     Cpu,           /**< A software rasterizer. */
 };
 
-/**
- * @brief Hard limits of an adapter. Exceeding one is invalid usage.
- */
+/// Hard limits of an adapter. Exceeding one is invalid usage.
 struct Limits {
     std::uint32_t max_texture_dimension_2d = 0;                 /**< Largest width/height of a 2D texture. */
     std::uint32_t max_texture_array_layers = 0;                 /**< Most array layers in a texture. */
@@ -44,9 +34,7 @@ struct Limits {
     float max_sampler_anisotropy = 1.0f;                        /**< Largest SamplerDesc::max_anisotropy. */
 };
 
-/**
- * @brief What an adapter is and what it supports.
- */
+/// What an adapter is and what it supports.
 struct Capabilities {
     std::string name;                        /**< Driver-reported GPU name. */
     AdapterType type = AdapterType::Unknown; /**< Kind of GPU. */
@@ -60,24 +48,20 @@ struct Capabilities {
 };
 
 /**
- * @brief A physical GPU. Obtained from IInstance::enumerateAdapters.
+ * A physical GPU. Obtained from IInstance::enumerateAdapters.
  *
- * @details
  * Keeps its instance's native state alive, so it stays valid after the InstanceRef is dropped.
  */
 class IAdapter {
 public:
     virtual ~IAdapter() = default;
 
-    /**
-     * @brief The adapter's name, type, features and limits.
-     */
+    /// The adapter's name, type, features and limits.
     virtual Capabilities getCapabilities() const = 0;
 
     /**
-     * @brief Creates a logical device on this adapter.
+     * Creates a logical device on this adapter.
      *
-     * @param desc Features to enable.
      * @return The device, or ErrorCode::Unsupported if a requested feature is unavailable.
      */
     virtual Result<DeviceRef> createDevice(DeviceDesc desc) = 0;

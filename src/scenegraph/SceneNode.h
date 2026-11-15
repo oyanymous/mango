@@ -1,10 +1,5 @@
 #pragma once
 
-/**
- * @file
- * @brief sg::Node, the base of every scene graph node, with dirty tracking; and sg::RootNode, the top of a tree.
- */
-
 #include <cstdint>
 #include <memory>
 #include <type_traits>
@@ -13,9 +8,7 @@
 
 #include "Transform2D.h"
 
-/**
- * @brief The scene graph: nodes describing 2D content, and the Renderer that draws them with the RHI.
- */
+/// The scene graph: nodes describing 2D content, and the Renderer that draws them with the RHI.
 namespace sg {
 
 class Node;
@@ -24,9 +17,7 @@ class LayerNode;
 struct ClipContext;
 struct UpdatePassAccess;
 
-/**
- * @brief What changed on a node since the renderer last looked at it.
- */
+/// What changed on a node since the renderer last looked at it.
 enum class DirtyFlags : std::uint32_t {
     None = 0,               /**< Nothing changed. */
     Matrix = 1u << 0,       /**< A TransformNode's matrix changed. */
@@ -40,50 +31,39 @@ enum class DirtyFlags : std::uint32_t {
     Subtree = 1u << 8,      /**< Set on ancestors of a dirty node: something below changed. */
 };
 
-/** @brief Union of two flag sets. */
 constexpr DirtyFlags operator|(DirtyFlags a, DirtyFlags b) {
     return static_cast<DirtyFlags>(static_cast<std::uint32_t>(a) | static_cast<std::uint32_t>(b));
 }
-/** @brief Intersection of two flag sets. */
 constexpr DirtyFlags operator&(DirtyFlags a, DirtyFlags b) {
     return static_cast<DirtyFlags>(static_cast<std::uint32_t>(a) & static_cast<std::uint32_t>(b));
 }
-/** @brief Adds flags to @p a. */
 constexpr DirtyFlags& operator|=(DirtyFlags& a, DirtyFlags b) {
     return a = a | b;
 }
-/** @brief Whether @p value has at least one of @p flags. */
+/// Whether @p value has at least one of @p flags.
 constexpr bool hasAny(DirtyFlags value, DirtyFlags flags) {
     return (value & flags) != DirtyFlags::None;
 }
 
 /**
- * @brief Receives notifications from a RootNode; implemented by the renderer.
+ * Receives notifications from a RootNode; implemented by the renderer.
  *
- * @details
  * All callbacks run synchronously on the thread that changes the tree.
  */
 class NodeObserver {
 public:
     virtual ~NodeObserver() = default;
-    /**
-     * @brief Something in the tree became dirty (called at most once until the next update pass, usually).
-     */
+    /// Something in the tree became dirty (called at most once until the next update pass, usually).
     virtual void nodeDirty() = 0;
-    /**
-     * @brief @p subtree is about to be detached from the tree; it is still attached and intact during the call.
-     */
+    /// @p subtree is about to be detached from the tree; it is still attached and intact during the call.
     virtual void nodeRemoved(Node& subtree) = 0;
-    /**
-     * @brief The root is being destroyed; no further callbacks follow.
-     */
+    /// The root is being destroyed; no further callbacks follow.
     virtual void rootDestroyed() = 0;
 };
 
 /**
- * @brief A scene graph node: owns its children and tracks what changed.
+ * A scene graph node: owns its children and tracks what changed.
  *
- * @details
  * Parents own their children (`std::unique_ptr`); a child is painted after its parent and after its earlier
  * siblings (painter's order). Setters of derived nodes call markDirty(), which flags the node and sets
  * DirtyFlags::Subtree on its ancestors, stopping at the first ancestor that already has it, and tells the root's
@@ -96,46 +76,41 @@ public:
  */
 class Node {
 public:
-    /**
-     * @brief The concrete kind of a node, for dispatch without RTTI.
-     */
+    /// The concrete kind of a node, for dispatch without RTTI.
     enum class Type {
-        Basic,     /**< A plain grouping node. */
-        Root,      /**< RootNode. */
-        Transform, /**< TransformNode. */
-        Opacity,   /**< OpacityNode. */
-        Clip,      /**< ClipNode. */
-        Geometry,  /**< GeometryNode and its subclasses. */
-        Layer,     /**< LayerNode. */
+        Basic, /**< A plain grouping node. */
+        Root,
+        Transform,
+        Opacity,
+        Clip,
+        Geometry, /**< GeometryNode and its subclasses. */
+        Layer,
     };
 
-    /**
-     * @brief Creates a node without children or parent.
-     */
+    /// Creates a node without children or parent.
     Node() : Node(Type::Basic) {}
     virtual ~Node();
 
     Node(const Node&) = delete;
     Node& operator=(const Node&) = delete;
 
-    /** @brief The concrete kind. */
     [[nodiscard]] Type type() const { return m_type; }
-    /** @brief The parent, or null for a root or a detached node. */
+    /// The parent, or null for a root or a detached node.
     [[nodiscard]] Node* parent() const { return m_parent; }
-    /** @brief The children, in paint order. */
+    /// The children, in paint order.
     [[nodiscard]] const std::vector<std::unique_ptr<Node>>& children() const { return m_children; }
-    /** @brief The RootNode this node is attached to, or null when detached. O(depth). */
+    /// The RootNode this node is attached to, or null when detached. O(depth).
     [[nodiscard]] RootNode* root();
 
     /**
-     * @brief Appends @p child as the last (topmost) child and takes ownership.
+     * Appends @p child as the last (topmost) child and takes ownership.
      *
      * @param child A detached node; must not be null or a RootNode.
      * @return The child, still owned by this node.
      */
     Node* appendChild(std::unique_ptr<Node> child);
     /**
-     * @brief Inserts @p child before @p before (painted below it), or last when @p before is null.
+     * Inserts @p child before @p before (painted below it), or last when @p before is null.
      *
      * @param child A detached node; must not be null or a RootNode.
      * @param before A child of this node, or null.
@@ -143,7 +118,7 @@ public:
      */
     Node* insertChildBefore(std::unique_ptr<Node> child, Node* before);
     /**
-     * @brief Creates a child of type @p T in place and appends it.
+     * Creates a child of type @p T in place and appends it.
      *
      * @return The new child, owned by this node.
      */
@@ -153,32 +128,27 @@ public:
         return static_cast<T*>(appendChild(std::make_unique<T>(std::forward<Args>(args)...)));
     }
     /**
-     * @brief Detaches @p child and hands back ownership; null if it is not a child of this node.
+     * Detaches @p child and hands back ownership; null if it is not a child of this node.
      *
-     * @details
      * The renderer is told first, so it can release the subtree's GPU data and redraw where it was.
      */
     std::unique_ptr<Node> removeChild(Node* child);
 
-    /**
-     * @brief Flags the node as changed and schedules an update; see the class description.
-     */
+    /// Flags the node as changed and schedules an update; see the class description.
     void markDirty(DirtyFlags flags);
-    /** @brief The flags set since the last update pass. */
+    /// The flags set since the last update pass.
     [[nodiscard]] DirtyFlags dirtyFlags() const { return m_dirty; }
 
-    /** @brief Transform from this node's coordinates to the pixels of its render target (canvas or layer). */
+    /// Transform from this node's coordinates to the pixels of its render target (canvas or layer).
     [[nodiscard]] const Transform2D& worldTransform() const { return m_world; }
-    /** @brief Product of every ancestor OpacityNode's opacity, up to the enclosing layer. */
+    /// Product of every ancestor OpacityNode's opacity, up to the enclosing layer.
     [[nodiscard]] float worldOpacity() const { return m_world_opacity; }
-    /** @brief The clip applied to this node's drawing, or null for none. */
+    /// The clip applied to this node's drawing, or null for none.
     [[nodiscard]] const ClipContext* clipContext() const { return m_clip; }
-    /** @brief The LayerNode whose texture this node is drawn into, or null for the window canvas. */
+    /// The LayerNode whose texture this node is drawn into, or null for the window canvas.
     [[nodiscard]] LayerNode* layer() const { return m_layer; }
 protected:
-    /**
-     * @brief For derived classes: a node of the given kind.
-     */
+    /// For derived classes: a node of the given kind.
     explicit Node(Type type) : m_type(type) {}
 private:
     friend struct UpdatePassAccess;
@@ -197,9 +167,8 @@ private:
 };
 
 /**
- * @brief The top of a scene graph: the node a Renderer draws.
+ * The top of a scene graph: the node a Renderer draws.
  *
- * @details
  * Its observer (the Renderer that draws it) is told about changes. Destroying the root detaches it from its
  * renderer first.
  */
@@ -208,11 +177,9 @@ public:
     RootNode() : Node(Type::Root) {}
     ~RootNode() override;
 
-    /**
-     * @brief Sets who is told about changes; null to stop notifications. Does not take ownership.
-     */
+    /// Sets who is told about changes; null to stop notifications. Does not take ownership.
     void setObserver(NodeObserver* observer) { m_observer = observer; }
-    /** @brief The current observer, or null. */
+    /// The current observer, or null.
     [[nodiscard]] NodeObserver* observer() const { return m_observer; }
 private:
     friend class Node;

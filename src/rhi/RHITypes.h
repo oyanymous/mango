@@ -1,10 +1,5 @@
 #pragma once
 
-/**
- * @file
- * @brief Small value types and enums shared across the RHI: extents, formats, stages, flags.
- */
-
 #include <chrono>
 #include <cstdint>
 #include <limits>
@@ -13,9 +8,8 @@
 namespace rhi {
 
 /**
- * @brief Defines `|`, `&`, `|=` and `hasFlag()` for an `enum class` used as a bit set.
+ * Defines `|`, `&`, `|=` and `hasFlag()` for an `enum class` used as a bit set.
  *
- * @details
  * Use it right after the enum: `MANGO_RHI_FLAGS(BufferUsage)`.
  *
  * @code
@@ -39,78 +33,51 @@ namespace rhi {
         return (value & flag) == flag;                                                                                 \
     }
 
-/**
- * @brief Pass as a size to mean "from the offset to the end of the resource".
- */
+/// Pass as a size to mean "from the offset to the end of the resource".
 inline constexpr std::uint64_t kWholeSize = std::numeric_limits<std::uint64_t>::max();
-/**
- * @brief Pass as a mip or layer count to mean "all remaining mip levels / array layers".
- */
+/// Pass as a mip or layer count to mean "all remaining mip levels / array layers".
 inline constexpr std::uint32_t kRemaining = std::numeric_limits<std::uint32_t>::max();
 
-/**
- * @brief How long a CPU wait may block.
- */
+/// How long a CPU wait may block.
 using Timeout = std::chrono::nanoseconds;
-/**
- * @brief A Timeout that never expires.
- */
+/// A Timeout that never expires.
 inline constexpr Timeout kWaitForever = Timeout::max();
 
-/**
- * @brief A 2D size in texels or pixels.
- */
+/// A 2D size in texels or pixels.
 struct Extent2D {
-    std::uint32_t width = 0;  /**< Width. */
-    std::uint32_t height = 0; /**< Height. */
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
 
-    /**
-     * @brief Member-wise equality.
-     */
     friend bool operator==(const Extent2D&, const Extent2D&) = default;
 };
 
-/**
- * @brief A 3D size in texels. `depth` is 1 for 2D textures.
- */
+/// A 3D size in texels. `depth` is 1 for 2D textures.
 struct Extent3D {
-    std::uint32_t width = 0;  /**< Width. */
-    std::uint32_t height = 0; /**< Height. */
-    std::uint32_t depth = 1;  /**< Depth (1 for 2D). */
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+    std::uint32_t depth = 1; /**< Depth (1 for 2D). */
 
-    /**
-     * @brief Member-wise equality.
-     */
     friend bool operator==(const Extent3D&, const Extent3D&) = default;
 };
 
-/**
- * @brief A texel offset within a texture.
- */
+/// A texel offset within a texture.
 struct Offset3D {
     std::int32_t x = 0; /**< X offset. */
     std::int32_t y = 0; /**< Y offset. */
     std::int32_t z = 0; /**< Z offset (0 for 2D). */
 
-    /**
-     * @brief Member-wise equality.
-     */
     friend bool operator==(const Offset3D&, const Offset3D&) = default;
 };
 
-/**
- * @brief The kinds of GPU queues. A device may back several kinds with the same hardware queue.
- */
+/// The kinds of GPU queues. A device may back several kinds with the same hardware queue.
 enum class QueueType {
     Graphics, /**< Graphics, compute, transfer and present. */
     Compute,  /**< Compute and transfer; may run alongside graphics. */
     Transfer, /**< Copies only; may run alongside the other queues. */
 };
 
-/**
- * @brief Texel formats. The names list channels in memory order, then the type (Unorm = normalized unsigned,
- * Srgb = sRGB-encoded, Float, Uint); D/S formats are depth/stencil.
- */
+/// Texel formats. The names list channels in memory order, then the type (Unorm = normalized unsigned, Srgb =
+/// sRGB-encoded, Float, Uint); D/S formats are depth/stencil.
 enum class Format {
     Undefined, /**< No format; in a view or attachment it means "same as the texture". */
 
@@ -137,17 +104,13 @@ enum class Format {
     D32FloatS8Uint, /**< 32-bit float depth + 8-bit stencil. */
 };
 
-/**
- * @brief The type of each index in an index buffer.
- */
+/// The type of each index in an index buffer.
 enum class IndexFormat {
     Uint16, /**< 16-bit indices. */
     Uint32, /**< 32-bit indices. */
 };
 
-/**
- * @brief A comparison between a new value and a stored one, for depth tests and comparison samplers.
- */
+/// A comparison between a new value and a stored one, for depth tests and comparison samplers.
 enum class CompareOp {
     Never,          /**< Never passes. */
     Less,           /**< Passes if new < stored. */
@@ -159,23 +122,19 @@ enum class CompareOp {
     Always,         /**< Always passes. */
 };
 
-/**
- * @brief Shader stages, as a bit set (see MANGO_RHI_FLAGS).
- */
+/// Shader stages, as a bit set (see MANGO_RHI_FLAGS).
 enum class ShaderStage : std::uint32_t {
-    None = 0,                        /**< No stage. */
-    Vertex = 1u << 0,                /**< Vertex shader. */
-    Fragment = 1u << 1,              /**< Fragment (pixel) shader. */
-    Compute = 1u << 2,               /**< Compute shader. */
+    None = 0,
+    Vertex = 1u << 0,
+    Fragment = 1u << 1, /**< Fragment (pixel) shader. */
+    Compute = 1u << 2,
     AllGraphics = Vertex | Fragment, /**< Every graphics stage. */
 };
 MANGO_RHI_FLAGS(ShaderStage)
 
-/**
- * @brief GPU pipeline stages, as a bit set. Used where a queue submission waits on a semaphore (SemaphoreWait).
- */
+/// GPU pipeline stages, as a bit set. Used where a queue submission waits on a semaphore (SemaphoreWait).
 enum class PipelineStage : std::uint32_t {
-    None = 0,                     /**< No stage. */
+    None = 0,
     VertexInput = 1u << 0,        /**< Vertex and index buffer reads. */
     VertexShader = 1u << 1,       /**< Vertex shading. */
     FragmentShader = 1u << 2,     /**< Fragment shading. */
@@ -187,9 +146,7 @@ enum class PipelineStage : std::uint32_t {
 };
 MANGO_RHI_FLAGS(PipelineStage)
 
-/**
- * @brief The mip levels and array layers of a texture that a view or barrier covers.
- */
+/// The mip levels and array layers of a texture that a view or barrier covers.
 struct TextureSubresourceRange {
     std::uint32_t base_mip_level = 0;             /**< First mip level. */
     std::uint32_t mip_level_count = kRemaining;   /**< Number of mip levels; kRemaining for all from the base. */

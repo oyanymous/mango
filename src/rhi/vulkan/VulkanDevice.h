@@ -1,10 +1,5 @@
 #pragma once
 
-/**
- * @file
- * @brief rhi::vulkan::VulkanDevice and the shared VkDevice owner, VulkanDeviceHandle.
- */
-
 #include <array>
 #include <memory>
 
@@ -17,23 +12,20 @@
 namespace rhi::vulkan {
 
 /**
- * @brief Owns the VkDevice and its VMA allocator.
+ * Owns the VkDevice and its VMA allocator.
  *
- * @details
  * Shared by the device, its queues and every object created from it, so the VkDevice outlives all of them
  * without the device and its queues owning each other. Keeps the instance alive in turn.
  */
 class VulkanDeviceHandle {
 public:
     /**
-     * @brief Creates an empty handle; VulkanAdapter::createDevice fills in the members.
+     * Creates an empty handle; VulkanAdapter::createDevice fills in the members.
      *
      * @param instance Owner of the VkInstance the device belongs to.
      */
     explicit VulkanDeviceHandle(std::shared_ptr<VulkanInstanceHandle> instance);
-    /**
-     * @brief Waits for the GPU to go idle, then destroys the allocator and the device.
-     */
+    /// Waits for the GPU to go idle, then destroys the allocator and the device.
     ~VulkanDeviceHandle();
 
     VulkanDeviceHandle(const VulkanDeviceHandle&) = delete;
@@ -49,19 +41,16 @@ private:
 };
 
 /**
- * @brief The Vulkan IDevice. Created by VulkanAdapter::createDevice.
+ * The Vulkan IDevice. Created by VulkanAdapter::createDevice.
  *
- * @details
  * The create* methods are filled in by later steps of docs/RHI_VULKAN_PLAN.md; until then they return
  * ErrorCode::Unsupported.
  */
 class VulkanDevice final : public IDevice {
 public:
     /**
-     * @brief Wraps an already created device.
+     * Wraps an already created device.
      *
-     * @param desc The descriptor it was created with.
-     * @param handle Owner of the VkDevice.
      * @param queues One queue per QueueType, indexed by its value; types without a dedicated family share
      *               the graphics queue object.
      */

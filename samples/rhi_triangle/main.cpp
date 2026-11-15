@@ -39,7 +39,7 @@ namespace {
 constexpr std::size_t kFramesInFlight = 2;
 constexpr rhi::Format kBackbufferFormat = rhi::Format::BGRA8Unorm;
 
-/** @brief One interleaved vertex: clip-space position (+y points down, on every backend) and texture coordinate. */
+/// One interleaved vertex: clip-space position (+y points down, on every backend) and texture coordinate.
 struct Vertex {
     float x, y; /**< Position. */
     float u, v; /**< Texture coordinate. */
@@ -52,20 +52,20 @@ constexpr std::array<Vertex, 4> kVertices = {{
     {-0.6f, 0.6f, 0.0f, 1.0f},
 }};
 
-/** @brief The quad's two triangles. */
+/// The quad's two triangles.
 constexpr std::array<std::uint16_t, 6> kIndices = {0, 1, 2, 2, 3, 0};
 
-/** @brief The vertex shader's uniform block (std140: one vec4). */
+/// The vertex shader's uniform block (std140: one vec4).
 struct Transform {
     float cos_angle, sin_angle; /**< Rotation. */
     float x_scale;              /**< Height / width, so the quad stays square. */
     float padding;              /**< Fills the vec4. */
 };
 
-/** @brief Initial uniform contents: no rotation, no scale. */
+/// Initial uniform contents: no rotation, no scale.
 constexpr Transform kNoTransform = {1.0f, 0.0f, 1.0f, 0.0f};
 
-/** @brief Per-frame-in-flight objects; a frame's fence guards all of them. */
+/// Per-frame-in-flight objects; a frame's fence guards all of them.
 struct Frame {
     rhi::CommandBufferRef command_buffer;
     rhi::FenceRef fence;           /**< Signaled when the frame's submit finished; created signaled. */
@@ -74,7 +74,7 @@ struct Frame {
     rhi::BindGroupRef bind_group;  /**< uniforms, the texture and the sampler. */
 };
 
-/** @brief The renderer's state: device objects plus everything that depends on the swapchain images. */
+/// The renderer's state: device objects plus everything that depends on the swapchain images.
 struct Renderer {
     rhi::DeviceRef device;
     rhi::QueueRef queue;
@@ -96,7 +96,7 @@ struct Renderer {
     std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 };
 
-/** @brief Unwraps a Result or exits with its error message. */
+/// Unwraps a Result or exits with its error message.
 template <typename T>
 T orExit(rhi::Result<T> result, const char* what) {
     if (!result) {
@@ -108,7 +108,7 @@ T orExit(rhi::Result<T> result, const char* what) {
     }
 }
 
-/** @brief A host-visible buffer holding @p bytes. */
+/// A host-visible buffer holding @p bytes.
 rhi::BufferRef createFilledBuffer(rhi::IDevice& device, std::span<const std::byte> bytes, rhi::BufferUsage usage) {
     rhi::BufferRef buffer =
         orExit(device.createBuffer({.size = bytes.size(), .usage = usage, .memory = rhi::MemoryLocation::CpuToGpu}),
@@ -119,7 +119,7 @@ rhi::BufferRef createFilledBuffer(rhi::IDevice& device, std::span<const std::byt
     return buffer;
 }
 
-/** @brief The pipeline drawing Vertex data with the sample's shaders into @p render_pass. */
+/// The pipeline drawing Vertex data with the sample's shaders into @p render_pass.
 rhi::PipelineRef createPipeline(rhi::IDevice& device, const rhi::RenderPassRef& render_pass,
                                 const rhi::BindGroupLayoutRef& bind_group_layout) {
     auto vertex_shader =
@@ -144,7 +144,7 @@ rhi::PipelineRef createPipeline(rhi::IDevice& device, const rhi::RenderPassRef& 
                   "createGraphicsPipeline");
 }
 
-/** @brief A 64x64 checkerboard with a red/green gradient, uploaded and left in ResourceState::ShaderRead. */
+/// A 64x64 checkerboard with a red/green gradient, uploaded and left in ResourceState::ShaderRead.
 rhi::TextureRef createCheckerTexture(rhi::IDevice& device, rhi::IQueue& queue) {
     constexpr std::uint32_t kSize = 64;
     std::vector<std::uint8_t> texels(kSize * kSize * 4);
@@ -185,7 +185,7 @@ rhi::TextureRef createCheckerTexture(rhi::IDevice& device, rhi::IQueue& queue) {
     return texture;
 }
 
-/** @brief Recreates the swapchain at the window's size and drops everything built on the old images. */
+/// Recreates the swapchain at the window's size and drops everything built on the old images.
 void resize(Renderer& r, const Window& window) {
     const WindowSize size = window.clientSize();
     r.targets.clear();
@@ -198,7 +198,7 @@ void resize(Renderer& r, const Window& window) {
     r.needs_resize = false;
 }
 
-/** @brief The render target for a backbuffer, created on first use after each resize. */
+/// The render target for a backbuffer, created on first use after each resize.
 rhi::RenderTargetRef targetFor(Renderer& r, std::uint32_t image_index, const rhi::TextureRef& backbuffer) {
     if (r.targets.size() <= image_index) {
         r.targets.resize(image_index + 1);
@@ -215,7 +215,7 @@ rhi::RenderTargetRef targetFor(Renderer& r, std::uint32_t image_index, const rhi
     return r.targets[image_index];
 }
 
-/** @brief The binary semaphore a present of @p image_index waits on. */
+/// The binary semaphore a present of @p image_index waits on.
 rhi::SemaphoreRef renderFinishedFor(Renderer& r, std::uint32_t image_index) {
     if (r.render_finished.size() <= image_index) {
         r.render_finished.resize(image_index + 1);
@@ -226,7 +226,7 @@ rhi::SemaphoreRef renderFinishedFor(Renderer& r, std::uint32_t image_index) {
     return r.render_finished[image_index];
 }
 
-/** @brief Records, submits and presents one frame. */
+/// Records, submits and presents one frame.
 void renderFrame(Renderer& r, const Window& window) {
     const WindowSize size = window.clientSize();
     if (size.width == 0 || size.height == 0) {
@@ -310,7 +310,7 @@ void renderFrame(Renderer& r, const Window& window) {
     r.frame_index = (r.frame_index + 1) % kFramesInFlight;
 }
 
-/** @brief The backend named by `--backend`, or the first available one. Exits on an unknown or unavailable name. */
+/// The backend named by `--backend`, or the first available one. Exits on an unknown or unavailable name.
 rhi::Backend chooseBackend(int argc, char** argv, const rhi::RHIFactory& factory) {
     const rhi::BackendList available = factory.availableBackends();
     for (int i = 1; i + 1 < argc; ++i) {
@@ -337,7 +337,7 @@ rhi::Backend chooseBackend(int argc, char** argv, const rhi::RHIFactory& factory
     return available[0];
 }
 
-/** @brief The value of `--frames`, or 0 (run until the window is closed). */
+/// The value of `--frames`, or 0 (run until the window is closed).
 std::uint64_t frameLimit(int argc, char** argv) {
     for (int i = 1; i + 1 < argc; ++i) {
         if (std::string_view(argv[i]) == "--frames") {

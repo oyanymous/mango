@@ -27,16 +27,12 @@ namespace rhi::vulkan {
 
 namespace {
 
-/**
- * @brief Name of the Khronos validation layer.
- */
+/// Name of the Khronos validation layer.
 constexpr const char* kValidationLayer = "VK_LAYER_KHRONOS_validation";
 
-/**
- * @brief Makes the loader use only the validation layer built by cmake/VulkanValidationLayers.cmake, so the
- * pinned version is used even when a Vulkan SDK registers its own. VK_LAYER_PATH replaces the system's
- * explicit-layer search; if the developer already set VK_LAYER_PATH or VK_ADD_LAYER_PATH, theirs wins.
- */
+/// Makes the loader use only the validation layer built by cmake/VulkanValidationLayers.cmake, so the pinned version is
+/// used even when a Vulkan SDK registers its own. VK_LAYER_PATH replaces the system's explicit-layer search; if the
+/// developer already set VK_LAYER_PATH or VK_ADD_LAYER_PATH, theirs wins.
 void useBuiltLayerPath() {
 #if defined(MANGO_VULKAN_LAYER_PATH)
     if (std::getenv("VK_LAYER_PATH") != nullptr || std::getenv("VK_ADD_LAYER_PATH") != nullptr) {
@@ -51,27 +47,21 @@ void useBuiltLayerPath() {
 #endif
 }
 
-/**
- * @brief Returns the layer called @p name from @p layers, or null.
- */
+/// Returns the layer called @p name from @p layers, or null.
 const VkLayerProperties* findLayer(const std::vector<VkLayerProperties>& layers, const char* name) {
     auto it = std::find_if(layers.begin(), layers.end(),
                            [&](const VkLayerProperties& layer) { return std::strcmp(layer.layerName, name) == 0; });
     return it == layers.end() ? nullptr : &*it;
 }
 
-/**
- * @brief True if @p extensions contains an extension called @p name.
- */
+/// True if @p extensions contains an extension called @p name.
 bool hasExtension(const std::vector<VkExtensionProperties>& extensions, const char* name) {
     return std::any_of(extensions.begin(), extensions.end(), [&](const VkExtensionProperties& extension) {
         return std::strcmp(extension.extensionName, name) == 0;
     });
 }
 
-/**
- * @brief The instance layers the loader can find.
- */
+/// The instance layers the loader can find.
 std::vector<VkLayerProperties> instanceLayers() {
     std::uint32_t count = 0;
     vkEnumerateInstanceLayerProperties(&count, nullptr);
@@ -81,9 +71,7 @@ std::vector<VkLayerProperties> instanceLayers() {
     return layers;
 }
 
-/**
- * @brief The instance extensions the loader and drivers provide.
- */
+/// The instance extensions the loader and drivers provide.
 std::vector<VkExtensionProperties> instanceExtensions() {
     std::uint32_t count = 0;
     vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr);

@@ -16,9 +16,7 @@
 #include "win32_helpers.h"
 
 
-/**
- * @brief Native Win32 state of a Window.
- */
+/// Native Win32 state of a Window.
 struct Window::Impl {
     HMODULE m_hinstance;                               /**< Module that registered the window class. */
     HWND m_hwnd;                                       /**< The window. */
@@ -28,9 +26,8 @@ struct Window::Impl {
 };
 
 /**
- * @brief Window procedure shared by all Mango windows.
+ * Window procedure shared by all Mango windows.
  *
- * @details
  * Quits the application when a window is destroyed and paints the client area with the default window colour.
  */
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {

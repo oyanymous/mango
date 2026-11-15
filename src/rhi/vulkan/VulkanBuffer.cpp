@@ -11,9 +11,7 @@ namespace rhi::vulkan {
 
 namespace {
 
-/**
- * @brief Maps BufferUsage bits to VkBufferUsageFlags.
- */
+/// Maps BufferUsage bits to VkBufferUsageFlags.
 VkBufferUsageFlags toVkBufferUsage(BufferUsage usage) {
     VkBufferUsageFlags flags = 0;
     if (hasFlag(usage, BufferUsage::CopySrc)) {

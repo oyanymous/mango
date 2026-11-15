@@ -31,7 +31,7 @@
 #include "texture.frag.h"
 #endif
 
-/** @brief Evaluates a Result-returning expression and returns its error from the enclosing function. */
+/// Evaluates a Result-returning expression and returns its error from the enclosing function.
 #define SG_TRY(expr)                                                                                                   \
     do {                                                                                                               \
         if (auto sg_try_result = (expr); !sg_try_result) {                                                             \
@@ -39,7 +39,7 @@
         }                                                                                                              \
     } while (false)
 
-/** @brief Assigns the value of a Result-returning expression to @p lhs, or returns its error. */
+/// Assigns the value of a Result-returning expression to @p lhs, or returns its error.
 #define SG_ASSIGN(lhs, expr)                                                                                           \
     do {                                                                                                               \
         auto sg_assign_result = (expr);                                                                                \
@@ -61,7 +61,7 @@ constexpr std::uint32_t kBackgroundVertexCount = 3;    // vertices 0..2: a trian
 constexpr std::uint32_t kClipVertexCount = 6;          // a stencil clip's rectangle, as a triangle list
 constexpr std::uint32_t kLayerTextureGranularity = 64; // layer textures grow in steps, to avoid reallocating
 
-/** @brief A vertex as the GPU sees it: Vertex plus the node's slot (24 bytes). */
+/// A vertex as the GPU sees it: Vertex plus the node's slot (24 bytes).
 struct GpuVertex {
     float x, y, u, v;
     std::uint32_t rgba; // premultiplied
@@ -69,7 +69,7 @@ struct GpuVertex {
 };
 static_assert(sizeof(GpuVertex) == 24);
 
-/** @brief One node's slot in the node storage buffer (std430, 48 bytes). */
+/// One node's slot in the node storage buffer (std430, 48 bytes).
 struct NodeData {
     float matrix[4];              // a, b, c, d
     float translation_opacity[4]; // tx, ty, opacity, unused
@@ -77,26 +77,26 @@ struct NodeData {
 };
 static_assert(sizeof(NodeData) == 48);
 
-/** @brief The view uniform: a render target's pixel origin and 2 / size. */
+/// The view uniform: a render target's pixel origin and 2 / size.
 struct ViewData {
     float origin_x, origin_y, scale_x, scale_y;
 };
 
-/** @brief Premultiplies a straight-alpha RGBA8 colour packed with packRgba8. */
+/// Premultiplies a straight-alpha RGBA8 colour packed with packRgba8.
 std::uint32_t premultiply(std::uint32_t rgba) {
     const std::uint32_t a = rgba >> 24;
     const auto channel = [a](std::uint32_t c) { return (c * a + 127) / 255; };
     return channel(rgba & 0xff) | (channel((rgba >> 8) & 0xff) << 8) | (channel((rgba >> 16) & 0xff) << 16) | (a << 24);
 }
 
-/** @brief A slot's contents. */
+/// A slot's contents.
 NodeData nodeData(const Transform2D& m, float opacity, ColorF color) {
     return {{m.a, m.b, m.c, m.d},
             {m.tx, m.ty, opacity, 0.0f},
             {color.r * color.a, color.g * color.a, color.b * color.a, color.a}};
 }
 
-/** @brief The next power of two >= @p value (and >= @p minimum). */
+/// The next power of two >= @p value (and >= @p minimum).
 std::uint64_t growTo(std::uint64_t value, std::uint64_t minimum) {
     std::uint64_t size = minimum;
     while (size < value) {
@@ -105,14 +105,12 @@ std::uint64_t growTo(std::uint64_t value, std::uint64_t minimum) {
     return size;
 }
 
-/** @brief @p value rounded up to a multiple of @p alignment. */
+/// @p value rounded up to a multiple of @p alignment.
 std::uint64_t alignUp(std::uint64_t value, std::uint64_t alignment) {
     return (value + alignment - 1) / alignment * alignment;
 }
 
-/**
- * @brief A GPU-only buffer with a CPU mirror; writes go to the mirror and are uploaded as dirty byte ranges.
- */
+/// A GPU-only buffer with a CPU mirror; writes go to the mirror and are uploaded as dirty byte ranges.
 struct GpuPool {
     rhi::BufferUsage usage = rhi::BufferUsage::None;
     rhi::ResourceState read_state = rhi::ResourceState::Undefined;
@@ -124,13 +122,13 @@ struct GpuPool {
     bool used = false;            // the GPU has read the buffer (so a barrier from read_state is needed)
     std::uint64_t generation = 0; // bumped when the buffer is replaced (bind groups referencing it are stale)
 
-    /** @brief Makes the mirror at least @p bytes long; the GPU buffer follows at the next upload. */
+    /// Makes the mirror at least @p bytes long; the GPU buffer follows at the next upload.
     void reserve(std::uint64_t bytes) {
         if (mirror.size() < bytes) {
             mirror.resize(growTo(bytes, 256));
         }
     }
-    /** @brief Copies @p size bytes into the mirror; marks them dirty only if they changed. @return Whether they did. */
+    /// Copies @p size bytes into the mirror; marks them dirty only if they changed. @return Whether they did.
     bool write(std::uint64_t offset, const void* data, std::uint64_t size) {
         reserve(offset + size);
         if (std::memcmp(mirror.data() + offset, data, size) == 0) {
@@ -140,14 +138,14 @@ struct GpuPool {
         dirty.emplace_back(offset, offset + size);
         return true;
     }
-    /** @brief Marks every byte dirty. */
+    /// Marks every byte dirty.
     void markAllDirty() {
         dirty.clear();
         if (!mirror.empty()) {
             dirty.emplace_back(0, mirror.size());
         }
     }
-    /** @brief Sorts and merges the dirty ranges (gaps under 256 bytes are uploaded too, for fewer copies). */
+    /// Sorts and merges the dirty ranges (gaps under 256 bytes are uploaded too, for fewer copies).
     void coalesce() {
         if (buffer_size < mirror.size()) {
             markAllDirty(); // the buffer will be recreated: upload everything
@@ -166,7 +164,7 @@ struct GpuPool {
     }
 };
 
-/** @brief Key of a content pipeline. */
+/// Key of a content pipeline.
 struct PipelineKey {
     bool lines = false;
     bool textured = false;
@@ -176,7 +174,7 @@ struct PipelineKey {
 
 struct Target;
 
-/** @brief What the renderer keeps for each GeometryNode and LayerNode it draws. */
+/// What the renderer keeps for each GeometryNode and LayerNode it draws.
 struct DrawItem {
     Node* node = nullptr;
     Target* target = nullptr; // where it is drawn
@@ -191,7 +189,7 @@ struct DrawItem {
     std::uint32_t index_pos = 0;
 };
 
-/** @brief A run of consecutive items drawn with one indexed draw. */
+/// A run of consecutive items drawn with one indexed draw.
 struct Batch {
     bool lines = false;
     rhi::BindGroupRef texture_group;
@@ -203,7 +201,7 @@ struct Batch {
     IntRect bounds;
 };
 
-/** @brief A render target: the window canvas, or a LayerNode's texture. */
+/// A render target: the window canvas, or a LayerNode's texture.
 struct Target {
     LayerNode* layer = nullptr; // null for the canvas
     int depth = 0;              // layers nested above this one
@@ -235,7 +233,7 @@ struct Target {
     DamageRegion damage;       // canvas only
 };
 
-/** @brief A stencil clip's GPU data: its rectangle as 6 vertices, and a slot with its world transform. */
+/// A stencil clip's GPU data: its rectangle as 6 vertices, and a slot with its world transform.
 struct ClipItem {
     std::uint32_t slot = 0;
     std::uint32_t vertex_offset = 0;
@@ -244,7 +242,7 @@ struct ClipItem {
     Target* target = nullptr;
 };
 
-/** @brief A sg::Texture's GPU copy. */
+/// A sg::Texture's GPU copy.
 struct GpuTexture {
     std::weak_ptr<Texture> source;
     rhi::TextureRef texture;
@@ -252,7 +250,7 @@ struct GpuTexture {
     rhi::BindGroupRef nearest_group;
 };
 
-/** @brief Per-frame-in-flight objects; the fence guards them all. */
+/// Per-frame-in-flight objects; the fence guards them all.
 struct Frame {
     rhi::CommandBufferRef command_buffer;
     rhi::FenceRef fence;
@@ -261,7 +259,7 @@ struct Frame {
     std::uint64_t staging_size = 0;
 };
 
-/** @brief One copy recorded in the upload pass. */
+/// One copy recorded in the upload pass.
 struct PendingCopy {
     std::uint64_t staging_offset = 0;
     std::uint64_t size = 0;
@@ -271,7 +269,7 @@ struct PendingCopy {
 
 } // namespace
 
-/** @cond INTERNAL */
+/// @cond INTERNAL
 // The renderer's state; observes the root and receives the update pass's findings. Hidden from the API docs.
 struct Renderer::Impl final : NodeObserver, UpdateVisitor {
     RendererDesc desc;
@@ -460,7 +458,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         return *target;
     }
 
-    /** @brief The pixels of a target, in the space its items' bounds use. */
+    /// The pixels of a target, in the space its items' bounds use.
     static IntRect targetPixels(const Target& target) {
         if (target.layer != nullptr) {
             return IntRect{-(1 << 24), -(1 << 24), 1 << 25, 1 << 25}; // layers grow to fit their content
@@ -508,7 +506,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         return slots.write(std::uint64_t{slot} * sizeof(NodeData), &data, sizeof(data));
     }
 
-    /** @brief Writes an item's vertices and indices; reallocates when the vertex count changes. @return Changed. */
+    /// Writes an item's vertices and indices; reallocates when the vertex count changes. @return Changed.
     bool writeGeometry(DrawItem& item, const std::vector<Vertex>& source, std::vector<std::uint32_t> list_indices,
                        bool lines) {
         Target& target = *item.target;
@@ -549,7 +547,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         return changed;
     }
 
-    /** @brief Pixels covered by @p local under @p world, grown by one pixel (rasterization) and clipped. */
+    /// Pixels covered by @p local under @p world, grown by one pixel (rasterization) and clipped.
     static IntRect deviceBounds(const Transform2D& world, const RectF& local, const ClipContext* clip) {
         RectF rect = world.mapRect(local).adjusted(1.0f);
         if (clip != nullptr) {
@@ -569,7 +567,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         }
     }
 
-    /** @brief Frees what the renderer holds for @p node and its subtree, damaging where they were drawn. */
+    /// Frees what the renderer holds for @p node and its subtree, damaging where they were drawn.
     void releaseSubtree(Node& node) {
         for (const std::unique_ptr<Node>& child : node.children()) {
             releaseSubtree(*child);
@@ -602,7 +600,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         }
     }
 
-    /** @brief Forgets the whole scene; keeps GPU pools and pipelines. */
+    /// Forgets the whole scene; keeps GPU pools and pipelines.
     void resetScene() {
         items.clear();
         layers.clear();
@@ -619,7 +617,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         requestFrame();
     }
 
-    /** @brief Reserves slot 0 and vertices 0..2 for the background triangle, and writes them. */
+    /// Reserves slot 0 and vertices 0..2 for the background triangle, and writes them.
     void reserveBackground() {
         if (slot_ranges.capacity() == 0) {
             slot_ranges.grow(256);
@@ -642,7 +640,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         writeSlot(kBackgroundSlot, nodeData({}, 1.0f, desc.clear_color));
     }
 
-    /** @brief The bind group for a material's texture (null without one); uploads the texture on first use. */
+    /// The bind group for a material's texture (null without one); uploads the texture on first use.
     rhi::BindGroupRef textureGroup(const Material& material) {
         if (!material.texture) {
             return nullptr;
@@ -679,14 +677,14 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         return group ? *group : nullptr;
     }
 
-    /** @brief Drops GPU copies of textures nobody references any more (in-flight frames keep their own refs). */
+    /// Drops GPU copies of textures nobody references any more (in-flight frames keep their own refs).
     void collectTextures() {
         std::erase_if(textures, [](const auto& entry) { return entry.second.source.expired(); });
     }
 
     // ---- Per-frame CPU work ----
 
-    /** @brief Rebuilds a target's paint-ordered item list. */
+    /// Rebuilds a target's paint-ordered item list.
     void rebuildOrder(Target& target) {
         target.items.clear();
         Node* top = target.layer != nullptr ? static_cast<Node*>(target.layer) : static_cast<Node*>(root);
@@ -714,7 +712,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         }
     }
 
-    /** @brief Splits a target's items into batches and rewrites its index buffer. */
+    /// Splits a target's items into batches and rewrites its index buffer.
     void rebuildBatches(Target& target) {
         target.batches.clear();
         std::size_t total = 0;
@@ -764,9 +762,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         target.bounds_dirty = false;
     }
 
-    /**
-     * @brief Refreshes a layer's bounds, texture and quad, and damages the quad in its parent target when needed.
-     */
+    /// Refreshes a layer's bounds, texture and quad, and damages the quad in its parent target when needed.
     rhi::Result<void> updateLayer(Target& layer) {
         DrawItem* item = items.count(layer.layer) != 0 ? items[layer.layer].get() : nullptr;
         if (item == nullptr) {
@@ -959,7 +955,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         });
     }
 
-    /** @brief (Re)creates a target's colour and depth-stencil textures at @p extent. */
+    /// (Re)creates a target's colour and depth-stencil textures at @p extent.
     rhi::Result<void> createTargetTextures(Target& target, rhi::Extent2D extent) {
         rhi::IDevice& device = *desc.device;
         SG_ASSIGN(target.color, device.createTexture({.format = kCanvasFormat,
@@ -985,7 +981,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         return {};
     }
 
-    /** @brief Makes sure a target has its view uniform buffer and an up-to-date bind group 0. */
+    /// Makes sure a target has its view uniform buffer and an up-to-date bind group 0.
     rhi::Result<void> prepareTargetBindings(Target& target) {
         if (!target.view_buffer) {
             SG_ASSIGN(target.view_buffer,
@@ -1007,7 +1003,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         return {};
     }
 
-    /** @brief Recreates a pool's GPU buffer when its mirror outgrew it. */
+    /// Recreates a pool's GPU buffer when its mirror outgrew it.
     rhi::Result<void> preparePool(GpuPool& pool) {
         if (pool.mirror.empty() || pool.buffer_size >= pool.mirror.size()) {
             return {};
@@ -1025,7 +1021,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         return {};
     }
 
-    /** @brief Applies a pending resize: new canvas, swapchain size, full redraw. */
+    /// Applies a pending resize: new canvas, swapchain size, full redraw.
     rhi::Result<void> applyResize() {
         resize_pending = false;
         if (pending_dpr != dpr) {
@@ -1063,7 +1059,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
 
     // ---- Recording ----
 
-    /** @brief Uploads dirty pool ranges, view uniforms and new textures through the frame's staging buffer. */
+    /// Uploads dirty pool ranges, view uniforms and new textures through the frame's staging buffer.
     rhi::Result<void> recordUploads(Frame& frame, rhi::ICommandBuffer& cmd) {
         SG_TRY(preparePool(vertices));
         SG_TRY(preparePool(slots));
@@ -1206,7 +1202,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         return {};
     }
 
-    /** @brief Draws a target's batches that intersect @p rects (in the target's item pixel space). */
+    /// Draws a target's batches that intersect @p rects (in the target's item pixel space).
     void recordTarget(rhi::ICommandBuffer& cmd, Target& target, const std::vector<IntRect>& rects) {
         cmd.barrier(
             {.textures = {
@@ -1331,7 +1327,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         return render_finished[index];
     }
 
-    /** @brief Waits until no frame is in flight. */
+    /// Waits until no frame is in flight.
     rhi::Result<void> waitIdle() {
         for (Frame& frame : frames) {
             SG_TRY(frame.fence->wait(rhi::kWaitForever));
@@ -1535,7 +1531,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
     }
 };
 
-/** @endcond */
+/// @endcond
 
 rhi::Result<std::unique_ptr<Renderer>> Renderer::create(RendererDesc desc) {
     if (!desc.device) {

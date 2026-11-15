@@ -1,10 +1,5 @@
 #pragma once
 
-/**
- * @file
- * @brief rhi::vulkan::VulkanAdapter: a Vulkan physical device.
- */
-
 #include <memory>
 #include <optional>
 
@@ -14,37 +9,26 @@
 
 namespace rhi::vulkan {
 
-/**
- * @brief The Vulkan IAdapter: wraps a VkPhysicalDevice and its queried Capabilities.
- */
+/// The Vulkan IAdapter: wraps a VkPhysicalDevice and its queried Capabilities.
 class VulkanAdapter final : public IAdapter {
 public:
     /**
-     * @brief Queries a physical device and wraps it if the backend can use it.
+     * Queries a physical device and wraps it if the backend can use it.
      *
-     * @param instance Owner of the VkInstance; kept alive by the adapter.
      * @param physical_device Device from vkEnumeratePhysicalDevices.
      * @return The adapter, or nothing for GPUs below Vulkan 1.2 or without timeline semaphores.
      */
     static std::optional<AdapterRef> create(std::shared_ptr<VulkanInstanceHandle> instance,
                                             VkPhysicalDevice physical_device);
 
-    /**
-     * @brief Wraps a physical device whose capabilities were already queried. Use create().
-     *
-     * @param instance Owner of the VkInstance.
-     * @param physical_device The physical device.
-     * @param capabilities Its capabilities.
-     */
+    /// Wraps a physical device whose capabilities were already queried. Use create().
     VulkanAdapter(std::shared_ptr<VulkanInstanceHandle> instance, VkPhysicalDevice physical_device,
                   Capabilities capabilities);
 
     Capabilities getCapabilities() const override;
 
-    /**
-     * @brief Creates a VulkanDevice: one graphics queue plus dedicated compute/transfer queues where the adapter has
-     * such families, timeline semaphores, VK_KHR_swapchain (if available) and a VMA allocator.
-     */
+    /// Creates a VulkanDevice: one graphics queue plus dedicated compute/transfer queues where the adapter has such
+    /// families, timeline semaphores, VK_KHR_swapchain (if available) and a VMA allocator.
     Result<DeviceRef> createDevice(DeviceDesc desc) override;
 private:
     Capabilities m_capabilities;

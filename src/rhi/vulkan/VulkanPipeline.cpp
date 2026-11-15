@@ -44,17 +44,13 @@ VkCullModeFlags toVkCullMode(CullMode mode) {
     return VK_CULL_MODE_NONE;
 }
 
-/**
- * @brief Maps a BlendFactor; the enumerators are declared in Vulkan's order.
- */
+/// Maps a BlendFactor; the enumerators are declared in Vulkan's order.
 VkBlendFactor toVkBlendFactor(BlendFactor factor) {
     static_assert(static_cast<int>(BlendFactor::OneMinusDstAlpha) == VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA);
     return static_cast<VkBlendFactor>(factor);
 }
 
-/**
- * @brief Maps a BlendOp; the enumerators are declared in Vulkan's order.
- */
+/// Maps a BlendOp; the enumerators are declared in Vulkan's order.
 VkBlendOp toVkBlendOp(BlendOp op) {
     static_assert(static_cast<int>(BlendOp::Max) == VK_BLEND_OP_MAX);
     return static_cast<VkBlendOp>(op);
@@ -74,12 +70,12 @@ VkPipelineColorBlendAttachmentState toVkBlend(const BlendState& blend) {
     return state;
 }
 
-/** @brief Whether @p format has a stencil plane. */
+/// Whether @p format has a stencil plane.
 bool hasStencil(Format format) {
     return format == Format::D24UnormS8Uint || format == Format::D32FloatS8Uint;
 }
 
-/** @brief The Vulkan stencil operation of a StencilOp. */
+/// The Vulkan stencil operation of a StencilOp.
 VkStencilOp toVkStencilOp(StencilOp op) {
     switch (op) {
     case StencilOp::Keep:
@@ -102,9 +98,7 @@ VkStencilOp toVkStencilOp(StencilOp op) {
     return VK_STENCIL_OP_KEEP;
 }
 
-/**
- * @brief The shader stage create info for @p shader, which must be a VulkanShader.
- */
+/// The shader stage create info for @p shader, which must be a VulkanShader.
 VkPipelineShaderStageCreateInfo toVkStage(const ShaderRef& shader, VkShaderStageFlagBits stage,
                                           const std::string& entry_point) {
     VkPipelineShaderStageCreateInfo info{};

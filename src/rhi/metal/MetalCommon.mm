@@ -12,9 +12,7 @@ namespace rhi::metal {
 
 namespace {
 
-/**
- * @brief Lower-case name of a severity, for stderr output.
- */
+/// Lower-case name of a severity, for stderr output.
 const char* severityName(DebugSeverity severity) {
     switch (severity) {
     case DebugSeverity::Verbose:

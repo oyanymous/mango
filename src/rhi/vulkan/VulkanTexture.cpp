@@ -11,9 +11,7 @@ namespace rhi::vulkan {
 
 namespace {
 
-/**
- * @brief Maps TextureUsage bits to VkImageUsageFlags.
- */
+/// Maps TextureUsage bits to VkImageUsageFlags.
 VkImageUsageFlags toVkImageUsage(TextureUsage usage) {
     VkImageUsageFlags flags = 0;
     if (hasFlag(usage, TextureUsage::CopySrc)) {
@@ -37,9 +35,7 @@ VkImageUsageFlags toVkImageUsage(TextureUsage usage) {
     return flags;
 }
 
-/**
- * @brief The view type for a view of @p texture with an optional explicit dimension.
- */
+/// The view type for a view of @p texture with an optional explicit dimension.
 VkImageViewType toVkViewType(const TextureDesc& texture, std::optional<TextureViewDimension> dimension,
                              std::uint32_t layer_count) {
     if (!dimension) {

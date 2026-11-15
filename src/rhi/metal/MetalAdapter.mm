@@ -16,9 +16,7 @@ namespace rhi::metal {
 
 namespace {
 
-/**
- * @brief Metal API version of a device: the newest `MTLGPUFamilyMetalN` it supports, else 2 (every Mac2 GPU).
- */
+/// Metal API version of a device: the newest `MTLGPUFamilyMetalN` it supports, else 2 (every Mac2 GPU).
 void apiVersion(id<MTLDevice> device, Capabilities& caps) {
     caps.api_version_major = 2;
 #if defined(MAC_OS_VERSION_26_0)
@@ -34,9 +32,7 @@ void apiVersion(id<MTLDevice> device, Capabilities& caps) {
     }
 }
 
-/**
- * @brief PCI vendor ID: Apple for Apple-family GPUs; otherwise guessed from the name, since Metal does not report it.
- */
+/// PCI vendor ID: Apple for Apple-family GPUs; otherwise guessed from the name, since Metal does not report it.
 std::uint32_t vendorId(id<MTLDevice> device, const std::string& name) {
     if ([device supportsFamily:MTLGPUFamilyApple1]) {
         return kAppleVendorId;
@@ -55,9 +51,7 @@ std::uint32_t vendorId(id<MTLDevice> device, const std::string& name) {
     return 0;
 }
 
-/**
- * @brief Limits of a Mac2-family GPU. Most are fixed by Apple's Metal feature set tables, not queryable.
- */
+/// Limits of a Mac2-family GPU. Most are fixed by Apple's Metal feature set tables, not queryable.
 Limits limits(id<MTLDevice> device) {
     const MTLSize threads = device.maxThreadsPerThreadgroup;
     return Limits{

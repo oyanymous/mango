@@ -1,10 +1,5 @@
 #pragma once
 
-/**
- * @file
- * @brief The basic UI element.
- */
-
 #include <memory>
 #include <string>
 #include <vector>
@@ -24,10 +19,9 @@ class TransformNode;
 } // namespace sg
 
 /**
- * @brief The basic UI element: a rectangle with a background colour that clips its children. A widget without a
+ * The basic UI element: a rectangle with a background colour that clips its children. A widget without a
  * parent is a top-level widget with its own native Window.
  *
- * @details
  * Top-level widgets register themselves with the Application when constructed. The native window, and the
  * sg::Renderer that draws the widget tree into it, are created on the first display().
  *
@@ -42,55 +36,42 @@ class TransformNode;
 class Widget : public IWidget {
 public:
     /**
-     * @brief Creates a widget.
+     * Creates a widget.
      *
      * @param parent Parent widget, or null for a top-level widget. Not owned.
      */
     explicit Widget(Widget* parent = nullptr);
-    /**
-     * @brief Removes the widget (and its children's drawing) from the screen; a top-level widget closes its window.
-     */
+    /// Removes the widget (and its children's drawing) from the screen; a top-level widget closes its window.
     ~Widget() override;
 
     Widget(const Widget&) = delete;
     Widget& operator=(const Widget&) = delete;
 
-    /**
-     * @brief True if the widget has no parent and therefore gets its own window.
-     */
+    /// True if the widget has no parent and therefore gets its own window.
     [[nodiscard]] bool isTopLevel() const { return m_parent == nullptr; }
-    /**
-     * @brief Shows the widget. A top-level widget creates its native window and renderer on the first call.
-     */
+    /// Shows the widget. A top-level widget creates its native window and renderer on the first call.
     void display() override;
     /**
-     * @brief Sets the window title. Applied now if the window exists, otherwise when it is created.
+     * Sets the window title. Applied now if the window exists, otherwise when it is created.
      *
      * @param title UTF-8 title.
      */
     void setWindowTitle(const std::string& title);
-    /**
-     * @brief The window title last set with setWindowTitle().
-     */
+    /// The window title last set with setWindowTitle().
     [[nodiscard]] const std::string& getWindowTitle() const { return m_window_title; }
 
     /**
-     * @brief Moves and resizes the widget, in logical units relative to its parent's top-left corner.
+     * Moves and resizes the widget, in logical units relative to its parent's top-left corner.
      *
-     * @details
      * A top-level widget ignores the position and always fills its window; the size is used until the window
      * reports its own.
      */
     void setGeometry(float x, float y, float width, float height);
-    /**
-     * @brief Sets the background colour (transparent by default for child widgets, white for top-level ones).
-     */
+    /// Sets the background colour (transparent by default for child widgets, white for top-level ones).
     void setBackgroundColor(const Color& color);
 
-    /**
-     * @brief The node to add custom scene graph content to: drawn above the background and below child widgets,
-     * in widget coordinates, clipped to the widget.
-     */
+    /// The node to add custom scene graph content to: drawn above the background and below child widgets, in widget
+    /// coordinates, clipped to the widget.
     [[nodiscard]] sg::Node* contentNode() const;
 private:
     Widget* m_parent = nullptr;
@@ -106,10 +87,10 @@ private:
     sg::Node* m_content = nullptr;
     std::unique_ptr<sg::Renderer> m_renderer; // top-level widgets, once displayed
 
-    /** @brief Applies the geometry to the nodes. */
+    /// Applies the geometry to the nodes.
     void updateNodes();
-    /** @brief Forgets the nodes after the parent's subtree (which owned them) was destroyed. */
+    /// Forgets the nodes after the parent's subtree (which owned them) was destroyed.
     void detachFromDestroyedParent();
-    /** @brief Creates the window, surface and renderer of a top-level widget. */
+    /// Creates the window, surface and renderer of a top-level widget.
     void createWindow();
 };
