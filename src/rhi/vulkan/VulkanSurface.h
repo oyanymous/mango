@@ -25,8 +25,7 @@ public:
     static Result<SurfaceRef> create(std::shared_ptr<VulkanInstanceHandle> instance, SurfaceDesc desc);
 
     /// Takes ownership of a created surface. Use create().
-    VulkanSurface(std::shared_ptr<VulkanInstanceHandle> instance, SurfaceDesc desc, VkSurfaceKHR surface);
-    ~VulkanSurface() override;
+    VulkanSurface(std::shared_ptr<VulkanInstanceHandle> instance, SurfaceDesc desc, vk::raii::SurfaceKHR surface);
 
     VulkanSurface(const VulkanSurface&) = delete;
     VulkanSurface& operator=(const VulkanSurface&) = delete;
@@ -34,11 +33,11 @@ public:
     SurfaceDesc getDesc() const override;
 
     /// The VkSurfaceKHR, for swapchains.
-    VkSurfaceKHR handle() const { return m_surface; }
+    VkSurfaceKHR handle() const { return static_cast<VkSurfaceKHR>(*m_surface); }
 private:
+    std::shared_ptr<VulkanInstanceHandle> m_instance; // first: destroyed after the surface
     SurfaceDesc m_desc;
-    VkSurfaceKHR m_surface = VK_NULL_HANDLE;
-    std::shared_ptr<VulkanInstanceHandle> m_instance;
+    vk::raii::SurfaceKHR m_surface;
 };
 
 } // namespace rhi::vulkan

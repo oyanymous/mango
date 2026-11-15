@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "RHITypes.h"
 #include "Result.h"
@@ -32,6 +33,27 @@ std::string_view toString(VkResult result);
  * @return An Error whose code best matches @p result.
  */
 Error toError(VkResult result, std::string_view what);
+
+/// Maps a failed vk::Result to an RHI Error, like the VkResult overload.
+inline Error toError(vk::Result result, std::string_view what) {
+    return toError(static_cast<VkResult>(result), what);
+}
+
+/// Turns a Vulkan-Hpp result into an RHI result; on failure the error message names @p what.
+template <typename T>
+Result<T> check(vk::ResultValue<T>&& result, std::string_view what) {
+    if (result.result != vk::Result::eSuccess) {
+        return toError(result.result, what);
+    }
+    return std::move(result.value);
+}
+
+inline Result<void> check(vk::Result result, std::string_view what) {
+    if (result != vk::Result::eSuccess) {
+        return toError(result, what);
+    }
+    return {};
+}
 
 /// Maps RHI pipeline stages to Vulkan stage flags. PipelineStage::None maps to TOP_OF_PIPE (nothing waits).
 VkPipelineStageFlags toVkPipelineStages(PipelineStage stages);

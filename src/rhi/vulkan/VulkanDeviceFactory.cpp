@@ -7,8 +7,8 @@
 
 #include <algorithm>
 #include <cstdlib>
-#include <cstring>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "VulkanInstance.h"
@@ -48,61 +48,53 @@ void useBuiltLayerPath() {
 }
 
 /// Returns the layer called @p name from @p layers, or null.
-const VkLayerProperties* findLayer(const std::vector<VkLayerProperties>& layers, const char* name) {
+const vk::LayerProperties* findLayer(const std::vector<vk::LayerProperties>& layers, std::string_view name) {
     auto it = std::find_if(layers.begin(), layers.end(),
-                           [&](const VkLayerProperties& layer) { return std::strcmp(layer.layerName, name) == 0; });
+                           [&](const vk::LayerProperties& layer) { return std::string_view(layer.layerName) == name; });
     return it == layers.end() ? nullptr : &*it;
 }
 
 /// True if @p extensions contains an extension called @p name.
-bool hasExtension(const std::vector<VkExtensionProperties>& extensions, const char* name) {
-    return std::any_of(extensions.begin(), extensions.end(), [&](const VkExtensionProperties& extension) {
-        return std::strcmp(extension.extensionName, name) == 0;
+bool hasExtension(const std::vector<vk::ExtensionProperties>& extensions, std::string_view name) {
+    return std::any_of(extensions.begin(), extensions.end(), [&](const vk::ExtensionProperties& extension) {
+        return std::string_view(extension.extensionName) == name;
     });
 }
 
-/// The instance layers the loader can find.
-std::vector<VkLayerProperties> instanceLayers() {
-    std::uint32_t count = 0;
-    vkEnumerateInstanceLayerProperties(&count, nullptr);
-    std::vector<VkLayerProperties> layers(count);
-    vkEnumerateInstanceLayerProperties(&count, layers.data());
-    layers.resize(count);
-    return layers;
-}
 
-/// The instance extensions the loader and drivers provide.
-std::vector<VkExtensionProperties> instanceExtensions() {
-    std::uint32_t count = 0;
-    vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr);
-    std::vector<VkExtensionProperties> extensions(count);
-    vkEnumerateInstanceExtensionProperties(nullptr, &count, extensions.data());
-    extensions.resize(count);
-    return extensions;
+/// The loader's instance-level API version; Vulkan 1.0 loaders lack vkEnumerateInstanceVersion.
+std::uint32_t instanceVersion(const vk::raii::Context& context) {
+    if (!context.getDispatcher()->vkEnumerateInstanceVersion) {
+        return VK_API_VERSION_1_0;
+    }
+    auto version = context.enumerateInstanceVersion();
+    return version.result == vk::Result::eSuccess ? version.value : VK_API_VERSION_1_0;
 }
 
 } // namespace
 
 bool VulkanDeviceFactory::isLoaderAvailable() {
-    // volkInitialize is cheap after the first successful call.
-    return volkInitialize() == VK_SUCCESS;
+    // Opened once and kept open, so later checks and vk::raii::Context's own open of the same library are cheap.
+    static const vk::detail::DynamicLoader loader;
+    return loader.success() && loader.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr") != nullptr;
 }
 
 Result<InstanceRef> VulkanDeviceFactory::createInstance(InstanceDesc desc) {
-    if (VkResult result = volkInitialize(); result != VK_SUCCESS) {
+    if (!isLoaderAvailable()) {
         return Error{ErrorCode::BackendUnavailable, "Vulkan loader not found (is a Vulkan GPU driver installed?)"};
-    }
-    if (volkGetInstanceVersion() < kApiVersion) {
-        return Error{ErrorCode::BackendUnavailable, "the Vulkan loader is older than Vulkan 1.2"};
     }
 
     auto handle = std::make_shared<VulkanInstanceHandle>(desc.debug_callback);
+    const vk::raii::Context& context = handle->m_context;
+    if (instanceVersion(context) < kApiVersion) {
+        return Error{ErrorCode::BackendUnavailable, "the Vulkan loader is older than Vulkan 1.2"};
+    }
 
     std::vector<const char*> layers;
     if (desc.enable_validation) {
         useBuiltLayerPath();
-        const std::vector<VkLayerProperties> available_layers = instanceLayers();
-        if (const VkLayerProperties* layer = findLayer(available_layers, kValidationLayer)) {
+        const std::vector<vk::LayerProperties> available_layers = context.enumerateInstanceLayerProperties().value;
+        if (const vk::LayerProperties* layer = findLayer(available_layers, kValidationLayer)) {
             layers.push_back(kValidationLayer);
             handle->report(DebugSeverity::Info, std::string("using ") + kValidationLayer + " " +
                                                     std::to_string(VK_API_VERSION_MAJOR(layer->specVersion)) + "." +
@@ -114,18 +106,18 @@ Result<InstanceRef> VulkanDeviceFactory::createInstance(InstanceDesc desc) {
         }
     }
 
-    const std::vector<VkExtensionProperties> available = instanceExtensions();
+    const std::vector<vk::ExtensionProperties> available = context.enumerateInstanceExtensionProperties(nullptr).value;
     std::vector<const char*> extensions;
-    VkInstanceCreateFlags flags = 0;
+    vk::InstanceCreateFlags flags;
 
-    const bool debug_utils = hasExtension(available, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    const bool debug_utils = hasExtension(available, vk::EXTDebugUtilsExtensionName);
     if (debug_utils) {
-        extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        extensions.push_back(vk::EXTDebugUtilsExtensionName);
     }
 
-    // Surface extensions, so the instance can present (step 9). Missing ones only disable presentation.
+    // Surface extensions, so the instance can present. Missing ones only disable presentation.
     const char* surface_extensions[] = {
-        VK_KHR_SURFACE_EXTENSION_NAME,
+        vk::KHRSurfaceExtensionName,
 #if defined(_WIN32)
         "VK_KHR_win32_surface",
 #elif defined(__APPLE__)
@@ -139,42 +131,47 @@ Result<InstanceRef> VulkanDeviceFactory::createInstance(InstanceDesc desc) {
     }
 
     // MoltenVK is a "portability" implementation; it is only listed when the instance opts in.
-    if (hasExtension(available, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)) {
-        extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
-        flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+    if (hasExtension(available, vk::KHRPortabilityEnumerationExtensionName)) {
+        extensions.push_back(vk::KHRPortabilityEnumerationExtensionName);
+        flags |= vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR;
     }
 
-    VkApplicationInfo app_info{};
-    app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    app_info.pApplicationName = desc.application_name.c_str();
-    app_info.applicationVersion = desc.application_version;
-    app_info.pEngineName = "Mango";
-    app_info.apiVersion = kApiVersion;
+    const vk::ApplicationInfo app_info{
+        .pApplicationName = desc.application_name.c_str(),
+        .applicationVersion = desc.application_version,
+        .pEngineName = "Mango",
+        .apiVersion = kApiVersion,
+    };
 
-    VkDebugUtilsMessengerCreateInfoEXT messenger_info = handle->messengerCreateInfo();
+    const vk::DebugUtilsMessengerCreateInfoEXT messenger_info = handle->messengerCreateInfo();
 
-    VkInstanceCreateInfo create_info{};
-    create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    create_info.pNext = debug_utils ? &messenger_info : nullptr;
-    create_info.flags = flags;
-    create_info.pApplicationInfo = &app_info;
-    create_info.enabledLayerCount = static_cast<std::uint32_t>(layers.size());
-    create_info.ppEnabledLayerNames = layers.data();
-    create_info.enabledExtensionCount = static_cast<std::uint32_t>(extensions.size());
-    create_info.ppEnabledExtensionNames = extensions.data();
+    const vk::InstanceCreateInfo create_info{
+        .pNext = debug_utils ? &messenger_info : nullptr,
+        .flags = flags,
+        .pApplicationInfo = &app_info,
+        .enabledLayerCount = static_cast<std::uint32_t>(layers.size()),
+        .ppEnabledLayerNames = layers.data(),
+        .enabledExtensionCount = static_cast<std::uint32_t>(extensions.size()),
+        .ppEnabledExtensionNames = extensions.data(),
+    };
 
-    if (VkResult result = vkCreateInstance(&create_info, nullptr, &handle->m_instance); result != VK_SUCCESS) {
-        handle->m_instance = VK_NULL_HANDLE;
-        return toError(result, "vkCreateInstance");
+    Result<vk::raii::Instance> instance = check(context.createInstance(create_info), "vkCreateInstance");
+    if (!instance) {
+        return instance.error();
     }
-    volkLoadInstance(handle->m_instance);
+    handle->m_instance = std::move(instance).value();
+
+    // Transitional: the files not yet ported to vk::raii call Vulkan through volk's global function pointers.
+    volkInitializeCustom(context.getDispatcher()->vkGetInstanceProcAddr);
+    volkLoadInstance(handle->get());
 
     if (debug_utils) {
-        if (VkResult result =
-                vkCreateDebugUtilsMessengerEXT(handle->m_instance, &messenger_info, nullptr, &handle->m_messenger);
-            result != VK_SUCCESS) {
-            return toError(result, "vkCreateDebugUtilsMessengerEXT");
+        Result<vk::raii::DebugUtilsMessengerEXT> messenger =
+            check(handle->m_instance.createDebugUtilsMessengerEXT(messenger_info), "vkCreateDebugUtilsMessengerEXT");
+        if (!messenger) {
+            return messenger.error();
         }
+        handle->m_messenger = std::move(messenger).value();
     }
 
     return InstanceRef(std::make_shared<VulkanInstance>(std::move(desc), std::move(handle)));

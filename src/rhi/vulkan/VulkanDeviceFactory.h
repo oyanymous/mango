@@ -7,7 +7,7 @@ namespace rhi::vulkan {
 /**
  * Creates Vulkan instances. Registered in RHIFactory for Backend::Vulkan.
  *
- * createInstance() loads the Vulkan loader through volk, enables the validation layer and debug messenger
+ * createInstance() opens the driver's Vulkan loader, enables the validation layer and debug messenger
  * when requested, and enables the surface extensions the platform needs (plus portability enumeration
  * for MoltenVK).
  */
