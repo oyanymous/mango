@@ -22,22 +22,20 @@ public:
      */
     static Result<BindGroupLayoutRef> create(std::shared_ptr<VulkanDeviceHandle> device, BindGroupLayoutDesc desc);
 
-    /// Takes ownership of a created VkDescriptorSetLayout. Use create().
+    /// Takes ownership of a created descriptor set layout. Use create().
     VulkanBindGroupLayout(std::shared_ptr<VulkanDeviceHandle> device, BindGroupLayoutDesc desc,
-                          VkDescriptorSetLayout layout);
-    ~VulkanBindGroupLayout() override;
+                          vk::raii::DescriptorSetLayout layout);
 
     VulkanBindGroupLayout(const VulkanBindGroupLayout&) = delete;
     VulkanBindGroupLayout& operator=(const VulkanBindGroupLayout&) = delete;
 
     BindGroupLayoutDesc getDesc() const override;
 
-    /// The VkDescriptorSetLayout, for pipeline layouts and descriptor set allocation.
-    VkDescriptorSetLayout handle() const { return m_layout; }
+    vk::DescriptorSetLayout handle() const { return *m_layout; }
 private:
+    std::shared_ptr<VulkanDeviceHandle> m_device; // first: destroyed after the layout
     BindGroupLayoutDesc m_desc;
-    VkDescriptorSetLayout m_layout = VK_NULL_HANDLE;
-    std::shared_ptr<VulkanDeviceHandle> m_device;
+    vk::raii::DescriptorSetLayout m_layout;
 };
 
 /**
@@ -60,25 +58,23 @@ public:
      * Takes ownership of a created pool and its set. Use create().
      *
      * @param desc The descriptor it was created with (retains the resources).
-     * @param pool The pool @p set was allocated from.
+     * @param pool The pool @p set was allocated from; destroying it frees the set.
      */
-    VulkanBindGroup(std::shared_ptr<VulkanDeviceHandle> device, BindGroupDesc desc, VkDescriptorPool pool,
-                    VkDescriptorSet set);
-    /// Destroys the pool, which frees the set.
-    ~VulkanBindGroup() override;
+    VulkanBindGroup(std::shared_ptr<VulkanDeviceHandle> device, BindGroupDesc desc, vk::raii::DescriptorPool pool,
+                    vk::DescriptorSet set);
 
     VulkanBindGroup(const VulkanBindGroup&) = delete;
     VulkanBindGroup& operator=(const VulkanBindGroup&) = delete;
 
     BindGroupDesc getDesc() const override;
 
-    /// The VkDescriptorSet, for vkCmdBindDescriptorSets.
-    VkDescriptorSet handle() const { return m_set; }
+    vk::DescriptorSet handle() const { return m_set; }
 private:
+    std::shared_ptr<VulkanDeviceHandle> m_device; // first: destroyed after the pool
     BindGroupDesc m_desc;
-    VkDescriptorPool m_pool = VK_NULL_HANDLE;
-    VkDescriptorSet m_set = VK_NULL_HANDLE;
-    std::shared_ptr<VulkanDeviceHandle> m_device;
+    // The pool is not created with FREE_DESCRIPTOR_SET, so the set is a plain handle that the pool frees.
+    vk::raii::DescriptorPool m_pool;
+    vk::DescriptorSet m_set;
 };
 
 } // namespace rhi::vulkan

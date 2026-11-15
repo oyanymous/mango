@@ -44,8 +44,8 @@ private:
     PipelineRef m_pipeline;
     bool m_ended = false;
     Extent2D m_extent;
-    bool m_scissor_empty = false; // the clamped scissor has no area; draws are skipped
-    VkCommandBuffer m_native_commands = VK_NULL_HANDLE;
+    bool m_scissor_empty = false;              // the clamped scissor has no area; draws are skipped
+    const vk::raii::CommandBuffer& m_commands; // owned by m_command_buffer
 };
 
 } // namespace rhi::vulkan

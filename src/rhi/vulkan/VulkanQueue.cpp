@@ -110,7 +110,7 @@ Result<void> VulkanQueue::submit(SubmitDesc desc) {
         .pSignalSemaphores = signal_semaphores.data(),
     };
 
-    const vk::Fence fence = desc.fence ? vk::Fence(static_cast<const VulkanFence&>(*desc.fence).handle()) : nullptr;
+    const vk::Fence fence = desc.fence ? static_cast<const VulkanFence&>(*desc.fence).handle() : nullptr;
     if (Result<void> submitted = check(m_queue.submit(submit_info, fence), "vkQueueSubmit"); !submitted) {
         return submitted;
     }
@@ -135,7 +135,7 @@ Result<void> VulkanQueue::present(PresentDesc desc) {
     if (!desc.swapchain) {
         return Error{ErrorCode::InvalidArgument, "VulkanQueue::present: swapchain is null"};
     }
-    const vk::SwapchainKHR swapchain(static_cast<const VulkanSwapchain&>(*desc.swapchain).handle());
+    const vk::SwapchainKHR swapchain = static_cast<const VulkanSwapchain&>(*desc.swapchain).handle();
     if (!swapchain) {
         return Error{ErrorCode::OutOfDate, "VulkanQueue::present: the swapchain has no images (zero extent)"};
     }

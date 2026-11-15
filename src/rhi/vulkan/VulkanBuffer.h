@@ -33,8 +33,7 @@ public:
     /// Flushes the mapped range (for non-coherent memory) and unmaps.
     void unmap() override;
 
-    /// The VkBuffer, for recording commands.
-    VkBuffer handle() const { return static_cast<VkBuffer>(*m_buffer); }
+    vk::Buffer handle() const { return *m_buffer; }
 private:
     VmaAllocator allocator() const { return m_device->m_allocator.get(); }
 

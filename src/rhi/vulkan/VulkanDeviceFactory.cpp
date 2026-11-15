@@ -161,10 +161,6 @@ Result<InstanceRef> VulkanDeviceFactory::createInstance(InstanceDesc desc) {
     }
     handle->m_instance = std::move(instance).value();
 
-    // Transitional: the files not yet ported to vk::raii call Vulkan through volk's global function pointers.
-    volkInitializeCustom(context.getDispatcher()->vkGetInstanceProcAddr);
-    volkLoadInstance(handle->get());
-
     if (debug_utils) {
         Result<vk::raii::DebugUtilsMessengerEXT> messenger =
             check(handle->m_instance.createDebugUtilsMessengerEXT(messenger_info), "vkCreateDebugUtilsMessengerEXT");

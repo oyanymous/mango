@@ -1,77 +1,77 @@
 /**
  * @file
- * @brief VkResult naming and mapping to RHI errors.
+ * @brief vk::Result naming and mapping to RHI errors, and RHI-to-Vulkan enum mappings.
  */
 
 #include "VulkanCommon.h"
 
 namespace rhi::vulkan {
 
-std::string_view toString(VkResult result) {
+std::string_view toString(vk::Result result) {
     switch (result) {
-    case VK_SUCCESS:
+    case vk::Result::eSuccess:
         return "VK_SUCCESS";
-    case VK_NOT_READY:
+    case vk::Result::eNotReady:
         return "VK_NOT_READY";
-    case VK_TIMEOUT:
+    case vk::Result::eTimeout:
         return "VK_TIMEOUT";
-    case VK_INCOMPLETE:
+    case vk::Result::eIncomplete:
         return "VK_INCOMPLETE";
-    case VK_SUBOPTIMAL_KHR:
+    case vk::Result::eSuboptimalKHR:
         return "VK_SUBOPTIMAL_KHR";
-    case VK_ERROR_OUT_OF_HOST_MEMORY:
+    case vk::Result::eErrorOutOfHostMemory:
         return "VK_ERROR_OUT_OF_HOST_MEMORY";
-    case VK_ERROR_OUT_OF_DEVICE_MEMORY:
+    case vk::Result::eErrorOutOfDeviceMemory:
         return "VK_ERROR_OUT_OF_DEVICE_MEMORY";
-    case VK_ERROR_INITIALIZATION_FAILED:
+    case vk::Result::eErrorInitializationFailed:
         return "VK_ERROR_INITIALIZATION_FAILED";
-    case VK_ERROR_DEVICE_LOST:
+    case vk::Result::eErrorDeviceLost:
         return "VK_ERROR_DEVICE_LOST";
-    case VK_ERROR_LAYER_NOT_PRESENT:
+    case vk::Result::eErrorLayerNotPresent:
         return "VK_ERROR_LAYER_NOT_PRESENT";
-    case VK_ERROR_EXTENSION_NOT_PRESENT:
+    case vk::Result::eErrorExtensionNotPresent:
         return "VK_ERROR_EXTENSION_NOT_PRESENT";
-    case VK_ERROR_FEATURE_NOT_PRESENT:
+    case vk::Result::eErrorFeatureNotPresent:
         return "VK_ERROR_FEATURE_NOT_PRESENT";
-    case VK_ERROR_INCOMPATIBLE_DRIVER:
+    case vk::Result::eErrorIncompatibleDriver:
         return "VK_ERROR_INCOMPATIBLE_DRIVER";
-    case VK_ERROR_SURFACE_LOST_KHR:
+    case vk::Result::eErrorSurfaceLostKHR:
         return "VK_ERROR_SURFACE_LOST_KHR";
-    case VK_ERROR_OUT_OF_DATE_KHR:
+    case vk::Result::eErrorOutOfDateKHR:
         return "VK_ERROR_OUT_OF_DATE_KHR";
     default:
         return "VkResult(other)";
     }
 }
 
-Error toError(VkResult result, std::string_view what) {
+Error toError(vk::Result result, std::string_view what) {
     ErrorCode code = ErrorCode::Unknown;
     switch (result) {
-    case VK_TIMEOUT:
+    case vk::Result::eTimeout:
         code = ErrorCode::Timeout;
         break;
-    case VK_ERROR_OUT_OF_HOST_MEMORY:
+    case vk::Result::eErrorOutOfHostMemory:
         code = ErrorCode::OutOfHostMemory;
         break;
-    case VK_ERROR_OUT_OF_DEVICE_MEMORY:
+    case vk::Result::eErrorOutOfDeviceMemory:
         code = ErrorCode::OutOfDeviceMemory;
         break;
-    case VK_ERROR_INITIALIZATION_FAILED:
+    case vk::Result::eErrorInitializationFailed:
         code = ErrorCode::InitializationFailed;
         break;
-    case VK_ERROR_DEVICE_LOST:
+    case vk::Result::eErrorDeviceLost:
         code = ErrorCode::DeviceLost;
         break;
-    case VK_ERROR_SURFACE_LOST_KHR:
+    case vk::Result::eErrorSurfaceLostKHR:
         code = ErrorCode::SurfaceLost;
         break;
-    case VK_ERROR_OUT_OF_DATE_KHR:
+    case vk::Result::eErrorOutOfDateKHR:
         code = ErrorCode::OutOfDate;
         break;
-    case VK_ERROR_LAYER_NOT_PRESENT:
-    case VK_ERROR_EXTENSION_NOT_PRESENT:
-    case VK_ERROR_FEATURE_NOT_PRESENT:
-    case VK_ERROR_INCOMPATIBLE_DRIVER:
+    case vk::Result::eErrorLayerNotPresent:
+    case vk::Result::eErrorExtensionNotPresent:
+    case vk::Result::eErrorFeatureNotPresent:
+    case vk::Result::eErrorIncompatibleDriver:
         code = ErrorCode::Unsupported;
         break;
     default:
@@ -86,98 +86,100 @@ Error toError(VkResult result, std::string_view what) {
     return Error{code, std::move(message)};
 }
 
-VkPipelineStageFlags toVkPipelineStages(PipelineStage stages) {
+vk::PipelineStageFlags toVkPipelineStages(PipelineStage stages) {
+    using Stage = vk::PipelineStageFlagBits;
     if (hasFlag(stages, PipelineStage::AllCommands)) {
-        return VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+        return Stage::eAllCommands;
     }
-    VkPipelineStageFlags flags = 0;
+    vk::PipelineStageFlags flags;
     if (hasFlag(stages, PipelineStage::VertexInput)) {
-        flags |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+        flags |= Stage::eVertexInput;
     }
     if (hasFlag(stages, PipelineStage::VertexShader)) {
-        flags |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
+        flags |= Stage::eVertexShader;
     }
     if (hasFlag(stages, PipelineStage::FragmentShader)) {
-        flags |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        flags |= Stage::eFragmentShader;
     }
     if (hasFlag(stages, PipelineStage::ComputeShader)) {
-        flags |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        flags |= Stage::eComputeShader;
     }
     if (hasFlag(stages, PipelineStage::RenderTargetOutput)) {
-        flags |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        flags |= Stage::eColorAttachmentOutput;
     }
     if (hasFlag(stages, PipelineStage::DepthStencil)) {
-        flags |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+        flags |= Stage::eEarlyFragmentTests | Stage::eLateFragmentTests;
     }
     if (hasFlag(stages, PipelineStage::Copy)) {
-        flags |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+        flags |= Stage::eTransfer;
     }
-    return flags != 0 ? flags : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    return flags ? flags : Stage::eTopOfPipe;
 }
 
-VkFormat toVkFormat(Format format) {
+vk::Format toVkFormat(Format format) {
     switch (format) {
     case Format::Undefined:
-        return VK_FORMAT_UNDEFINED;
+        return vk::Format::eUndefined;
     case Format::R8Unorm:
-        return VK_FORMAT_R8_UNORM;
+        return vk::Format::eR8Unorm;
     case Format::RG8Unorm:
-        return VK_FORMAT_R8G8_UNORM;
+        return vk::Format::eR8G8Unorm;
     case Format::RGBA8Unorm:
-        return VK_FORMAT_R8G8B8A8_UNORM;
+        return vk::Format::eR8G8B8A8Unorm;
     case Format::RGBA8Srgb:
-        return VK_FORMAT_R8G8B8A8_SRGB;
+        return vk::Format::eR8G8B8A8Srgb;
     case Format::BGRA8Unorm:
-        return VK_FORMAT_B8G8R8A8_UNORM;
+        return vk::Format::eB8G8R8A8Unorm;
     case Format::BGRA8Srgb:
-        return VK_FORMAT_B8G8R8A8_SRGB;
+        return vk::Format::eB8G8R8A8Srgb;
     case Format::R16Float:
-        return VK_FORMAT_R16_SFLOAT;
+        return vk::Format::eR16Sfloat;
     case Format::RG16Float:
-        return VK_FORMAT_R16G16_SFLOAT;
+        return vk::Format::eR16G16Sfloat;
     case Format::RGBA16Float:
-        return VK_FORMAT_R16G16B16A16_SFLOAT;
+        return vk::Format::eR16G16B16A16Sfloat;
     case Format::R32Uint:
-        return VK_FORMAT_R32_UINT;
+        return vk::Format::eR32Uint;
     case Format::R32Float:
-        return VK_FORMAT_R32_SFLOAT;
+        return vk::Format::eR32Sfloat;
     case Format::RG32Float:
-        return VK_FORMAT_R32G32_SFLOAT;
+        return vk::Format::eR32G32Sfloat;
     case Format::RGB32Float:
-        return VK_FORMAT_R32G32B32_SFLOAT;
+        return vk::Format::eR32G32B32Sfloat;
     case Format::RGBA32Float:
-        return VK_FORMAT_R32G32B32A32_SFLOAT;
+        return vk::Format::eR32G32B32A32Sfloat;
     case Format::D16Unorm:
-        return VK_FORMAT_D16_UNORM;
+        return vk::Format::eD16Unorm;
     case Format::D24UnormS8Uint:
-        return VK_FORMAT_D24_UNORM_S8_UINT;
+        return vk::Format::eD24UnormS8Uint;
     case Format::D32Float:
-        return VK_FORMAT_D32_SFLOAT;
+        return vk::Format::eD32Sfloat;
     case Format::D32FloatS8Uint:
-        return VK_FORMAT_D32_SFLOAT_S8_UINT;
+        return vk::Format::eD32SfloatS8Uint;
     }
-    return VK_FORMAT_UNDEFINED;
+    return vk::Format::eUndefined;
 }
 
-VkImageAspectFlags aspectsOf(Format format) {
+vk::ImageAspectFlags aspectsOf(Format format) {
+    using Aspect = vk::ImageAspectFlagBits;
     switch (format) {
     case Format::D16Unorm:
     case Format::D32Float:
-        return VK_IMAGE_ASPECT_DEPTH_BIT;
+        return Aspect::eDepth;
     case Format::D24UnormS8Uint:
     case Format::D32FloatS8Uint:
-        return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+        return Aspect::eDepth | Aspect::eStencil;
     default:
-        return VK_IMAGE_ASPECT_COLOR_BIT;
+        return Aspect::eColor;
     }
 }
 
-VkCompareOp toVkCompareOp(CompareOp op) {
+vk::CompareOp toVkCompareOp(CompareOp op) {
     // The enumerators are declared in Vulkan's order.
     static_assert(static_cast<int>(CompareOp::Never) == VK_COMPARE_OP_NEVER &&
                   static_cast<int>(CompareOp::GreaterOrEqual) == VK_COMPARE_OP_GREATER_OR_EQUAL &&
                   static_cast<int>(CompareOp::Always) == VK_COMPARE_OP_ALWAYS);
-    return static_cast<VkCompareOp>(static_cast<int>(op));
+    return static_cast<vk::CompareOp>(static_cast<int>(op));
 }
 
 } // namespace rhi::vulkan

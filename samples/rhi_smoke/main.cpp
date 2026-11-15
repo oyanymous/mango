@@ -22,7 +22,11 @@
 #include "RHI.h"
 
 #if defined(MANGO_RHI_VULKAN)
-#include <volk.h>
+// Only the loader tool is used; the backend's own Vulkan-Hpp configuration stays private to RHI. Without exceptions,
+// as in the backend, a missing library is reported by DynamicLoader::success() instead of a throw.
+#define VULKAN_HPP_NO_EXCEPTIONS
+#define VULKAN_HPP_NO_DEFAULT_DISPATCHER
+#include <vulkan/vulkan.hpp>
 #endif
 #if defined(MANGO_RHI_VULKAN) || defined(MANGO_RHI_METAL)
 #include "fill.comp.h"
@@ -158,22 +162,30 @@ void testBackends() {
     std::printf("Vulkan headers: %u.%u.%u\n", VK_API_VERSION_MAJOR(VK_HEADER_VERSION_COMPLETE),
                 VK_API_VERSION_MINOR(VK_HEADER_VERSION_COMPLETE), VK_API_VERSION_PATCH(VK_HEADER_VERSION_COMPLETE));
 
-    // volk opens the loader that ships with the GPU driver (vulkan-1.dll / libvulkan).
-    VkResult result = volkInitialize();
+    // Opens the loader that ships with the GPU driver (vulkan-1.dll / libvulkan), as the backend does.
+    const vk::detail::DynamicLoader loader;
+    const auto get_instance_proc_addr =
+        loader.success() ? loader.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr") : nullptr;
 #if defined(__APPLE__)
     // macOS has no Vulkan driver unless MoltenVK is installed, which the build does not provide yet.
-    if (result != VK_SUCCESS) {
+    if (!get_instance_proc_addr) {
         std::printf("Vulkan loader not found (no MoltenVK); skipping the Vulkan checks\n");
         return;
     }
 #endif
-    check(result == VK_SUCCESS, "volk finds the Vulkan loader");
-    if (result != VK_SUCCESS) {
+    check(get_instance_proc_addr != nullptr, "the Vulkan loader is found");
+    if (!get_instance_proc_addr) {
+        return;
+    }
+    const auto enumerate_instance_version =
+        reinterpret_cast<PFN_vkEnumerateInstanceVersion>(get_instance_proc_addr(nullptr, "vkEnumerateInstanceVersion"));
+    check(enumerate_instance_version != nullptr, "the loader has vkEnumerateInstanceVersion (Vulkan 1.1+)");
+    if (!enumerate_instance_version) {
         return;
     }
 
     std::uint32_t loader_version = 0;
-    result = vkEnumerateInstanceVersion(&loader_version);
+    const VkResult result = enumerate_instance_version(&loader_version);
     check(result == VK_SUCCESS, "vkEnumerateInstanceVersion succeeds");
     if (result == VK_SUCCESS) {
         std::printf("Vulkan loader: %u.%u.%u\n", VK_API_VERSION_MAJOR(loader_version),
@@ -799,7 +811,7 @@ void testFactory() {
                               }),
           "RHIFactory lists only compiled-in backends as available");
 #if defined(MANGO_RHI_VULKAN)
-    const bool has_vulkan_loader = volkInitialize() == VK_SUCCESS;
+    const bool has_vulkan_loader = vk::detail::DynamicLoader().success();
     check((std::ranges::find(available, rhi::Backend::Vulkan) != available.end()) == has_vulkan_loader,
           "RHIFactory lists Vulkan exactly when its loader is found");
 #endif

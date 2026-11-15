@@ -199,9 +199,9 @@ Result<DeviceRef> VulkanAdapter::createDevice(DeviceDesc desc) {
     vma_functions.vkGetDeviceProcAddr = handle->m_device.getDispatcher()->vkGetDeviceProcAddr;
     VmaAllocatorCreateInfo allocator_info{};
     allocator_info.vulkanApiVersion = kApiVersion;
-    allocator_info.physicalDevice = handle->vkPhysicalDevice();
-    allocator_info.device = handle->vkDevice();
-    allocator_info.instance = m_instance->get();
+    allocator_info.physicalDevice = static_cast<VkPhysicalDevice>(*handle->m_physical_device);
+    allocator_info.device = static_cast<VkDevice>(*handle->m_device);
+    allocator_info.instance = static_cast<VkInstance>(*m_instance->m_instance);
     allocator_info.pVulkanFunctions = &vma_functions;
     VmaAllocator allocator = VK_NULL_HANDLE;
     if (VkResult result = vmaCreateAllocator(&allocator_info, &allocator); result != VK_SUCCESS) {

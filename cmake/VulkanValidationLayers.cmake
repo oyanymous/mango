@@ -1,5 +1,5 @@
 # Builds the Khronos validation layer (VK_LAYER_KHRONOS_validation) from source at the same pinned SDK tag as
-# Vulkan-Headers and volk. It is a separate ExternalProject so it builds once (slow: it compiles SPIRV-Tools)
+# Vulkan-Headers. It is a separate ExternalProject so it builds once (slow: it compiles SPIRV-Tools)
 # and does not rebuild with the rest of the project. Its own dependencies are fetched by its UPDATE_DEPS
 # script, which needs Python 3 on PATH.
 #

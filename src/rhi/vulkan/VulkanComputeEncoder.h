@@ -32,7 +32,7 @@ private:
     std::shared_ptr<VulkanCommandBuffer> m_command_buffer;
     PipelineRef m_pipeline;
     bool m_ended = false;
-    VkCommandBuffer m_native_commands = VK_NULL_HANDLE;
+    const vk::raii::CommandBuffer& m_commands; // owned by m_command_buffer
 };
 
 } // namespace rhi::vulkan

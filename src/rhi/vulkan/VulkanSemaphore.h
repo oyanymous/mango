@@ -27,8 +27,7 @@ public:
     /// Signals with vkSignalSemaphore (Timeline only).
     Result<void> signal(std::uint64_t value) override;
 
-    /// The VkSemaphore, for VkQueue submissions.
-    VkSemaphore handle() const { return static_cast<VkSemaphore>(*m_semaphore); }
+    vk::Semaphore handle() const { return *m_semaphore; }
 private:
     std::shared_ptr<VulkanDeviceHandle> m_device; // first: destroyed after the semaphore
     SemaphoreKind m_kind;

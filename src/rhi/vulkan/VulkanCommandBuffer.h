@@ -42,16 +42,14 @@ public:
      *
      * @param command_buffer The command buffer, allocated from @p pool.
      */
-    VulkanCommandBuffer(std::shared_ptr<VulkanDeviceHandle> device, CommandBufferDesc desc, VkCommandPool pool,
-                        VkCommandBuffer command_buffer);
-    /// Destroys the pool, which frees the command buffer.
-    ~VulkanCommandBuffer() override;
+    VulkanCommandBuffer(std::shared_ptr<VulkanDeviceHandle> device, CommandBufferDesc desc, vk::raii::CommandPool pool,
+                        vk::raii::CommandBuffer command_buffer);
 
     VulkanCommandBuffer(const VulkanCommandBuffer&) = delete;
     VulkanCommandBuffer& operator=(const VulkanCommandBuffer&) = delete;
 
     Result<void> begin() override;
-    /// Records buffer and texture barriers in one vkCmdPipelineBarrier; image layouts follow from the states.
+    /// Records buffer and texture barriers in one pipeline barrier; image layouts follow from the states.
     void barrier(BarrierBatch batch) override;
     /**
      * Begins the render pass, sets a viewport and scissor covering the target, and opens a
@@ -72,8 +70,9 @@ public:
     /// fence, then ends recording.
     Result<void> end() override;
 
-    /// The VkCommandBuffer, for submission and encoders.
-    VkCommandBuffer handle() const { return m_command_buffer; }
+    vk::CommandBuffer handle() const { return *m_command_buffer; }
+    /// What encoders record into.
+    const vk::raii::CommandBuffer& commands() const { return m_command_buffer; }
     RecordingState state() const { return m_state; }
     /**
      * Keeps a resource alive until the next begin() (or the command buffer's destruction).
@@ -94,14 +93,14 @@ public:
     /// unless the command buffer has been begun again since.
     void retire(std::uint64_t value);
 private:
+    std::shared_ptr<VulkanDeviceHandle> m_device; // first: destroyed after the pool
     CommandBufferDesc m_desc;
     RecordingState m_state = RecordingState::Initial;
     std::vector<std::shared_ptr<const void>> m_retained_resources;
     std::shared_ptr<VulkanSemaphore> m_pending_timeline; // set while Pending
     std::uint64_t m_pending_value = 0;
-    VkCommandPool m_pool = VK_NULL_HANDLE;
-    VkCommandBuffer m_command_buffer = VK_NULL_HANDLE;
-    std::shared_ptr<VulkanDeviceHandle> m_device;
+    vk::raii::CommandPool m_pool;
+    vk::raii::CommandBuffer m_command_buffer; // after the pool: freed into it
 };
 
 } // namespace rhi::vulkan

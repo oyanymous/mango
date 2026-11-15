@@ -24,8 +24,7 @@ public:
     bool isSignaled() const override;
     Result<void> reset() override;
 
-    /// The VkFence, for VkQueue submissions.
-    VkFence handle() const { return static_cast<VkFence>(*m_fence); }
+    vk::Fence handle() const { return *m_fence; }
 private:
     std::shared_ptr<VulkanDeviceHandle> m_device; // first: destroyed after the fence
     vk::raii::Fence m_fence;

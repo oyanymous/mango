@@ -17,32 +17,32 @@ namespace rhi::vulkan {
 
 namespace {
 
-VkDescriptorType toVkDescriptorType(BindingType type) {
+vk::DescriptorType toVkDescriptorType(BindingType type) {
     switch (type) {
     case BindingType::UniformBuffer:
-        return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        return vk::DescriptorType::eUniformBuffer;
     case BindingType::StorageBuffer:
-        return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        return vk::DescriptorType::eStorageBuffer;
     case BindingType::SampledTexture:
-        return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+        return vk::DescriptorType::eSampledImage;
     case BindingType::StorageTexture:
-        return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        return vk::DescriptorType::eStorageImage;
     case BindingType::Sampler:
-        return VK_DESCRIPTOR_TYPE_SAMPLER;
+        return vk::DescriptorType::eSampler;
     }
-    return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    return vk::DescriptorType::eUniformBuffer;
 }
 
-VkShaderStageFlags toVkShaderStages(ShaderStage stages) {
-    VkShaderStageFlags flags = 0;
+vk::ShaderStageFlags toVkShaderStages(ShaderStage stages) {
+    vk::ShaderStageFlags flags;
     if (hasFlag(stages, ShaderStage::Vertex)) {
-        flags |= VK_SHADER_STAGE_VERTEX_BIT;
+        flags |= vk::ShaderStageFlagBits::eVertex;
     }
     if (hasFlag(stages, ShaderStage::Fragment)) {
-        flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
+        flags |= vk::ShaderStageFlagBits::eFragment;
     }
     if (hasFlag(stages, ShaderStage::Compute)) {
-        flags |= VK_SHADER_STAGE_COMPUTE_BIT;
+        flags |= vk::ShaderStageFlagBits::eCompute;
     }
     return flags;
 }
@@ -54,7 +54,7 @@ VkShaderStageFlags toVkShaderStages(ShaderStage stages) {
 Result<BindGroupLayoutRef> VulkanBindGroupLayout::create(std::shared_ptr<VulkanDeviceHandle> device,
                                                          BindGroupLayoutDesc desc) {
     std::set<std::uint32_t> seen;
-    std::vector<VkDescriptorSetLayoutBinding> bindings;
+    std::vector<vk::DescriptorSetLayoutBinding> bindings;
     for (const BindGroupLayoutEntry& entry : desc.entries) {
         if (!seen.insert(entry.binding).second) {
             return Error{ErrorCode::InvalidArgument, "createBindGroupLayout: a binding number repeats"};
@@ -63,29 +63,30 @@ Result<BindGroupLayoutRef> VulkanBindGroupLayout::create(std::shared_ptr<VulkanD
             return Error{ErrorCode::InvalidArgument,
                          "createBindGroupLayout: every entry needs count > 0 and a visible stage"};
         }
-        bindings.push_back(
-            {entry.binding, toVkDescriptorType(entry.type), entry.count, toVkShaderStages(entry.visibility), nullptr});
+        bindings.push_back({
+            .binding = entry.binding,
+            .descriptorType = toVkDescriptorType(entry.type),
+            .descriptorCount = entry.count,
+            .stageFlags = toVkShaderStages(entry.visibility),
+        });
     }
 
-    VkDescriptorSetLayoutCreateInfo info{};
-    info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    info.bindingCount = static_cast<std::uint32_t>(bindings.size());
-    info.pBindings = bindings.data();
-    VkDescriptorSetLayout layout = VK_NULL_HANDLE;
-    if (VkResult result = vkCreateDescriptorSetLayout(device->vkDevice(), &info, nullptr, &layout);
-        result != VK_SUCCESS) {
-        return toError(result, "vkCreateDescriptorSetLayout");
+    const vk::DescriptorSetLayoutCreateInfo info{
+        .bindingCount = static_cast<std::uint32_t>(bindings.size()),
+        .pBindings = bindings.data(),
+    };
+    Result<vk::raii::DescriptorSetLayout> layout =
+        check(device->m_device.createDescriptorSetLayout(info, nullptr), "vkCreateDescriptorSetLayout");
+    if (!layout) {
+        return layout.error();
     }
-    return BindGroupLayoutRef(std::make_shared<VulkanBindGroupLayout>(std::move(device), std::move(desc), layout));
+    return BindGroupLayoutRef(
+        std::make_shared<VulkanBindGroupLayout>(std::move(device), std::move(desc), std::move(layout).value()));
 }
 
 VulkanBindGroupLayout::VulkanBindGroupLayout(std::shared_ptr<VulkanDeviceHandle> device, BindGroupLayoutDesc desc,
-                                             VkDescriptorSetLayout layout)
-    : m_desc(std::move(desc)), m_layout(layout), m_device(std::move(device)) {
-}
-
-VulkanBindGroupLayout::~VulkanBindGroupLayout() {
-    vkDestroyDescriptorSetLayout(m_device->vkDevice(), m_layout, nullptr);
+                                             vk::raii::DescriptorSetLayout layout)
+    : m_device(std::move(device)), m_desc(std::move(desc)), m_layout(std::move(layout)) {
 }
 
 BindGroupLayoutDesc VulkanBindGroupLayout::getDesc() const {
@@ -120,88 +121,91 @@ Result<BindGroupRef> VulkanBindGroup::create(std::shared_ptr<VulkanDeviceHandle>
     }
 
     // shortcut: one pool per group, sized for its layout; switch to shared pools if groups get created per frame.
-    std::map<VkDescriptorType, std::uint32_t> counts;
+    std::map<vk::DescriptorType, std::uint32_t> counts;
     for (const BindGroupLayoutEntry& slot : layout_desc.entries) {
         counts[toVkDescriptorType(slot.type)] += slot.count;
     }
-    std::vector<VkDescriptorPoolSize> sizes;
+    std::vector<vk::DescriptorPoolSize> sizes;
     for (const auto& [type, count] : counts) {
-        sizes.push_back({type, count});
+        sizes.push_back({.type = type, .descriptorCount = count});
     }
-    VkDescriptorPoolCreateInfo pool_info{};
-    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.maxSets = 1;
-    pool_info.poolSizeCount = static_cast<std::uint32_t>(sizes.size());
-    pool_info.pPoolSizes = sizes.data();
-    VkDescriptorPool pool = VK_NULL_HANDLE;
-    if (VkResult result = vkCreateDescriptorPool(device->vkDevice(), &pool_info, nullptr, &pool);
-        result != VK_SUCCESS) {
-        return toError(result, "vkCreateDescriptorPool");
+    const vk::DescriptorPoolCreateInfo pool_info{
+        .maxSets = 1,
+        .poolSizeCount = static_cast<std::uint32_t>(sizes.size()),
+        .pPoolSizes = sizes.data(),
+    };
+    Result<vk::raii::DescriptorPool> pool =
+        check(device->m_device.createDescriptorPool(pool_info, nullptr), "vkCreateDescriptorPool");
+    if (!pool) {
+        return pool.error();
     }
 
-    const VkDescriptorSetLayout set_layout = static_cast<const VulkanBindGroupLayout&>(*desc.layout).handle();
-    VkDescriptorSetAllocateInfo alloc_info{};
-    alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    alloc_info.descriptorPool = pool;
-    alloc_info.descriptorSetCount = 1;
-    alloc_info.pSetLayouts = &set_layout;
-    VkDescriptorSet set = VK_NULL_HANDLE;
-    if (VkResult result = vkAllocateDescriptorSets(device->vkDevice(), &alloc_info, &set); result != VK_SUCCESS) {
-        vkDestroyDescriptorPool(device->vkDevice(), pool, nullptr);
-        return toError(result, "vkAllocateDescriptorSets");
+    const vk::DescriptorSetLayout set_layout = static_cast<const VulkanBindGroupLayout&>(*desc.layout).handle();
+    const vk::DescriptorSetAllocateInfo alloc_info{
+        .descriptorPool = *pool.value(),
+        .descriptorSetCount = 1,
+        .pSetLayouts = &set_layout,
+    };
+    Result<std::vector<vk::raii::DescriptorSet>> sets =
+        check(device->m_device.allocateDescriptorSets(alloc_info), "vkAllocateDescriptorSets");
+    if (!sets) {
+        return sets.error();
     }
+    // release(): a vk::raii::DescriptorSet would free the set itself, which this pool does not allow.
+    const vk::DescriptorSet set = sets.value().front().release();
 
     // Reserved up front: the writes point into these vectors.
-    std::vector<VkDescriptorBufferInfo> buffer_infos;
-    std::vector<VkDescriptorImageInfo> image_infos;
+    std::vector<vk::DescriptorBufferInfo> buffer_infos;
+    std::vector<vk::DescriptorImageInfo> image_infos;
     buffer_infos.reserve(desc.entries.size());
     image_infos.reserve(desc.entries.size());
-    std::vector<VkWriteDescriptorSet> writes;
+    std::vector<vk::WriteDescriptorSet> writes;
     for (const BindGroupEntry& entry : desc.entries) {
         const BindingType type = slots[entry.binding]->type;
-        VkWriteDescriptorSet write{};
-        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        write.dstSet = set;
-        write.dstBinding = entry.binding;
-        write.dstArrayElement = entry.array_element;
-        write.descriptorCount = 1;
-        write.descriptorType = toVkDescriptorType(type);
+        vk::WriteDescriptorSet write{
+            .dstSet = set,
+            .dstBinding = entry.binding,
+            .dstArrayElement = entry.array_element,
+            .descriptorCount = 1,
+            .descriptorType = toVkDescriptorType(type),
+        };
         switch (type) {
         case BindingType::UniformBuffer:
         case BindingType::StorageBuffer:
             // kWholeSize is VK_WHOLE_SIZE.
-            buffer_infos.push_back(
-                {static_cast<const VulkanBuffer&>(*entry.buffer).handle(), entry.offset, entry.size});
+            buffer_infos.push_back({
+                .buffer = static_cast<const VulkanBuffer&>(*entry.buffer).handle(),
+                .offset = entry.offset,
+                .range = entry.size,
+            });
             write.pBufferInfo = &buffer_infos.back();
             break;
         case BindingType::SampledTexture:
         case BindingType::StorageTexture:
             // The layouts ResourceState::ShaderRead and ShaderWrite transition to.
-            image_infos.push_back({VK_NULL_HANDLE, static_cast<const VulkanTextureView&>(*entry.texture_view).handle(),
-                                   type == BindingType::SampledTexture ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-                                                                       : VK_IMAGE_LAYOUT_GENERAL});
+            image_infos.push_back({
+                .imageView = static_cast<const VulkanTextureView&>(*entry.texture_view).handle(),
+                .imageLayout = type == BindingType::SampledTexture ? vk::ImageLayout::eShaderReadOnlyOptimal
+                                                                   : vk::ImageLayout::eGeneral,
+            });
             write.pImageInfo = &image_infos.back();
             break;
         case BindingType::Sampler:
-            image_infos.push_back({static_cast<const VulkanSampler&>(*entry.sampler).handle(), VK_NULL_HANDLE,
-                                   VK_IMAGE_LAYOUT_UNDEFINED});
+            image_infos.push_back({.sampler = static_cast<const VulkanSampler&>(*entry.sampler).handle()});
             write.pImageInfo = &image_infos.back();
             break;
         }
         writes.push_back(write);
     }
-    vkUpdateDescriptorSets(device->vkDevice(), static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
+    device->m_device.updateDescriptorSets(writes, nullptr);
 
-    return BindGroupRef(std::make_shared<VulkanBindGroup>(std::move(device), std::move(desc), pool, set));
+    return BindGroupRef(
+        std::make_shared<VulkanBindGroup>(std::move(device), std::move(desc), std::move(pool).value(), set));
 }
 
-VulkanBindGroup::VulkanBindGroup(std::shared_ptr<VulkanDeviceHandle> device, BindGroupDesc desc, VkDescriptorPool pool,
-                                 VkDescriptorSet set)
-    : m_desc(std::move(desc)), m_pool(pool), m_set(set), m_device(std::move(device)) {
-}
-
-VulkanBindGroup::~VulkanBindGroup() {
-    vkDestroyDescriptorPool(m_device->vkDevice(), m_pool, nullptr);
+VulkanBindGroup::VulkanBindGroup(std::shared_ptr<VulkanDeviceHandle> device, BindGroupDesc desc,
+                                 vk::raii::DescriptorPool pool, vk::DescriptorSet set)
+    : m_device(std::move(device)), m_desc(std::move(desc)), m_pool(std::move(pool)), m_set(set) {
 }
 
 BindGroupDesc VulkanBindGroup::getDesc() const {

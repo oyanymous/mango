@@ -30,12 +30,13 @@ public:
     static Result<SwapchainRef> create(std::shared_ptr<VulkanDeviceHandle> device, SwapchainDesc desc);
 
     /**
-     * Stores the descriptor without creating a VkSwapchainKHR. Use create().
+     * Stores the descriptor without creating the swapchain. Use create().
      *
      * @param desc The descriptor; its extent is replaced by the actual one when images are created.
      */
     VulkanSwapchain(std::shared_ptr<VulkanDeviceHandle> device, SwapchainDesc desc);
-    /// Waits for the device to go idle, then destroys the swapchain.
+    /// Waits for the device to go idle, since presentation may still read the images; the members then destroy the
+    /// swapchain.
     ~VulkanSwapchain() override;
 
     VulkanSwapchain(const VulkanSwapchain&) = delete;
@@ -45,18 +46,18 @@ public:
     /// Waits for the device to go idle, then recreates the swapchain at @p extent (clamped to the surface).
     Result<void> resize(Extent2D extent) override;
 
-    /// The VkSwapchainKHR; VK_NULL_HANDLE while the extent is zero.
-    VkSwapchainKHR handle() const { return m_swapchain; }
+    /// Null while the extent is zero.
+    vk::SwapchainKHR handle() const { return *m_swapchain; }
 private:
-    // Builds (or rebuilds) the VkSwapchainKHR and backbuffers for m_desc.extent; replaces m_desc.extent with
-    // the clamped size.
+    // Builds (or rebuilds) the swapchain and backbuffers for m_desc.extent; replaces m_desc.extent with the clamped
+    // size.
     Result<void> recreate();
 
+    std::shared_ptr<VulkanDeviceHandle> m_device; // first: destroyed after the swapchain
     SwapchainDesc m_desc;
-    std::vector<TextureRef> m_backbuffers;
+    vk::raii::SwapchainKHR m_swapchain = nullptr;
+    std::vector<TextureRef> m_backbuffers; // borrow the swapchain's images
     std::uint32_t m_current_image = 0;
-    VkSwapchainKHR m_swapchain = VK_NULL_HANDLE;
-    std::shared_ptr<VulkanDeviceHandle> m_device;
 };
 
 } // namespace rhi::vulkan

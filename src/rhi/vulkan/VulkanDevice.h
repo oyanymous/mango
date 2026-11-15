@@ -50,11 +50,6 @@ public:
 
     VulkanDeviceHandle(const VulkanDeviceHandle&) = delete;
     VulkanDeviceHandle& operator=(const VulkanDeviceHandle&) = delete;
-
-    /// Transitional, for the files not yet ported to vk::raii.
-    VkDevice vkDevice() const { return static_cast<VkDevice>(*m_device); }
-    /// Transitional, for the files not yet ported to vk::raii.
-    VkPhysicalDevice vkPhysicalDevice() const { return static_cast<VkPhysicalDevice>(*m_physical_device); }
 private:
     std::shared_ptr<VulkanInstanceHandle> m_instance; // first: destroyed after the device
 public:

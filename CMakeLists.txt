@@ -42,8 +42,8 @@ if(MINGW AND MANGO_VULKAN_VALIDATION)
     message(WARNING "Disabling MANGO_VULKAN_VALIDATION: the validation layer cannot be built with MinGW.")
     set(MANGO_VULKAN_VALIDATION OFF CACHE BOOL "" FORCE)
 endif()
-# The Khronos SDK release every fetched Khronos project is pinned to (Vulkan-Headers, volk, glslang, SPIRV-Cross and
-# the validation layer), so they always match.
+# The Khronos SDK release every fetched Khronos project is pinned to (Vulkan-Headers, glslang, SPIRV-Cross and the
+# validation layer), so they always match.
 set(MANGO_VULKAN_SDK_TAG vulkan-sdk-1.4.357.0)
 if(MANGO_RHI_VULKAN)
     include(cmake/VulkanDependencies.cmake)

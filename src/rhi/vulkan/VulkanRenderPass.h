@@ -28,20 +28,18 @@ public:
     static Result<RenderPassRef> create(std::shared_ptr<VulkanDeviceHandle> device, RenderPassDesc desc);
 
     /// Takes ownership of a created render pass. Use create().
-    VulkanRenderPass(std::shared_ptr<VulkanDeviceHandle> device, RenderPassDesc desc, VkRenderPass render_pass);
-    ~VulkanRenderPass() override;
+    VulkanRenderPass(std::shared_ptr<VulkanDeviceHandle> device, RenderPassDesc desc, vk::raii::RenderPass render_pass);
 
     VulkanRenderPass(const VulkanRenderPass&) = delete;
     VulkanRenderPass& operator=(const VulkanRenderPass&) = delete;
 
     RenderPassDesc getDesc() const override;
 
-    /// The VkRenderPass, for framebuffers, pipelines and vkCmdBeginRenderPass.
-    VkRenderPass handle() const { return m_render_pass; }
+    vk::RenderPass handle() const { return *m_render_pass; }
 private:
+    std::shared_ptr<VulkanDeviceHandle> m_device; // first: destroyed after the render pass
     RenderPassDesc m_desc;
-    VkRenderPass m_render_pass = VK_NULL_HANDLE;
-    std::shared_ptr<VulkanDeviceHandle> m_device;
+    vk::raii::RenderPass m_render_pass;
 };
 
 /// The Vulkan IRenderTarget: a VkFramebuffer. Created by VulkanDevice::createRenderTarget.
@@ -60,20 +58,19 @@ public:
      *
      * @param desc The descriptor it was created with (retains the pass and views).
      */
-    VulkanRenderTarget(std::shared_ptr<VulkanDeviceHandle> device, RenderTargetDesc desc, VkFramebuffer framebuffer);
-    ~VulkanRenderTarget() override;
+    VulkanRenderTarget(std::shared_ptr<VulkanDeviceHandle> device, RenderTargetDesc desc,
+                       vk::raii::Framebuffer framebuffer);
 
     VulkanRenderTarget(const VulkanRenderTarget&) = delete;
     VulkanRenderTarget& operator=(const VulkanRenderTarget&) = delete;
 
     RenderTargetDesc getDesc() const override;
 
-    /// The VkFramebuffer, for vkCmdBeginRenderPass.
-    VkFramebuffer handle() const { return m_framebuffer; }
+    vk::Framebuffer handle() const { return *m_framebuffer; }
 private:
+    std::shared_ptr<VulkanDeviceHandle> m_device; // first: destroyed after the framebuffer
     RenderTargetDesc m_desc;
-    VkFramebuffer m_framebuffer = VK_NULL_HANDLE;
-    std::shared_ptr<VulkanDeviceHandle> m_device;
+    vk::raii::Framebuffer m_framebuffer;
 };
 
 } // namespace rhi::vulkan

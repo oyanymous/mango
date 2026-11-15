@@ -32,8 +32,7 @@ public:
 
     SurfaceDesc getDesc() const override;
 
-    /// The VkSurfaceKHR, for swapchains.
-    VkSurfaceKHR handle() const { return static_cast<VkSurfaceKHR>(*m_surface); }
+    vk::SurfaceKHR handle() const { return *m_surface; }
 private:
     std::shared_ptr<VulkanInstanceHandle> m_instance; // first: destroyed after the surface
     SurfaceDesc m_desc;

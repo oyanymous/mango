@@ -28,8 +28,6 @@ public:
     VulkanInstanceHandle(const VulkanInstanceHandle&) = delete;
     VulkanInstanceHandle& operator=(const VulkanInstanceHandle&) = delete;
 
-    VkInstance get() const { return static_cast<VkInstance>(*m_instance); }
-
     /// Delivers a message to the user's callback, or to stderr if there is none.
     void report(DebugSeverity severity, std::string_view message) const;
 

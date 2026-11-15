@@ -48,7 +48,6 @@ if (MANGO_RHI_VULKAN)
     # The Vulkan backend is an OBJECT library of its own so that its precompiled header (Vulkan-Hpp, very large)
     # applies only to Vulkan sources; its objects are archived into RHI.
     add_library(RHIVulkan OBJECT
-        vulkan/VolkImplementation.cpp
         vulkan/VmaImplementation.cpp
         vulkan/VulkanHpp.h
         vulkan/VulkanCommon.h
@@ -93,24 +92,25 @@ if (MANGO_RHI_VULKAN)
 
     # Backend headers are private to RHI and included bare ("VulkanInstance.h"); public RHI headers likewise.
     target_include_directories(RHIVulkan PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/vulkan" "${CMAKE_CURRENT_SOURCE_DIR}")
-    target_link_libraries(RHIVulkan PRIVATE Core mango::volk mango::VulkanMemoryAllocator)
+    # No loader library: Vulkan-Hpp opens it at runtime (dlopen / LoadLibrary).
+    target_link_libraries(RHIVulkan PRIVATE Core mango::VulkanMemoryAllocator ${CMAKE_DL_LIBS})
 
     target_precompile_headers(RHIVulkan PRIVATE vulkan/VulkanHpp.h)
     if (MSVC)
         # Vulkan-Hpp exceeds MSVC's default limit on sections per object file.
         target_compile_options(RHIVulkan PRIVATE /bigobj)
     endif ()
-    # The volk and VMA implementations do not use Vulkan-Hpp.
-    set_source_files_properties(vulkan/VolkImplementation.cpp vulkan/VmaImplementation.cpp
-                                TARGET_DIRECTORY RHIVulkan PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+    # The VMA implementation does not use Vulkan-Hpp.
+    set_source_files_properties(vulkan/VmaImplementation.cpp TARGET_DIRECTORY RHIVulkan
+                                PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 
-    # Surface creation needs the platform's WSI declarations, in every backend translation unit (volk included).
+    # Surface creation needs the platform's WSI declarations, in every backend translation unit.
     if (WIN32)
         target_compile_definitions(RHIVulkan PRIVATE VK_USE_PLATFORM_WIN32_KHR WIN32_LEAN_AND_MEAN NOMINMAX)
     elseif (APPLE)
         target_compile_definitions(RHIVulkan PRIVATE VK_USE_PLATFORM_METAL_EXT)
     endif ()
-    target_compile_definitions(RHIVulkan PRIVATE MANGO_RHI_VULKAN=1)
+    target_compile_definitions(RHIVulkan PRIVATE VK_NO_PROTOTYPES MANGO_RHI_VULKAN=1)
 
     # Vulkan stays a PRIVATE dependency: no Vulkan type may appear in a public RHI header.
     target_link_libraries(RHI PRIVATE RHIVulkan)

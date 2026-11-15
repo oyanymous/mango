@@ -93,7 +93,7 @@ Result<TextureRef> VulkanTexture::create(std::shared_ptr<VulkanDeviceHandle> dev
     image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     image_info.flags = cube ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
     image_info.imageType = desc.dimension == TextureDimension::Texture3D ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D;
-    image_info.format = toVkFormat(desc.format);
+    image_info.format = static_cast<VkFormat>(toVkFormat(desc.format));
     image_info.extent = {desc.extent.width, desc.extent.height, desc.extent.depth};
     image_info.mipLevels = desc.mip_level_count;
     image_info.arrayLayers = desc.array_layer_count;
@@ -126,10 +126,10 @@ VulkanTexture::VulkanTexture(std::shared_ptr<VulkanDeviceHandle> device, Texture
       m_desc(std::move(desc)),
       m_allocation(std::move(allocation)),
       m_image(std::move(image)),
-      m_handle(static_cast<VkImage>(*m_image)) {
+      m_handle(*m_image) {
 }
 
-VulkanTexture::VulkanTexture(std::shared_ptr<VulkanDeviceHandle> device, TextureDesc desc, VkImage borrowed_image)
+VulkanTexture::VulkanTexture(std::shared_ptr<VulkanDeviceHandle> device, TextureDesc desc, vk::Image borrowed_image)
     : m_device(std::move(device)), m_desc(std::move(desc)), m_image(nullptr), m_handle(borrowed_image) {
 }
 
@@ -144,7 +144,7 @@ Result<TextureViewRef> VulkanTextureView::create(std::shared_ptr<VulkanDeviceHan
     const auto& texture = static_cast<const VulkanTexture&>(*desc.texture);
     const TextureDesc& texture_desc = texture.getDesc();
 
-    vk::ImageAspectFlags aspect(aspectsOf(texture_desc.format));
+    vk::ImageAspectFlags aspect = aspectsOf(texture_desc.format);
     if (desc.aspect == TextureAspect::DepthOnly) {
         aspect = vk::ImageAspectFlagBits::eDepth;
     } else if (desc.aspect == TextureAspect::StencilOnly) {
@@ -158,7 +158,7 @@ Result<TextureViewRef> VulkanTextureView::create(std::shared_ptr<VulkanDeviceHan
     const vk::ImageViewCreateInfo view_info{
         .image = texture.handle(),
         .viewType = toVkViewType(texture_desc, desc.dimension, layer_count),
-        .format = static_cast<vk::Format>(toVkFormat(desc.format.value_or(texture_desc.format))),
+        .format = toVkFormat(desc.format.value_or(texture_desc.format)),
         // kRemaining equals VK_REMAINING_MIP_LEVELS / VK_REMAINING_ARRAY_LAYERS (~0u), so the range maps directly.
         .subresourceRange =
             {
@@ -207,7 +207,7 @@ Result<SamplerRef> VulkanSampler::create(std::shared_ptr<VulkanDeviceHandle> dev
         .anisotropyEnable = anisotropy ? vk::True : vk::False,
         .maxAnisotropy = anisotropy ? desc.max_anisotropy : 1.0f,
         .compareEnable = desc.compare ? vk::True : vk::False,
-        .compareOp = desc.compare ? static_cast<vk::CompareOp>(toVkCompareOp(*desc.compare)) : vk::CompareOp::eNever,
+        .compareOp = desc.compare ? toVkCompareOp(*desc.compare) : vk::CompareOp::eNever,
         .minLod = desc.min_lod,
         .maxLod = desc.max_lod,
     };

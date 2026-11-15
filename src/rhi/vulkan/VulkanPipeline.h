@@ -24,24 +24,23 @@ public:
     static Result<ShaderRef> create(std::shared_ptr<VulkanDeviceHandle> device, ShaderDesc desc);
 
     /**
-     * Takes ownership of a created VkShaderModule. Use create().
+     * Takes ownership of a created shader module. Use create().
      *
      * @param reflection The shader's stage and entry point.
      */
-    VulkanShader(std::shared_ptr<VulkanDeviceHandle> device, ShaderReflection reflection, VkShaderModule module);
-    ~VulkanShader() override;
+    VulkanShader(std::shared_ptr<VulkanDeviceHandle> device, ShaderReflection reflection,
+                 vk::raii::ShaderModule module);
 
     VulkanShader(const VulkanShader&) = delete;
     VulkanShader& operator=(const VulkanShader&) = delete;
 
     ShaderReflection getReflection() const override;
 
-    /// The VkShaderModule, for pipeline creation.
-    VkShaderModule handle() const { return m_module; }
+    vk::ShaderModule handle() const { return *m_module; }
 private:
+    std::shared_ptr<VulkanDeviceHandle> m_device; // first: destroyed after the module
     ShaderReflection m_reflection;
-    VkShaderModule m_module = VK_NULL_HANDLE;
-    std::shared_ptr<VulkanDeviceHandle> m_device;
+    vk::raii::ShaderModule m_module;
 };
 
 /// The Vulkan IPipelineLayout: a VkPipelineLayout. Created by VulkanDevice::createPipelineLayout.
@@ -56,24 +55,23 @@ public:
     static Result<PipelineLayoutRef> create(std::shared_ptr<VulkanDeviceHandle> device, PipelineLayoutDesc desc);
 
     /**
-     * Takes ownership of a created VkPipelineLayout. Use create().
+     * Takes ownership of a created pipeline layout. Use create().
      *
      * @param desc The descriptor it was created with (retains the bind group layouts).
      */
-    VulkanPipelineLayout(std::shared_ptr<VulkanDeviceHandle> device, PipelineLayoutDesc desc, VkPipelineLayout layout);
-    ~VulkanPipelineLayout() override;
+    VulkanPipelineLayout(std::shared_ptr<VulkanDeviceHandle> device, PipelineLayoutDesc desc,
+                         vk::raii::PipelineLayout layout);
 
     VulkanPipelineLayout(const VulkanPipelineLayout&) = delete;
     VulkanPipelineLayout& operator=(const VulkanPipelineLayout&) = delete;
 
     PipelineLayoutDesc getDesc() const override;
 
-    /// The VkPipelineLayout, for pipeline creation and descriptor binding.
-    VkPipelineLayout handle() const { return m_layout; }
+    vk::PipelineLayout handle() const { return *m_layout; }
 private:
+    std::shared_ptr<VulkanDeviceHandle> m_device; // first: destroyed after the layout
     PipelineLayoutDesc m_desc;
-    VkPipelineLayout m_layout = VK_NULL_HANDLE;
-    std::shared_ptr<VulkanDeviceHandle> m_device;
+    vk::raii::PipelineLayout m_layout;
 };
 
 /**
@@ -102,30 +100,28 @@ public:
     static Result<PipelineRef> createCompute(std::shared_ptr<VulkanDeviceHandle> device, ComputePipelineDesc desc);
 
     /**
-     * Takes ownership of a created VkPipeline. Use createGraphics() or createCompute().
+     * Takes ownership of a created pipeline. Use createGraphics() or createCompute().
      *
      * @param layout The layout it was compiled against; retained.
      * @param shaders The shaders it was compiled from; retained.
      */
     VulkanPipeline(std::shared_ptr<VulkanDeviceHandle> device, PipelineKind kind, PipelineLayoutRef layout,
-                   std::vector<ShaderRef> shaders, VkPipeline pipeline);
-    ~VulkanPipeline() override;
+                   std::vector<ShaderRef> shaders, vk::raii::Pipeline pipeline);
 
     VulkanPipeline(const VulkanPipeline&) = delete;
     VulkanPipeline& operator=(const VulkanPipeline&) = delete;
 
     PipelineKind getKind() const override;
 
-    /// The VkPipeline, for vkCmdBindPipeline.
-    VkPipeline handle() const { return m_pipeline; }
-    /// The VkPipelineLayout the pipeline was compiled against, for vkCmdBindDescriptorSets.
-    VkPipelineLayout layoutHandle() const { return static_cast<const VulkanPipelineLayout&>(*m_layout).handle(); }
+    vk::Pipeline handle() const { return *m_pipeline; }
+    /// The layout the pipeline was compiled against, for binding descriptor sets.
+    vk::PipelineLayout layoutHandle() const { return static_cast<const VulkanPipelineLayout&>(*m_layout).handle(); }
 private:
+    std::shared_ptr<VulkanDeviceHandle> m_device; // first: destroyed after the pipeline
     PipelineKind m_kind;
     PipelineLayoutRef m_layout;
     std::vector<ShaderRef> m_shaders;
-    VkPipeline m_pipeline = VK_NULL_HANDLE;
-    std::shared_ptr<VulkanDeviceHandle> m_device;
+    vk::raii::Pipeline m_pipeline;
 };
 
 } // namespace rhi::vulkan
