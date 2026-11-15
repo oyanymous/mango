@@ -1,15 +1,6 @@
-# GLSL -> SPIR-V at build time with glslang, fetched and built from source at the same SDK tag as the Vulkan
-# headers, so no installed glslc/glslangValidator is needed.
-#
-# Defines:
-#   mango_add_shaders(<target> <shader>...)
-#       Compiles each GLSL file (stage from its extension: .vert, .frag, .comp, ...) to a header
-#       `<file name>.h` in the target's include path, holding `const uint32_t <file_name>_spv[]`
-#       (e.g. triangle.vert -> triangle.vert.h with triangle_vert_spv).
-
 include(FetchContent)
 
-set(ENABLE_OPT OFF CACHE BOOL "" FORCE) # the optimizer needs SPIRV-Tools; unoptimized SPIR-V is fine here
+set(ENABLE_OPT OFF CACHE BOOL "" FORCE)
 set(ENABLE_HLSL OFF CACHE BOOL "" FORCE)
 set(ENABLE_SPVREMAPPER OFF CACHE BOOL "" FORCE)
 set(ENABLE_GLSLANG_BINARIES ON CACHE BOOL "" FORCE)
@@ -26,8 +17,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(glslang)
 if (MINGW)
-    # glslang links its tools with -static on MinGW, which CLion's bundled MinGW cannot do (missing
-    # __intrinsic_setjmpex); link the compiler against the runtime DLLs like the project's own executables.
+
     set_property(TARGET glslang-standalone PROPERTY LINK_OPTIONS "")
 endif ()
 

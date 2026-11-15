@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief VulkanTexture, VulkanTextureView and VulkanSampler.
- */
-
 #include "VulkanTexture.h"
 
 #include "VulkanDevice.h"
@@ -11,7 +6,6 @@ namespace rhi::vulkan {
 
 namespace {
 
-/// Maps TextureUsage bits to VkImageUsageFlags.
 VkImageUsageFlags toVkImageUsage(TextureUsage usage) {
     VkImageUsageFlags flags = 0;
     if (hasFlag(usage, TextureUsage::CopySrc)) {
@@ -35,46 +29,45 @@ VkImageUsageFlags toVkImageUsage(TextureUsage usage) {
     return flags;
 }
 
-/// The view type for a view of @p texture with an optional explicit dimension.
-VkImageViewType toVkViewType(const TextureDesc& texture, std::optional<TextureViewDimension> dimension,
-                             std::uint32_t layer_count) {
+vk::ImageViewType toVkViewType(const TextureDesc& texture, std::optional<TextureViewDimension> dimension,
+                               std::uint32_t layer_count) {
     if (!dimension) {
         switch (texture.dimension) {
         case TextureDimension::Texture3D:
-            return VK_IMAGE_VIEW_TYPE_3D;
+            return vk::ImageViewType::e3D;
         case TextureDimension::TextureCube:
-            return VK_IMAGE_VIEW_TYPE_CUBE;
+            return vk::ImageViewType::eCube;
         case TextureDimension::Texture2D:
-            return layer_count == 1 ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+            return layer_count == 1 ? vk::ImageViewType::e2D : vk::ImageViewType::e2DArray;
         }
     }
     switch (*dimension) {
     case TextureViewDimension::Texture2D:
-        return VK_IMAGE_VIEW_TYPE_2D;
+        return vk::ImageViewType::e2D;
     case TextureViewDimension::Texture2DArray:
-        return VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+        return vk::ImageViewType::e2DArray;
     case TextureViewDimension::Texture3D:
-        return VK_IMAGE_VIEW_TYPE_3D;
+        return vk::ImageViewType::e3D;
     case TextureViewDimension::TextureCube:
-        return VK_IMAGE_VIEW_TYPE_CUBE;
+        return vk::ImageViewType::eCube;
     }
-    return VK_IMAGE_VIEW_TYPE_2D;
+    return vk::ImageViewType::e2D;
 }
 
-VkFilter toVkFilter(Filter filter) {
-    return filter == Filter::Linear ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+vk::Filter toVkFilter(Filter filter) {
+    return filter == Filter::Linear ? vk::Filter::eLinear : vk::Filter::eNearest;
 }
 
-VkSamplerAddressMode toVkAddressMode(AddressMode mode) {
+vk::SamplerAddressMode toVkAddressMode(AddressMode mode) {
     switch (mode) {
     case AddressMode::Repeat:
-        return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        return vk::SamplerAddressMode::eRepeat;
     case AddressMode::MirroredRepeat:
-        return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+        return vk::SamplerAddressMode::eMirroredRepeat;
     case AddressMode::ClampToEdge:
-        return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        return vk::SamplerAddressMode::eClampToEdge;
     }
-    return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    return vk::SamplerAddressMode::eRepeat;
 }
 
 } // namespace
@@ -93,7 +86,7 @@ Result<TextureRef> VulkanTexture::create(std::shared_ptr<VulkanDeviceHandle> dev
     image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     image_info.flags = cube ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
     image_info.imageType = desc.dimension == TextureDimension::Texture3D ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D;
-    image_info.format = toVkFormat(desc.format);
+    image_info.format = static_cast<VkFormat>(toVkFormat(desc.format));
     image_info.extent = {desc.extent.width, desc.extent.height, desc.extent.depth};
     image_info.mipLevels = desc.mip_level_count;
     image_info.arrayLayers = desc.array_layer_count;
@@ -109,23 +102,28 @@ Result<TextureRef> VulkanTexture::create(std::shared_ptr<VulkanDeviceHandle> dev
     VkImage image = VK_NULL_HANDLE;
     VmaAllocation allocation = VK_NULL_HANDLE;
     if (VkResult result =
-            vmaCreateImage(device->m_allocator, &image_info, &allocation_info, &image, &allocation, nullptr);
+            vmaCreateImage(device->m_allocator.get(), &image_info, &allocation_info, &image, &allocation, nullptr);
         result != VK_SUCCESS) {
         return toError(result, "vmaCreateImage");
     }
-    return TextureRef(std::make_shared<VulkanTexture>(std::move(device), std::move(desc), image, allocation));
+
+    VmaAllocationPtr owned_allocation(allocation, {device->m_allocator.get()});
+    vk::raii::Image owned_image(device->m_device, image, nullptr);
+    return TextureRef(std::make_shared<VulkanTexture>(std::move(device), std::move(desc), std::move(owned_allocation),
+                                                      std::move(owned_image)));
 }
 
-VulkanTexture::VulkanTexture(std::shared_ptr<VulkanDeviceHandle> device, TextureDesc desc, VkImage image,
-                             VmaAllocation allocation)
-    : m_desc(std::move(desc)), m_image(image), m_allocation(allocation), m_device(std::move(device)) {
+VulkanTexture::VulkanTexture(std::shared_ptr<VulkanDeviceHandle> device, TextureDesc desc, VmaAllocationPtr allocation,
+                             vk::raii::Image image)
+    : m_device(std::move(device)),
+      m_desc(std::move(desc)),
+      m_allocation(std::move(allocation)),
+      m_image(std::move(image)),
+      m_handle(*m_image) {
 }
 
-VulkanTexture::~VulkanTexture() {
-    // Swapchain backbuffers have no allocation: the swapchain owns their images.
-    if (m_allocation != VK_NULL_HANDLE) {
-        vmaDestroyImage(m_device->m_allocator, m_image, m_allocation);
-    }
+VulkanTexture::VulkanTexture(std::shared_ptr<VulkanDeviceHandle> device, TextureDesc desc, vk::Image borrowed_image)
+    : m_device(std::move(device)), m_desc(std::move(desc)), m_image(nullptr), m_handle(borrowed_image) {
 }
 
 TextureDesc VulkanTexture::getDesc() const {
@@ -139,40 +137,44 @@ Result<TextureViewRef> VulkanTextureView::create(std::shared_ptr<VulkanDeviceHan
     const auto& texture = static_cast<const VulkanTexture&>(*desc.texture);
     const TextureDesc& texture_desc = texture.getDesc();
 
-    VkImageAspectFlags aspect = aspectsOf(texture_desc.format);
+    vk::ImageAspectFlags aspect = aspectsOf(texture_desc.format);
     if (desc.aspect == TextureAspect::DepthOnly) {
-        aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
+        aspect = vk::ImageAspectFlagBits::eDepth;
     } else if (desc.aspect == TextureAspect::StencilOnly) {
-        aspect = VK_IMAGE_ASPECT_STENCIL_BIT;
+        aspect = vk::ImageAspectFlagBits::eStencil;
     }
 
     const std::uint32_t layer_count = desc.range.array_layer_count == kRemaining
                                           ? texture_desc.array_layer_count - desc.range.base_array_layer
                                           : desc.range.array_layer_count;
 
-    VkImageViewCreateInfo view_info{};
-    view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    view_info.image = texture.handle();
-    view_info.viewType = toVkViewType(texture_desc, desc.dimension, layer_count);
-    view_info.format = toVkFormat(desc.format.value_or(texture_desc.format));
-    // kRemaining equals VK_REMAINING_MIP_LEVELS / VK_REMAINING_ARRAY_LAYERS (~0u), so the range maps directly.
-    view_info.subresourceRange = {aspect, desc.range.base_mip_level, desc.range.mip_level_count,
-                                  desc.range.base_array_layer, desc.range.array_layer_count};
+    const vk::ImageViewCreateInfo view_info{
+        .image = texture.handle(),
+        .viewType = toVkViewType(texture_desc, desc.dimension, layer_count),
+        .format = toVkFormat(desc.format.value_or(texture_desc.format)),
 
-    VkImageView image_view = VK_NULL_HANDLE;
-    if (VkResult result = vkCreateImageView(device->m_device, &view_info, nullptr, &image_view); result != VK_SUCCESS) {
-        return toError(result, "vkCreateImageView");
+        .subresourceRange =
+            {
+                .aspectMask = aspect,
+                .baseMipLevel = desc.range.base_mip_level,
+                .levelCount = desc.range.mip_level_count,
+                .baseArrayLayer = desc.range.base_array_layer,
+                .layerCount = desc.range.array_layer_count,
+            },
+    };
+
+    Result<vk::raii::ImageView> image_view =
+        check(device->m_device.createImageView(view_info, nullptr), "vkCreateImageView");
+    if (!image_view) {
+        return image_view.error();
     }
-    return TextureViewRef(std::make_shared<VulkanTextureView>(std::move(device), std::move(desc), image_view));
+    return TextureViewRef(
+        std::make_shared<VulkanTextureView>(std::move(device), std::move(desc), std::move(image_view).value()));
 }
 
 VulkanTextureView::VulkanTextureView(std::shared_ptr<VulkanDeviceHandle> device, TextureViewDesc desc,
-                                     VkImageView image_view)
-    : m_desc(std::move(desc)), m_image_view(image_view), m_device(std::move(device)) {
-}
-
-VulkanTextureView::~VulkanTextureView() {
-    vkDestroyImageView(m_device->m_device, m_image_view, nullptr);
+                                     vk::raii::ImageView image_view)
+    : m_device(std::move(device)), m_desc(std::move(desc)), m_image_view(std::move(image_view)) {
 }
 
 TextureRef VulkanTextureView::getTexture() const {
@@ -187,35 +189,31 @@ Result<SamplerRef> VulkanSampler::create(std::shared_ptr<VulkanDeviceHandle> dev
                      "createSampler: max_anisotropy > 1 needs DeviceFeatures::sampler_anisotropy"};
     }
 
-    VkSamplerCreateInfo sampler_info{};
-    sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    sampler_info.magFilter = toVkFilter(desc.mag_filter);
-    sampler_info.minFilter = toVkFilter(desc.min_filter);
-    sampler_info.mipmapMode =
-        desc.mipmap_filter == Filter::Linear ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
-    sampler_info.addressModeU = toVkAddressMode(desc.address_u);
-    sampler_info.addressModeV = toVkAddressMode(desc.address_v);
-    sampler_info.addressModeW = toVkAddressMode(desc.address_w);
-    sampler_info.anisotropyEnable = anisotropy ? VK_TRUE : VK_FALSE;
-    sampler_info.maxAnisotropy = anisotropy ? desc.max_anisotropy : 1.0f;
-    sampler_info.compareEnable = desc.compare ? VK_TRUE : VK_FALSE;
-    sampler_info.compareOp = desc.compare ? toVkCompareOp(*desc.compare) : VK_COMPARE_OP_NEVER;
-    sampler_info.minLod = desc.min_lod;
-    sampler_info.maxLod = desc.max_lod;
+    const vk::SamplerCreateInfo sampler_info{
+        .magFilter = toVkFilter(desc.mag_filter),
+        .minFilter = toVkFilter(desc.min_filter),
+        .mipmapMode =
+            desc.mipmap_filter == Filter::Linear ? vk::SamplerMipmapMode::eLinear : vk::SamplerMipmapMode::eNearest,
+        .addressModeU = toVkAddressMode(desc.address_u),
+        .addressModeV = toVkAddressMode(desc.address_v),
+        .addressModeW = toVkAddressMode(desc.address_w),
+        .anisotropyEnable = anisotropy ? vk::True : vk::False,
+        .maxAnisotropy = anisotropy ? desc.max_anisotropy : 1.0f,
+        .compareEnable = desc.compare ? vk::True : vk::False,
+        .compareOp = desc.compare ? toVkCompareOp(*desc.compare) : vk::CompareOp::eNever,
+        .minLod = desc.min_lod,
+        .maxLod = desc.max_lod,
+    };
 
-    VkSampler sampler = VK_NULL_HANDLE;
-    if (VkResult result = vkCreateSampler(device->m_device, &sampler_info, nullptr, &sampler); result != VK_SUCCESS) {
-        return toError(result, "vkCreateSampler");
+    Result<vk::raii::Sampler> sampler = check(device->m_device.createSampler(sampler_info, nullptr), "vkCreateSampler");
+    if (!sampler) {
+        return sampler.error();
     }
-    return SamplerRef(std::make_shared<VulkanSampler>(std::move(device), std::move(desc), sampler));
+    return SamplerRef(std::make_shared<VulkanSampler>(std::move(device), std::move(desc), std::move(sampler).value()));
 }
 
-VulkanSampler::VulkanSampler(std::shared_ptr<VulkanDeviceHandle> device, SamplerDesc desc, VkSampler sampler)
-    : m_desc(std::move(desc)), m_sampler(sampler), m_device(std::move(device)) {
-}
-
-VulkanSampler::~VulkanSampler() {
-    vkDestroySampler(m_device->m_device, m_sampler, nullptr);
+VulkanSampler::VulkanSampler(std::shared_ptr<VulkanDeviceHandle> device, SamplerDesc desc, vk::raii::Sampler sampler)
+    : m_device(std::move(device)), m_desc(std::move(desc)), m_sampler(std::move(sampler)) {
 }
 
 SamplerDesc VulkanSampler::getDesc() const {

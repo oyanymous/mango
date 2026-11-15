@@ -1,19 +1,14 @@
 #version 450
 
-// Every scene graph draw: positions in node-local units, transformed by the node's slot in the node buffer into the
-// render target's pixels, then into clip space.
-
 layout(location = 0) in vec2 in_position;
 layout(location = 1) in vec2 in_uv;
-layout(location = 2) in vec4 in_color; // RGBA8, premultiplied by the renderer
-layout(location = 3) in uint in_slot;  // index into nodes[]
+layout(location = 2) in vec4 in_color;
+layout(location = 3) in uint in_slot;
 
-// xy: pixel at the target's top-left corner, zw: 2 / target size in pixels.
 layout(set = 0, binding = 0) uniform View {
     vec4 params;
 } view;
 
-// Per-node data, 48 bytes: the 2x2 matrix (a, b, c, d), (tx, ty, opacity, unused) and the premultiplied colour.
 struct NodeData {
     vec4 matrix;
     vec4 translation_opacity;

@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief MetalSemaphore: binary and timeline semaphores on `MTLSharedEvent`.
- */
-
 #include "MetalSemaphore.h"
 
 #include <utility>
@@ -15,7 +10,7 @@ Result<SemaphoreRef> MetalSemaphore::create(std::shared_ptr<MetalDeviceContext> 
         return Error{ErrorCode::InitializationFailed, "MTLDevice newSharedEvent failed"};
     }
     event.label = toNSString(desc.label);
-    // A binary semaphore starts at 0; its counters count from there.
+
     event.signaledValue = desc.kind == SemaphoreKind::Timeline ? desc.initial_value : 0;
     return SemaphoreRef(std::make_shared<MetalSemaphore>(std::move(context), desc.kind, event));
 }
@@ -37,7 +32,7 @@ Result<void> MetalSemaphore::signal(std::uint64_t value) {
     if (m_kind != SemaphoreKind::Timeline) {
         return Error{ErrorCode::InvalidArgument, "ISemaphore::signal: only Timeline semaphores can be signaled"};
     }
-    // Same rule as Vulkan: the counter only moves forward.
+
     if (value <= m_event.signaledValue) {
         return Error{ErrorCode::InvalidArgument, "ISemaphore::signal: value must exceed the current value"};
     }
@@ -62,7 +57,7 @@ Result<std::uint64_t> MetalSemaphore::nextWaitValue(std::uint64_t requested) {
     if (m_kind == SemaphoreKind::Timeline) {
         return requested;
     }
-    // Claim the next wait only if a signal for it has been submitted.
+
     std::uint64_t waits = m_binary_waits.load();
     do {
         if (waits >= m_binary_signals.load()) {

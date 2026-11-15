@@ -1,21 +1,9 @@
-/**
- * @file
- * @brief The demo application: one top-level window with a few nested widgets, drawn by the scene graph renderer.
- */
-
 #include <array>
 
 #include "GeometryNode.h"
 #include "platform/Application.h"
 #include "ui/Widget.h"
 
-
-/**
- * Creates the application and a titled top-level widget with nested child widgets, then blocks in the event
- * loop. Nothing is redrawn while nothing changes.
- *
- * @return 0 when the event loop ends.
- */
 int main(int argc, char* argv[]) {
     Application app;
 
@@ -32,7 +20,7 @@ int main(int argc, char* argv[]) {
     card.setBackgroundColor(Color(255, 255, 255));
 
     Widget badge(&card);
-    badge.setGeometry(150, -20, 100, 60); // partly outside the card: clipped to it
+    badge.setGeometry(150, -20, 100, 60);
     badge.setBackgroundColor(Color(230, 80, 60));
 
     Widget chart(&widget);

@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief MetalFence: a mutex-guarded flag set by a command buffer completion handler.
- */
-
 #include "MetalFence.h"
 
 #include <algorithm>
@@ -19,7 +14,7 @@ Result<void> MetalFence::wait(Timeout timeout) {
         m_signaled_cv.wait(lock, signaled);
         return {};
     }
-    // Negative timeouts poll, as in the Vulkan backend.
+
     if (!m_signaled_cv.wait_for(lock, std::max(timeout, Timeout::zero()), signaled)) {
         return Error{ErrorCode::Timeout, "MetalFence::wait timed out"};
     }

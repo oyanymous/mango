@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief Widget implementation, and the GPU device shared by every top-level widget's renderer.
- */
-
 #include "Widget.h"
 
 #include <algorithm>
@@ -18,12 +13,6 @@
 
 namespace {
 
-/**
- * The RHI instance and device every widget renderer uses, and the list of renderers to drive.
- *
- * Created on the first top-level display() with the first available backend. The application's frame callback
- * (on demand) renders every registered renderer that has something to draw.
- */
 struct RenderContext {
     rhi::InstanceRef instance;
     rhi::DeviceRef device;
@@ -35,7 +24,6 @@ struct RenderContext {
         return context;
     }
 
-    /// Creates the instance and device on first use; false (with a message) if no GPU is usable.
     bool ensureDevice() {
         if (device) {
             return true;
@@ -89,7 +77,6 @@ struct RenderContext {
     }
 };
 
-/// A UI colour as a scene graph colour.
 sg::ColorF toColorF(const Color& color) {
     return {color.redF(), color.greenF(), color.blueF(), color.alphaF()};
 }
@@ -128,7 +115,7 @@ Widget::~Widget() {
     if (m_parent != nullptr) {
         std::erase(m_parent->m_children, this);
         if (m_node != nullptr) {
-            m_parent->m_clip->removeChild(m_node); // destroys the subtree
+            m_parent->m_clip->removeChild(m_node);
         }
     }
     m_root.reset();
@@ -147,17 +134,15 @@ void Widget::detachFromDestroyedParent() {
 
 void Widget::display() {
     if (!isTopLevel() || !m_root) {
-        return; // child widgets are drawn as part of their window (and orphans not at all)
+        return;
     }
     if (m_window == nullptr) {
-        // Created on first display so a widget can be configured (e.g. titled) before its native window exists.
         createWindow();
     }
     m_window->display();
 }
 
 void Widget::createWindow() {
-    // The device first: on macOS, the first window initializes Metal.
     const bool has_device = RenderContext::get().ensureDevice();
     m_window = std::make_unique<Window>();
     m_window->setWindowTitle(m_window_title);

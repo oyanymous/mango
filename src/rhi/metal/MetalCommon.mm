@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief Shared helpers for the Metal backend.
- */
-
 #include "MetalCommon.h"
 
 #include <cstdio>
@@ -12,7 +7,6 @@ namespace rhi::metal {
 
 namespace {
 
-/// Lower-case name of a severity, for stderr output.
 const char* severityName(DebugSeverity severity) {
     switch (severity) {
     case DebugSeverity::Verbose:
@@ -122,7 +116,7 @@ std::uint32_t bytesPerTexel(Format format) {
     case Format::RG16Float:
     case Format::R32Uint:
     case Format::R32Float:
-    case Format::D24UnormS8Uint: // depth plane copies as 32-bit words
+    case Format::D24UnormS8Uint:
     case Format::D32Float:
     case Format::D32FloatS8Uint:
         return 4;

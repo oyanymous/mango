@@ -1,0 +1,12 @@
+#pragma once
+
+#define VULKAN_HPP_NO_EXCEPTIONS
+
+#define VULKAN_HPP_ASSERT_ON_RESULT(expression)
+#define VULKAN_HPP_NO_DEFAULT_DISPATCHER
+#define VULKAN_HPP_NO_CONSTRUCTORS
+#define VULKAN_HPP_NO_SMART_HANDLE
+#define VULKAN_HPP_NO_TO_STRING
+#define VULKAN_HPP_NO_SPACESHIP_OPERATOR
+
+#include <vulkan/vulkan_raii.hpp>

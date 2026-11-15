@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief sg::UpdatePass.
- */
-
 #include "UpdatePass.h"
 
 #include "ClipNode.h"
@@ -15,14 +10,12 @@ namespace sg {
 
 namespace {
 
-/// The traversal's state for one subtree.
 struct Traversal {
     float device_pixel_ratio = 1.0f;
     UpdateVisitor* visitor = nullptr;
     UpdateStats stats;
 };
 
-/// World state passed from a parent to its children.
 struct Inherited {
     Transform2D world;
     float opacity = 1.0f;
@@ -33,14 +26,7 @@ struct Inherited {
 
 } // namespace
 
-/// The traversal itself; a friend of Node and ClipNode, so it can write their world state.
 struct UpdatePassAccess {
-    /**
-     * Visits @p node: refreshes its world state when needed, reports it, then recurses into dirty children.
-     *
-     * `inherited_changed` means the parent's world state changed, so this node's must be recomputed; `is_new` means
-     * the node sits in a subtree just added to the tree (so even content below layers must be computed).
-     */
     static void visit(Node& node, const Inherited& in, bool inherited_changed, bool is_new, Traversal& t) {
         ++t.stats.nodes_visited;
         const DirtyFlags flags = node.m_dirty;
@@ -50,7 +36,6 @@ struct UpdatePassAccess {
             inherited_changed || is_new || hasAny(flags, DirtyFlags::Matrix | DirtyFlags::Opacity | DirtyFlags::Clip);
 
         if (t.visitor != nullptr) {
-            // An added node joins its parent's target; a removed child left this node's (a layer's own target).
             if (hasAny(flags, DirtyFlags::NodeAdded)) {
                 t.visitor->structureChanged(in.layer);
             }
@@ -105,7 +90,7 @@ struct UpdatePassAccess {
             if (t.visitor != nullptr && changed) {
                 t.visitor->layerUpdated(layer, in.layer_depth);
             }
-            // The content is drawn in the layer's own pixels: moving the layer does not touch it.
+
             out = Inherited{Transform2D::scaling(t.device_pixel_ratio, t.device_pixel_ratio), 1.0f, nullptr, &layer,
                             in.layer_depth + 1};
             children_changed = is_new;
@@ -127,7 +112,7 @@ struct UpdatePassAccess {
 UpdateStats UpdatePass::run(RootNode& root, float device_pixel_ratio, bool force_all, UpdateVisitor* visitor) {
     Traversal t{device_pixel_ratio, visitor, {}};
     const Inherited in{Transform2D::scaling(device_pixel_ratio, device_pixel_ratio), 1.0f, nullptr, nullptr, 0};
-    // force_all counts as "new": a changed pixel ratio changes layer contents too.
+
     UpdatePassAccess::visit(root, in, force_all, force_all, t);
     return t.stats;
 }

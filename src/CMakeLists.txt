@@ -1,4 +1,3 @@
-
 if (APPLE)
     enable_language(OBJCXX)
 endif ()

@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief VulkanDevice and VulkanDeviceHandle.
- */
-
 #include "VulkanDevice.h"
 
 #include <string>
@@ -20,20 +15,15 @@
 
 namespace rhi::vulkan {
 
-VulkanDeviceHandle::VulkanDeviceHandle(std::shared_ptr<VulkanInstanceHandle> instance)
-    : m_instance(std::move(instance)) {
+VulkanDeviceHandle::VulkanDeviceHandle(std::shared_ptr<VulkanInstanceHandle> instance,
+                                       vk::raii::PhysicalDevice physical_device)
+    : m_instance(std::move(instance)), m_physical_device(std::move(physical_device)) {
 }
 
 VulkanDeviceHandle::~VulkanDeviceHandle() {
-    if (m_device == VK_NULL_HANDLE) {
-        return;
+    if (*m_device) {
+        (void)m_device.waitIdle();
     }
-    // Nothing may still be running on the GPU when the device goes away.
-    vkDeviceWaitIdle(m_device);
-    if (m_allocator != VK_NULL_HANDLE) {
-        vmaDestroyAllocator(m_allocator);
-    }
-    vkDestroyDevice(m_device, nullptr);
 }
 
 VulkanDevice::VulkanDevice(DeviceDesc desc, std::shared_ptr<VulkanDeviceHandle> handle, std::array<QueueRef, 3> queues)

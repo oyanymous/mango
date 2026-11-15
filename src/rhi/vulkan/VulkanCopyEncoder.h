@@ -9,26 +9,22 @@ namespace rhi::vulkan {
 
 class VulkanCommandBuffer;
 
-/// The Vulkan ICopyEncoder. Created by VulkanCommandBuffer::beginCopy.
 class VulkanCopyEncoder final : public ICopyEncoder {
 public:
-    /// Records into @p command_buffer, which it keeps alive.
     explicit VulkanCopyEncoder(std::shared_ptr<VulkanCommandBuffer> command_buffer);
-    /// Ends the encoder if end() was not called.
+
     ~VulkanCopyEncoder() override;
 
-    /// Records vkCmdCopyBuffer and retains both buffers.
     void copyBuffer(BufferCopyDesc desc) override;
-    /// Records vkCmdCopyImage (one mip level and layer, all aspects) and retains both textures.
+
     void copyTexture(TextureCopyDesc desc) override;
-    /// Records vkCmdCopyBufferToImage / vkCmdCopyImageToBuffer (one mip level and layer; depth only for depth/stencil
-    /// formats) and retains the buffer and texture.
+
     void copyBufferTexture(BufferTextureCopyDesc desc) override;
     void end() override;
 private:
     std::shared_ptr<VulkanCommandBuffer> m_command_buffer;
     bool m_ended = false;
-    VkCommandBuffer m_native_commands = VK_NULL_HANDLE;
+    const vk::raii::CommandBuffer& m_commands;
 };
 
 } // namespace rhi::vulkan

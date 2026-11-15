@@ -1,13 +1,7 @@
-/**
- * @file
- * @brief VulkanInstance and VulkanInstanceHandle.
- */
-
 #include "VulkanInstance.h"
 
 #include <cstdio>
 #include <string>
-#include <vector>
 
 #include "VulkanAdapter.h"
 #include "VulkanSurface.h"
@@ -16,7 +10,6 @@ namespace rhi::vulkan {
 
 namespace {
 
-/// Lower-case name of a severity, for stderr output.
 const char* severityName(DebugSeverity severity) {
     switch (severity) {
     case DebugSeverity::Verbose:
@@ -31,37 +24,27 @@ const char* severityName(DebugSeverity severity) {
     return "?";
 }
 
-/// VK_EXT_debug_utils callback: converts the severity and forwards the message to the VulkanInstanceHandle passed as
-/// user data.
-VKAPI_ATTR VkBool32 VKAPI_CALL debugMessengerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
-                                                      VkDebugUtilsMessageTypeFlagsEXT,
-                                                      const VkDebugUtilsMessengerCallbackDataEXT* data,
-                                                      void* user_data) {
+VKAPI_ATTR vk::Bool32 VKAPI_CALL debugMessengerCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
+                                                        vk::DebugUtilsMessageTypeFlagsEXT,
+                                                        const vk::DebugUtilsMessengerCallbackDataEXT* data,
+                                                        void* user_data) {
+    using Severity = vk::DebugUtilsMessageSeverityFlagBitsEXT;
     DebugSeverity rhi_severity = DebugSeverity::Verbose;
-    if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+    if (severity == Severity::eError) {
         rhi_severity = DebugSeverity::Error;
-    } else if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+    } else if (severity == Severity::eWarning) {
         rhi_severity = DebugSeverity::Warning;
-    } else if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) {
+    } else if (severity == Severity::eInfo) {
         rhi_severity = DebugSeverity::Info;
     }
     const auto* handle = static_cast<const VulkanInstanceHandle*>(user_data);
     handle->report(rhi_severity, data && data->pMessage ? data->pMessage : "");
-    return VK_FALSE; // never abort the call that triggered the message
+    return VK_FALSE;
 }
 
 } // namespace
 
 VulkanInstanceHandle::VulkanInstanceHandle(DebugCallback debug_callback) : m_debug_callback(std::move(debug_callback)) {
-}
-
-VulkanInstanceHandle::~VulkanInstanceHandle() {
-    if (m_messenger != VK_NULL_HANDLE) {
-        vkDestroyDebugUtilsMessengerEXT(m_instance, m_messenger, nullptr);
-    }
-    if (m_instance != VK_NULL_HANDLE) {
-        vkDestroyInstance(m_instance, nullptr);
-    }
 }
 
 void VulkanInstanceHandle::report(DebugSeverity severity, std::string_view message) const {
@@ -73,16 +56,15 @@ void VulkanInstanceHandle::report(DebugSeverity severity, std::string_view messa
                  message.data());
 }
 
-VkDebugUtilsMessengerCreateInfoEXT VulkanInstanceHandle::messengerCreateInfo() {
-    VkDebugUtilsMessengerCreateInfoEXT info{};
-    info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-    info.messageSeverity =
-        VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-    info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                       VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-    info.pfnUserCallback = debugMessengerCallback;
-    info.pUserData = this;
-    return info;
+vk::DebugUtilsMessengerCreateInfoEXT VulkanInstanceHandle::messengerCreateInfo() {
+    using Severity = vk::DebugUtilsMessageSeverityFlagBitsEXT;
+    using Type = vk::DebugUtilsMessageTypeFlagBitsEXT;
+    return vk::DebugUtilsMessengerCreateInfoEXT{
+        .messageSeverity = Severity::eWarning | Severity::eError,
+        .messageType = Type::eGeneral | Type::eValidation | Type::ePerformance,
+        .pfnUserCallback = debugMessengerCallback,
+        .pUserData = this,
+    };
 }
 
 VulkanInstance::VulkanInstance(InstanceDesc desc, std::shared_ptr<VulkanInstanceHandle> handle)
@@ -95,13 +77,8 @@ AdapterList VulkanInstance::enumerateAdapters() {
     }
     m_adapters_enumerated = true;
 
-    std::uint32_t count = 0;
-    vkEnumeratePhysicalDevices(m_instance->get(), &count, nullptr);
-    std::vector<VkPhysicalDevice> physical_devices(count);
-    vkEnumeratePhysicalDevices(m_instance->get(), &count, physical_devices.data());
-    physical_devices.resize(count);
-
-    for (VkPhysicalDevice physical_device : physical_devices) {
+    auto physical_devices = m_instance->m_instance.enumeratePhysicalDevices();
+    for (const vk::raii::PhysicalDevice& physical_device : physical_devices.value) {
         if (auto adapter = VulkanAdapter::create(m_instance, physical_device)) {
             m_adapters.push_back(std::move(*adapter));
         }

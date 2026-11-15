@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief MetalTexture, MetalTextureView and MetalSampler creation.
- */
-
 #include "MetalTexture.h"
 
 #include <utility>
@@ -11,7 +6,6 @@ namespace rhi::metal {
 
 namespace {
 
-/// The texture type of a texture as created.
 MTLTextureType textureType(const TextureDesc& desc) {
     switch (desc.dimension) {
     case TextureDimension::Texture2D:
@@ -27,7 +21,6 @@ MTLTextureType textureType(const TextureDesc& desc) {
     return MTLTextureType2D;
 }
 
-/// The texture type of a view: the explicit dimension, or the one matching the texture and layer count.
 MTLTextureType viewType(const TextureDesc& texture, std::optional<TextureViewDimension> dimension,
                         std::uint32_t layer_count) {
     if (!dimension) {
@@ -52,8 +45,6 @@ MTLTextureType viewType(const TextureDesc& texture, std::optional<TextureViewDim
     return MTLTextureType2D;
 }
 
-/// True if Metal can view @p from as @p to without `MTLTextureUsagePixelFormatView`: the same format, or the
-/// sRGB/linear twin of an 8-bit RGBA/BGRA format.
 bool isCompatibleViewFormat(Format from, Format to) {
     if (from == to) {
         return true;
@@ -62,7 +53,6 @@ bool isCompatibleViewFormat(Format from, Format to) {
     return same_pair(Format::RGBA8Unorm, Format::RGBA8Srgb) || same_pair(Format::BGRA8Unorm, Format::BGRA8Srgb);
 }
 
-/// Metal sampler address mode of an AddressMode.
 MTLSamplerAddressMode toMTLAddressMode(AddressMode mode) {
     switch (mode) {
     case AddressMode::Repeat:
@@ -158,7 +148,7 @@ Result<TextureViewRef> MetalTextureView::create(std::shared_ptr<MetalDeviceConte
         return Error{ErrorCode::Unsupported, "createTextureView: Metal cannot reinterpret this texture's format"};
     }
     MTLPixelFormat pixel_format = toMTLPixelFormat(format);
-    // Stencil is read through its own view format; depth-only views of a combined format read the depth plane as is.
+
     if (desc.aspect == TextureAspect::StencilOnly && hasStencil(format)) {
         pixel_format = format == Format::D32FloatS8Uint ? MTLPixelFormatX32_Stencil8 : MTLPixelFormatX24_Stencil8;
     }
@@ -215,7 +205,7 @@ Result<SamplerRef> MetalSampler::create(std::shared_ptr<MetalDeviceContext> cont
     descriptor.lodMaxClamp = desc.max_lod;
     descriptor.maxAnisotropy = anisotropy ? static_cast<NSUInteger>(desc.max_anisotropy) : 1;
     descriptor.compareFunction = desc.compare ? toMTLCompareFunction(*desc.compare) : MTLCompareFunctionNever;
-    // Unlike the label of a Metal object, a descriptor's label must not be nil.
+
     if (!desc.label.empty()) {
         descriptor.label = toNSString(desc.label);
     }

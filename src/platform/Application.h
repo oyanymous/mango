@@ -4,57 +4,19 @@
 
 #include "IWidget.h"
 
-
-/**
- * The application: sets up the native application state and runs the event loop.
- *
- * A thin facade over the PrivateApplication singleton. Construct exactly one, before creating any Window or
- * Widget (on macOS this initializes `[NSApplication sharedApplication]`).
- *
- * @code
- * Application app;
- * Widget widget;
- * widget.display();
- * app.run(); // blocks until the last window closes
- * @endcode
- */
 class Application {
 public:
-    /// Initializes the native application state.
     Application();
 
-    /**
-     * Registers a top-level widget with the application.
-     *
-     * Called by Widget for every widget without a parent. The application does not take ownership.
-     *
-     * @param widget Widget to register; must outlive the application's event loop.
-     */
     static void addTopLevelWidget(IWidget* widget) { PrivateApplication::instance().addTopLevelWidget(widget); }
 
-    /**
-     * Makes run() return once the current loop iteration is done, as closing a window does.
-     *
-     * @note Call on the event-loop thread, e.g. from the frame callback.
-     */
     static void quit() { PrivateApplication::instance().quit(); }
 
-    /**
-     * Sets a function the event loop calls after events; see BaseApplication::setFrameCallback.
-     *
-     * @note On macOS the callback does not run while the user drags the window edge (AppKit runs its own loop for
-     *       live resizing); it resumes, and the resize callback fires, when the drag ends.
-     *
-     * @param callback Called on the event-loop thread; an empty function restores the blocking loop.
-     * @param mode Every iteration (Continuous, the default) or once per requestFrame() (OnDemand).
-     */
     static void setFrameCallback(std::function<void()> callback, FrameMode mode = FrameMode::Continuous) {
         PrivateApplication::instance().setFrameCallback(std::move(callback), mode);
     }
 
-    /// Asks for one frame callback in FrameMode::OnDemand; see BaseApplication::requestFrame.
     static void requestFrame() { PrivateApplication::instance().requestFrame(); }
 
-    /// Runs the native event loop. Blocks until the application quits, i.e. until a window is closed.
     void run();
 };

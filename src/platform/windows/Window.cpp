@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief Win32 implementation of Window.
- */
-
 #ifndef UNICODE
 #define UNICODE
 #endif
@@ -15,21 +10,14 @@
 #include "Window.h"
 #include "win32_helpers.h"
 
-
-/// Native Win32 state of a Window.
 struct Window::Impl {
-    HMODULE m_hinstance;                               /**< Module that registered the window class. */
-    HWND m_hwnd;                                       /**< The window. */
-    WNDCLASS m_wndclass;                               /**< The registered window class. */
-    LPCWSTR m_classname;                               /**< Window class name. */
-    std::function<void(WindowSize)> m_resize_callback; /**< Called on WM_SIZE; may be empty. */
+    HMODULE m_hinstance;
+    HWND m_hwnd;
+    WNDCLASS m_wndclass;
+    LPCWSTR m_classname;
+    std::function<void(WindowSize)> m_resize_callback;
 };
 
-/**
- * Window procedure shared by all Mango windows.
- *
- * Quits the application when a window is destroyed and paints the client area with the default window colour.
- */
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
     case WM_DESTROY:
@@ -37,7 +25,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
         return 0;
 
     case WM_SIZE: {
-        // GWLP_USERDATA holds the window's resize callback; it is still 0 for the WM_SIZE sent during creation.
         auto* callback = reinterpret_cast<std::function<void(WindowSize)>*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
         if (callback && *callback) {
             (*callback)({LOWORD(lParam), HIWORD(lParam)});
@@ -91,7 +78,6 @@ WindowSize Window::clientSize() const {
 }
 
 float Window::devicePixelRatio() const {
-    // GetDpiForWindow needs Windows 10 1607; the process is DPI-unaware without a manifest, which reports 96.
     const UINT dpi = GetDpiForWindow(m_impl->m_hwnd);
     return dpi == 0 ? 1.0f : static_cast<float>(dpi) / 96.0f;
 }

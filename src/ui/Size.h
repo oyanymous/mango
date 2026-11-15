@@ -1,7 +1,5 @@
 #pragma once
 
-
-/// A width and height in integer units.
 class Size {
 public:
     Size(int w, int h) : m_w(w), m_h(h) {}

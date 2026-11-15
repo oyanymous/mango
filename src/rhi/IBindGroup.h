@@ -13,40 +13,27 @@
 
 namespace rhi {
 
-/**
- * One resource bound to a slot of a bind group.
- *
- * Set the members that match the layout entry's BindingType: `buffer` (with `offset` and `size`) for
- * buffers, `texture_view` for textures, `sampler` for samplers.
- */
 struct BindGroupEntry {
-    std::uint32_t binding = 0;       /**< Slot number in the layout. */
-    std::uint32_t array_element = 0; /**< Element of an array slot. */
-    BufferRef buffer;                /**< Buffer, for UniformBuffer / StorageBuffer slots. */
-    std::uint64_t offset = 0;        /**< Byte offset into `buffer`. */
-    std::uint64_t size = kWholeSize; /**< Bytes of `buffer` visible to the shader. */
-    TextureViewRef texture_view;     /**< View, for SampledTexture / StorageTexture slots. */
-    SamplerRef sampler;              /**< Sampler, for Sampler slots. */
+    std::uint32_t binding = 0;
+    std::uint32_t array_element = 0;
+    BufferRef buffer;
+    std::uint64_t offset = 0;
+    std::uint64_t size = kWholeSize;
+    TextureViewRef texture_view;
+    SamplerRef sampler;
 };
 
-/// Describes a bind group to create with IDevice::createBindGroup.
 struct BindGroupDesc {
-    BindGroupLayoutRef layout;           /**< Layout the entries must match; retained. */
-    std::vector<BindGroupEntry> entries; /**< One entry per (slot, array element). */
+    BindGroupLayoutRef layout;
+    std::vector<BindGroupEntry> entries;
     std::string label;
 };
 
-/// Binds a bind group at `index` of the current pipeline's layout (IRenderEncoder / IComputeEncoder).
 struct BindGroupBinding {
-    std::uint32_t index = 0; /**< Index into PipelineLayoutDesc::bind_group_layouts (`set = N` in the shader). */
-    BindGroupRef bind_group; /**< Group to bind; its layout must match the pipeline layout at that index. */
+    std::uint32_t index = 0;
+    BindGroupRef bind_group;
 };
 
-/**
- * A set of resources matching a bind group layout (a Vulkan descriptor set).
- *
- * Retains its layout and every bound resource, so they stay alive while the group does.
- */
 class IBindGroup {
 public:
     virtual ~IBindGroup() = default;

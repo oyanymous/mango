@@ -9,34 +9,26 @@
 
 namespace rhi {
 
-/// The kind of resource in a binding slot.
 enum class BindingType {
-    UniformBuffer,  /**< Read-only uniform buffer (BufferUsage::Uniform). */
-    StorageBuffer,  /**< Read-write storage buffer (BufferUsage::Storage). */
-    SampledTexture, /**< Texture view read through a separate sampler (TextureUsage::Sampled). */
-    StorageTexture, /**< Read-write storage image (TextureUsage::Storage). */
-    Sampler,        /**< A sampler, combined with a SampledTexture in the shader. */
+    UniformBuffer,
+    StorageBuffer,
+    SampledTexture,
+    StorageTexture,
+    Sampler,
 };
 
-/// One binding slot of a bind group layout.
 struct BindGroupLayoutEntry {
-    std::uint32_t binding = 0; /**< Slot number; matches `binding = N` in the shader. */
+    std::uint32_t binding = 0;
     BindingType type = BindingType::UniformBuffer;
-    ShaderStage visibility = ShaderStage::None; /**< Stages that access the slot. */
-    std::uint32_t count = 1;                    /**< Array size; > 1 for arrays of resources. */
+    ShaderStage visibility = ShaderStage::None;
+    std::uint32_t count = 1;
 };
 
-/// Describes a bind group layout to create with IDevice::createBindGroupLayout.
 struct BindGroupLayoutDesc {
-    std::vector<BindGroupLayoutEntry> entries; /**< The slots; binding numbers must be unique. */
+    std::vector<BindGroupLayoutEntry> entries;
     std::string label;
 };
 
-/**
- * The shape of a bind group (a Vulkan descriptor set layout): which kind of resource goes in which slot.
- *
- * Pipeline layouts are built from bind group layouts, and every IBindGroup is created against one.
- */
 class IBindGroupLayout {
 public:
     virtual ~IBindGroupLayout() = default;

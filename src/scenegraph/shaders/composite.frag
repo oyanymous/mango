@@ -1,6 +1,5 @@
 #version 450
 
-// Copies the canvas onto the swapchain image, texel for texel.
 layout(set = 0, binding = 0) uniform texture2D u_canvas;
 layout(set = 0, binding = 1) uniform sampler u_sampler;
 

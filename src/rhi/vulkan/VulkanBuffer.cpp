@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief VulkanBuffer.
- */
-
 #include "VulkanBuffer.h"
 
 #include "VulkanDevice.h"
@@ -11,7 +6,6 @@ namespace rhi::vulkan {
 
 namespace {
 
-/// Maps BufferUsage bits to VkBufferUsageFlags.
 VkBufferUsageFlags toVkBufferUsage(BufferUsage usage) {
     VkBufferUsageFlags flags = 0;
     if (hasFlag(usage, BufferUsage::CopySrc)) {
@@ -51,7 +45,6 @@ Result<BufferRef> VulkanBuffer::create(std::shared_ptr<VulkanDeviceHandle> devic
     buffer_info.usage = toVkBufferUsage(desc.usage);
     buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    // VMA_MEMORY_USAGE_AUTO picks the memory type from the usage and these host-access hints.
     VmaAllocationCreateInfo allocation_info{};
     allocation_info.usage = VMA_MEMORY_USAGE_AUTO;
     if (desc.memory == MemoryLocation::CpuToGpu) {
@@ -63,23 +56,29 @@ Result<BufferRef> VulkanBuffer::create(std::shared_ptr<VulkanDeviceHandle> devic
     VkBuffer buffer = VK_NULL_HANDLE;
     VmaAllocation allocation = VK_NULL_HANDLE;
     if (VkResult result =
-            vmaCreateBuffer(device->m_allocator, &buffer_info, &allocation_info, &buffer, &allocation, nullptr);
+            vmaCreateBuffer(device->m_allocator.get(), &buffer_info, &allocation_info, &buffer, &allocation, nullptr);
         result != VK_SUCCESS) {
         return toError(result, "vmaCreateBuffer");
     }
-    return BufferRef(std::make_shared<VulkanBuffer>(std::move(device), std::move(desc), buffer, allocation));
+
+    VmaAllocationPtr owned_allocation(allocation, {device->m_allocator.get()});
+    vk::raii::Buffer owned_buffer(device->m_device, buffer, nullptr);
+    return BufferRef(std::make_shared<VulkanBuffer>(std::move(device), std::move(desc), std::move(owned_allocation),
+                                                    std::move(owned_buffer)));
 }
 
-VulkanBuffer::VulkanBuffer(std::shared_ptr<VulkanDeviceHandle> device, BufferDesc desc, VkBuffer buffer,
-                           VmaAllocation allocation)
-    : m_desc(std::move(desc)), m_buffer(buffer), m_allocation(allocation), m_device(std::move(device)) {
+VulkanBuffer::VulkanBuffer(std::shared_ptr<VulkanDeviceHandle> device, BufferDesc desc, VmaAllocationPtr allocation,
+                           vk::raii::Buffer buffer)
+    : m_device(std::move(device)),
+      m_desc(std::move(desc)),
+      m_allocation(std::move(allocation)),
+      m_buffer(std::move(buffer)) {
 }
 
 VulkanBuffer::~VulkanBuffer() {
     if (m_mapped) {
-        vmaUnmapMemory(m_device->m_allocator, m_allocation);
+        vmaUnmapMemory(allocator(), m_allocation.get());
     }
-    vmaDestroyBuffer(m_device->m_allocator, m_buffer, m_allocation);
 }
 
 BufferDesc VulkanBuffer::getDesc() const {
@@ -104,13 +103,13 @@ MapResult VulkanBuffer::map(MapDesc desc) {
     }
 
     void* data = nullptr;
-    if (VkResult result = vmaMapMemory(m_device->m_allocator, m_allocation, &data); result != VK_SUCCESS) {
+    if (VkResult result = vmaMapMemory(allocator(), m_allocation.get(), &data); result != VK_SUCCESS) {
         return toError(result, "vmaMapMemory");
     }
-    // A no-op on coherent memory; needed to see GPU writes on non-coherent memory.
-    if (VkResult result = vmaInvalidateAllocation(m_device->m_allocator, m_allocation, desc.offset, desc.size);
+
+    if (VkResult result = vmaInvalidateAllocation(allocator(), m_allocation.get(), desc.offset, desc.size);
         result != VK_SUCCESS) {
-        vmaUnmapMemory(m_device->m_allocator, m_allocation);
+        vmaUnmapMemory(allocator(), m_allocation.get());
         return toError(result, "vmaInvalidateAllocation");
     }
     m_mapped = true;
@@ -122,8 +121,8 @@ void VulkanBuffer::unmap() {
     if (!m_mapped) {
         return;
     }
-    vmaFlushAllocation(m_device->m_allocator, m_allocation, m_mapped_range.offset, m_mapped_range.size);
-    vmaUnmapMemory(m_device->m_allocator, m_allocation);
+    vmaFlushAllocation(allocator(), m_allocation.get(), m_mapped_range.offset, m_mapped_range.size);
+    vmaUnmapMemory(allocator(), m_allocation.get());
     m_mapped = false;
 }
 

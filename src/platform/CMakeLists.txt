@@ -1,4 +1,3 @@
-
 if (APPLE)
     set(PLATFORM_FILES
         darwin/DarwinEventLoop.h
@@ -23,10 +22,12 @@ add_library(Platform
 
 if (APPLE)
     target_link_libraries(Platform PUBLIC "-framework Cocoa" Core)
-    # The content view hosts a CAMetalLayer for GPU surfaces.
+
     target_link_libraries(Platform PRIVATE "-framework QuartzCore")
 elseif (WIN32)
     target_link_libraries(Platform PUBLIC user32 Core)
+
+    target_compile_definitions(Platform PRIVATE _WIN32_WINNT=0x0A00 WINVER=0x0A00)
 endif ()
 
 target_include_directories(Platform

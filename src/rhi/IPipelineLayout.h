@@ -8,14 +8,11 @@
 
 namespace rhi {
 
-/// Describes a pipeline layout to create with IDevice::createPipelineLayout.
 struct PipelineLayoutDesc {
-    /// Bind group index `i` in setBindGroup() (`set = i` in the shader) uses `bind_group_layouts[i]`. Retained.
     std::vector<BindGroupLayoutRef> bind_group_layouts;
     std::string label;
 };
 
-/// The list of bind group layouts a pipeline is compiled against. Retains its bind group layouts.
 class IPipelineLayout {
 public:
     virtual ~IPipelineLayout() = default;

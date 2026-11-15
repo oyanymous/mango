@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief VulkanRenderPass and VulkanRenderTarget.
- */
-
 #include "VulkanRenderPass.h"
 
 #include <vector>
@@ -14,34 +9,33 @@ namespace rhi::vulkan {
 
 namespace {
 
-VkAttachmentLoadOp toVkLoadOp(LoadOp op) {
+vk::AttachmentLoadOp toVkLoadOp(LoadOp op) {
     switch (op) {
     case LoadOp::Load:
-        return VK_ATTACHMENT_LOAD_OP_LOAD;
+        return vk::AttachmentLoadOp::eLoad;
     case LoadOp::Clear:
-        return VK_ATTACHMENT_LOAD_OP_CLEAR;
+        return vk::AttachmentLoadOp::eClear;
     case LoadOp::DontCare:
-        return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        return vk::AttachmentLoadOp::eDontCare;
     }
-    return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    return vk::AttachmentLoadOp::eDontCare;
 }
 
-VkAttachmentStoreOp toVkStoreOp(StoreOp op) {
-    return op == StoreOp::Store ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE;
+vk::AttachmentStoreOp toVkStoreOp(StoreOp op) {
+    return op == StoreOp::Store ? vk::AttachmentStoreOp::eStore : vk::AttachmentStoreOp::eDontCare;
 }
 
-/// One attachment description; it stays in @p layout for the whole pass.
-VkAttachmentDescription toVkAttachment(const AttachmentDesc& desc, VkImageLayout layout) {
-    VkAttachmentDescription attachment{};
-    attachment.format = toVkFormat(desc.format);
-    attachment.samples = static_cast<VkSampleCountFlagBits>(desc.sample_count);
-    attachment.loadOp = toVkLoadOp(desc.load_op);
-    attachment.storeOp = toVkStoreOp(desc.store_op);
-    attachment.stencilLoadOp = toVkLoadOp(desc.stencil_load_op);
-    attachment.stencilStoreOp = toVkStoreOp(desc.stencil_store_op);
-    attachment.initialLayout = layout;
-    attachment.finalLayout = layout;
-    return attachment;
+vk::AttachmentDescription toVkAttachment(const AttachmentDesc& desc, vk::ImageLayout layout) {
+    return vk::AttachmentDescription{
+        .format = toVkFormat(desc.format),
+        .samples = static_cast<vk::SampleCountFlagBits>(desc.sample_count),
+        .loadOp = toVkLoadOp(desc.load_op),
+        .storeOp = toVkStoreOp(desc.store_op),
+        .stencilLoadOp = toVkLoadOp(desc.stencil_load_op),
+        .stencilStoreOp = toVkStoreOp(desc.stencil_store_op),
+        .initialLayout = layout,
+        .finalLayout = layout,
+    };
 }
 
 } // namespace
@@ -51,56 +45,56 @@ Result<RenderPassRef> VulkanRenderPass::create(std::shared_ptr<VulkanDeviceHandl
         return Error{ErrorCode::InvalidArgument, "createRenderPass: the pass has no attachments"};
     }
 
-    std::vector<VkAttachmentDescription> attachments;
-    std::vector<VkAttachmentReference> color_refs;
+    std::vector<vk::AttachmentDescription> attachments;
+    std::vector<vk::AttachmentReference> color_refs;
     for (const AttachmentDesc& color : desc.color_attachments) {
         if (color.format == Format::Undefined) {
             return Error{ErrorCode::InvalidArgument, "createRenderPass: colour attachment format is Undefined"};
         }
-        color_refs.push_back(
-            {static_cast<std::uint32_t>(attachments.size()), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL});
-        attachments.push_back(toVkAttachment(color, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL));
+        color_refs.push_back({
+            .attachment = static_cast<std::uint32_t>(attachments.size()),
+            .layout = vk::ImageLayout::eColorAttachmentOptimal,
+        });
+        attachments.push_back(toVkAttachment(color, vk::ImageLayout::eColorAttachmentOptimal));
     }
-    VkAttachmentReference depth_ref{};
+    vk::AttachmentReference depth_ref{};
     if (desc.depth_stencil_attachment) {
         if (desc.depth_stencil_attachment->format == Format::Undefined) {
             return Error{ErrorCode::InvalidArgument, "createRenderPass: depth attachment format is Undefined"};
         }
-        depth_ref = {static_cast<std::uint32_t>(attachments.size()), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
+        depth_ref = {
+            .attachment = static_cast<std::uint32_t>(attachments.size()),
+            .layout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
+        };
         attachments.push_back(
-            toVkAttachment(*desc.depth_stencil_attachment, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL));
+            toVkAttachment(*desc.depth_stencil_attachment, vk::ImageLayout::eDepthStencilAttachmentOptimal));
     }
 
-    // No explicit subpass dependencies: callers transition attachments with ICommandBuffer::barrier into and
-    // out of the attachment states, and those barriers cover the load and store operations.
-    VkSubpassDescription subpass{};
-    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachmentCount = static_cast<std::uint32_t>(color_refs.size());
-    subpass.pColorAttachments = color_refs.data();
-    subpass.pDepthStencilAttachment = desc.depth_stencil_attachment ? &depth_ref : nullptr;
+    const vk::SubpassDescription subpass{
+        .pipelineBindPoint = vk::PipelineBindPoint::eGraphics,
+        .colorAttachmentCount = static_cast<std::uint32_t>(color_refs.size()),
+        .pColorAttachments = color_refs.data(),
+        .pDepthStencilAttachment = desc.depth_stencil_attachment ? &depth_ref : nullptr,
+    };
+    const vk::RenderPassCreateInfo pass_info{
+        .attachmentCount = static_cast<std::uint32_t>(attachments.size()),
+        .pAttachments = attachments.data(),
+        .subpassCount = 1,
+        .pSubpasses = &subpass,
+    };
 
-    VkRenderPassCreateInfo pass_info{};
-    pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    pass_info.attachmentCount = static_cast<std::uint32_t>(attachments.size());
-    pass_info.pAttachments = attachments.data();
-    pass_info.subpassCount = 1;
-    pass_info.pSubpasses = &subpass;
-
-    VkRenderPass render_pass = VK_NULL_HANDLE;
-    if (VkResult result = vkCreateRenderPass(device->m_device, &pass_info, nullptr, &render_pass);
-        result != VK_SUCCESS) {
-        return toError(result, "vkCreateRenderPass");
+    Result<vk::raii::RenderPass> render_pass =
+        check(device->m_device.createRenderPass(pass_info, nullptr), "vkCreateRenderPass");
+    if (!render_pass) {
+        return render_pass.error();
     }
-    return RenderPassRef(std::make_shared<VulkanRenderPass>(std::move(device), std::move(desc), render_pass));
+    return RenderPassRef(
+        std::make_shared<VulkanRenderPass>(std::move(device), std::move(desc), std::move(render_pass).value()));
 }
 
 VulkanRenderPass::VulkanRenderPass(std::shared_ptr<VulkanDeviceHandle> device, RenderPassDesc desc,
-                                   VkRenderPass render_pass)
-    : m_desc(std::move(desc)), m_render_pass(render_pass), m_device(std::move(device)) {
-}
-
-VulkanRenderPass::~VulkanRenderPass() {
-    vkDestroyRenderPass(m_device->m_device, m_render_pass, nullptr);
+                                   vk::raii::RenderPass render_pass)
+    : m_device(std::move(device)), m_desc(std::move(desc)), m_render_pass(std::move(render_pass)) {
 }
 
 RenderPassDesc VulkanRenderPass::getDesc() const {
@@ -120,7 +114,7 @@ Result<RenderTargetRef> VulkanRenderTarget::create(std::shared_ptr<VulkanDeviceH
         return Error{ErrorCode::InvalidArgument, "createRenderTarget: extent must be non-zero"};
     }
 
-    std::vector<VkImageView> views;
+    std::vector<vk::ImageView> views;
     for (const TextureViewRef& view : desc.color_attachments) {
         if (!view) {
             return Error{ErrorCode::InvalidArgument, "createRenderTarget: null colour attachment"};
@@ -131,30 +125,26 @@ Result<RenderTargetRef> VulkanRenderTarget::create(std::shared_ptr<VulkanDeviceH
         views.push_back(static_cast<const VulkanTextureView&>(*desc.depth_stencil_attachment).handle());
     }
 
-    VkFramebufferCreateInfo framebuffer_info{};
-    framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    framebuffer_info.renderPass = static_cast<const VulkanRenderPass&>(*desc.render_pass).handle();
-    framebuffer_info.attachmentCount = static_cast<std::uint32_t>(views.size());
-    framebuffer_info.pAttachments = views.data();
-    framebuffer_info.width = desc.extent.width;
-    framebuffer_info.height = desc.extent.height;
-    framebuffer_info.layers = 1;
-
-    VkFramebuffer framebuffer = VK_NULL_HANDLE;
-    if (VkResult result = vkCreateFramebuffer(device->m_device, &framebuffer_info, nullptr, &framebuffer);
-        result != VK_SUCCESS) {
-        return toError(result, "vkCreateFramebuffer");
+    const vk::FramebufferCreateInfo framebuffer_info{
+        .renderPass = static_cast<const VulkanRenderPass&>(*desc.render_pass).handle(),
+        .attachmentCount = static_cast<std::uint32_t>(views.size()),
+        .pAttachments = views.data(),
+        .width = desc.extent.width,
+        .height = desc.extent.height,
+        .layers = 1,
+    };
+    Result<vk::raii::Framebuffer> framebuffer =
+        check(device->m_device.createFramebuffer(framebuffer_info, nullptr), "vkCreateFramebuffer");
+    if (!framebuffer) {
+        return framebuffer.error();
     }
-    return RenderTargetRef(std::make_shared<VulkanRenderTarget>(std::move(device), std::move(desc), framebuffer));
+    return RenderTargetRef(
+        std::make_shared<VulkanRenderTarget>(std::move(device), std::move(desc), std::move(framebuffer).value()));
 }
 
 VulkanRenderTarget::VulkanRenderTarget(std::shared_ptr<VulkanDeviceHandle> device, RenderTargetDesc desc,
-                                       VkFramebuffer framebuffer)
-    : m_desc(std::move(desc)), m_framebuffer(framebuffer), m_device(std::move(device)) {
-}
-
-VulkanRenderTarget::~VulkanRenderTarget() {
-    vkDestroyFramebuffer(m_device->m_device, m_framebuffer, nullptr);
+                                       vk::raii::Framebuffer framebuffer)
+    : m_device(std::move(device)), m_desc(std::move(desc)), m_framebuffer(std::move(framebuffer)) {
 }
 
 RenderTargetDesc VulkanRenderTarget::getDesc() const {

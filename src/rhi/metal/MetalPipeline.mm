@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief MetalBindGroupLayout, MetalPipelineLayout (binding remap) and MetalPipeline creation.
- */
-
 #include "MetalPipeline.h"
 
 #include <algorithm>
@@ -17,12 +12,10 @@ namespace rhi::metal {
 
 namespace {
 
-/// Argument-table sizes available to bind groups (buffers stop below the vertex buffers).
 constexpr std::uint32_t kMaxBindGroupBuffers = kVertexBufferBase + 1 - 8;
-constexpr std::uint32_t kMaxTextures = 128; /**< Textures per stage on every Mac2-family GPU. */
-constexpr std::uint32_t kMaxSamplers = 16;  /**< Samplers per stage. */
+constexpr std::uint32_t kMaxTextures = 128;
+constexpr std::uint32_t kMaxSamplers = 16;
 
-/// The Metal vertex format of an attribute Format, or `MTLVertexFormatInvalid`.
 MTLVertexFormat toMTLVertexFormat(Format format) {
     switch (format) {
     case Format::R8Unorm:
@@ -54,7 +47,6 @@ MTLVertexFormat toMTLVertexFormat(Format format) {
     }
 }
 
-/// The Metal blend factor of a BlendFactor.
 MTLBlendFactor toMTLBlendFactor(BlendFactor factor) {
     switch (factor) {
     case BlendFactor::Zero:
@@ -81,7 +73,6 @@ MTLBlendFactor toMTLBlendFactor(BlendFactor factor) {
     return MTLBlendFactorOne;
 }
 
-/// The Metal blend operation of a BlendOp.
 MTLBlendOperation toMTLBlendOperation(BlendOp op) {
     switch (op) {
     case BlendOp::Add:
@@ -98,7 +89,6 @@ MTLBlendOperation toMTLBlendOperation(BlendOp op) {
     return MTLBlendOperationAdd;
 }
 
-/// The Metal colour write mask of a ColorWriteMask.
 MTLColorWriteMask toMTLColorWriteMask(ColorWriteMask mask) {
     MTLColorWriteMask result = MTLColorWriteMaskNone;
     if (hasFlag(mask, ColorWriteMask::Red)) {
@@ -116,7 +106,6 @@ MTLColorWriteMask toMTLColorWriteMask(ColorWriteMask mask) {
     return result;
 }
 
-/// What draws assemble, and the topology class the pipeline needs, for a PrimitiveTopology.
 std::pair<MTLPrimitiveType, MTLPrimitiveTopologyClass> toMTLPrimitive(PrimitiveTopology topology) {
     switch (topology) {
     case PrimitiveTopology::PointList:
@@ -133,7 +122,6 @@ std::pair<MTLPrimitiveType, MTLPrimitiveTopologyClass> toMTLPrimitive(PrimitiveT
     return {MTLPrimitiveTypeTriangle, MTLPrimitiveTopologyClassTriangle};
 }
 
-/// Compiles @p shader for @p layout, after checking it is a MetalShader of @p stage.
 Result<MetalFunction> compileStage(const ShaderRef& shader, ShaderStage stage, const MetalPipelineLayout& layout) {
     if (!shader) {
         return Error{ErrorCode::InvalidArgument, "pipeline: a required shader is null"};
@@ -145,13 +133,11 @@ Result<MetalFunction> compileStage(const ShaderRef& shader, ShaderStage stage, c
     return metal_shader.compile(layout);
 }
 
-/// Error from a failed Metal pipeline state creation.
 Error pipelineError(const char* what, NSError* error) {
     return Error{ErrorCode::InitializationFailed,
                  std::string(what) + " failed: " + (error ? error.localizedDescription.UTF8String : "unknown error")};
 }
 
-/// The Metal stencil operation of a StencilOp.
 MTLStencilOperation toMTLStencilOperation(StencilOp op) {
     switch (op) {
     case StencilOp::Keep:
@@ -258,7 +244,7 @@ Result<PipelineRef> MetalPipeline::createGraphics(std::shared_ptr<MetalDeviceCon
     }
     MTLRenderPipelineDescriptor* descriptor = [[MTLRenderPipelineDescriptor alloc] init];
     descriptor.vertexFunction = vertex->function;
-    // No fragment shader: a depth-only pipeline.
+
     if (desc.fragment_shader) {
         Result<MetalFunction> fragment = compileStage(desc.fragment_shader, ShaderStage::Fragment, layout);
         if (!fragment) {
@@ -314,7 +300,7 @@ Result<PipelineRef> MetalPipeline::createGraphics(std::shared_ptr<MetalDeviceCon
     descriptor.rasterSampleCount = samples;
     const auto [primitive_type, topology_class] = toMTLPrimitive(desc.topology);
     descriptor.inputPrimitiveTopology = topology_class;
-    if (!desc.label.empty()) { // a descriptor's label must not be nil
+    if (!desc.label.empty()) {
         descriptor.label = toNSString(desc.label);
     }
 
@@ -359,7 +345,7 @@ Result<PipelineRef> MetalPipeline::createGraphics(std::shared_ptr<MetalDeviceCon
         pipeline->m_cull_mode = MTLCullModeBack;
         break;
     }
-    // With the flipped vertex Y, window-space winding matches Vulkan's, so the front face maps directly.
+
     pipeline->m_front_face =
         desc.raster.front_face == FrontFace::Clockwise ? MTLWindingClockwise : MTLWindingCounterClockwise;
     pipeline->m_fill_mode = desc.raster.wireframe ? MTLTriangleFillModeLines : MTLTriangleFillModeFill;
@@ -379,7 +365,7 @@ Result<PipelineRef> MetalPipeline::createCompute(std::shared_ptr<MetalDeviceCont
 
     MTLComputePipelineDescriptor* descriptor = [[MTLComputePipelineDescriptor alloc] init];
     descriptor.computeFunction = compute->function;
-    if (!desc.label.empty()) { // a descriptor's label must not be nil
+    if (!desc.label.empty()) {
         descriptor.label = toNSString(desc.label);
     }
     NSError* error = nil;

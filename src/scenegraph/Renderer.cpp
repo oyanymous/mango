@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief sg::Renderer: GPU pools, batching, damage tracking, layers, stencil clips and presentation.
- */
-
 #include "Renderer.h"
 
 #include <algorithm>
@@ -31,7 +26,6 @@
 #include "texture.frag.h"
 #endif
 
-/// Evaluates a Result-returning expression and returns its error from the enclosing function.
 #define SG_TRY(expr)                                                                                                   \
     do {                                                                                                               \
         if (auto sg_try_result = (expr); !sg_try_result) {                                                             \
@@ -39,7 +33,6 @@
         }                                                                                                              \
     } while (false)
 
-/// Assigns the value of a Result-returning expression to @p lhs, or returns its error.
 #define SG_ASSIGN(lhs, expr)                                                                                           \
     do {                                                                                                               \
         auto sg_assign_result = (expr);                                                                                \
@@ -56,47 +49,41 @@ namespace {
 constexpr std::size_t kFramesInFlight = 2;
 constexpr rhi::Format kCanvasFormat = rhi::Format::RGBA8Unorm;
 constexpr rhi::Format kSwapchainFormat = rhi::Format::BGRA8Unorm;
-constexpr std::uint32_t kBackgroundSlot = 0;           // slot 0 holds the clear colour
-constexpr std::uint32_t kBackgroundVertexCount = 3;    // vertices 0..2: a triangle covering any target
-constexpr std::uint32_t kClipVertexCount = 6;          // a stencil clip's rectangle, as a triangle list
-constexpr std::uint32_t kLayerTextureGranularity = 64; // layer textures grow in steps, to avoid reallocating
+constexpr std::uint32_t kBackgroundSlot = 0;
+constexpr std::uint32_t kBackgroundVertexCount = 3;
+constexpr std::uint32_t kClipVertexCount = 6;
+constexpr std::uint32_t kLayerTextureGranularity = 64;
 
-/// A vertex as the GPU sees it: Vertex plus the node's slot (24 bytes).
 struct GpuVertex {
     float x, y, u, v;
-    std::uint32_t rgba; // premultiplied
+    std::uint32_t rgba;
     std::uint32_t slot;
 };
 static_assert(sizeof(GpuVertex) == 24);
 
-/// One node's slot in the node storage buffer (std430, 48 bytes).
 struct NodeData {
-    float matrix[4];              // a, b, c, d
-    float translation_opacity[4]; // tx, ty, opacity, unused
-    float color[4];               // premultiplied
+    float matrix[4];
+    float translation_opacity[4];
+    float color[4];
 };
 static_assert(sizeof(NodeData) == 48);
 
-/// The view uniform: a render target's pixel origin and 2 / size.
 struct ViewData {
     float origin_x, origin_y, scale_x, scale_y;
 };
 
-/// Premultiplies a straight-alpha RGBA8 colour packed with packRgba8.
 std::uint32_t premultiply(std::uint32_t rgba) {
     const std::uint32_t a = rgba >> 24;
     const auto channel = [a](std::uint32_t c) { return (c * a + 127) / 255; };
     return channel(rgba & 0xff) | (channel((rgba >> 8) & 0xff) << 8) | (channel((rgba >> 16) & 0xff) << 16) | (a << 24);
 }
 
-/// A slot's contents.
 NodeData nodeData(const Transform2D& m, float opacity, ColorF color) {
     return {{m.a, m.b, m.c, m.d},
             {m.tx, m.ty, opacity, 0.0f},
             {color.r * color.a, color.g * color.a, color.b * color.a, color.a}};
 }
 
-/// The next power of two >= @p value (and >= @p minimum).
 std::uint64_t growTo(std::uint64_t value, std::uint64_t minimum) {
     std::uint64_t size = minimum;
     while (size < value) {
@@ -105,30 +92,27 @@ std::uint64_t growTo(std::uint64_t value, std::uint64_t minimum) {
     return size;
 }
 
-/// @p value rounded up to a multiple of @p alignment.
 std::uint64_t alignUp(std::uint64_t value, std::uint64_t alignment) {
     return (value + alignment - 1) / alignment * alignment;
 }
 
-/// A GPU-only buffer with a CPU mirror; writes go to the mirror and are uploaded as dirty byte ranges.
 struct GpuPool {
     rhi::BufferUsage usage = rhi::BufferUsage::None;
     rhi::ResourceState read_state = rhi::ResourceState::Undefined;
     std::string label;
     std::vector<std::byte> mirror;
-    std::vector<std::pair<std::uint64_t, std::uint64_t>> dirty; // [begin, end) byte ranges
+    std::vector<std::pair<std::uint64_t, std::uint64_t>> dirty;
     rhi::BufferRef buffer;
     std::uint64_t buffer_size = 0;
-    bool used = false;            // the GPU has read the buffer (so a barrier from read_state is needed)
-    std::uint64_t generation = 0; // bumped when the buffer is replaced (bind groups referencing it are stale)
+    bool used = false;
+    std::uint64_t generation = 0;
 
-    /// Makes the mirror at least @p bytes long; the GPU buffer follows at the next upload.
     void reserve(std::uint64_t bytes) {
         if (mirror.size() < bytes) {
             mirror.resize(growTo(bytes, 256));
         }
     }
-    /// Copies @p size bytes into the mirror; marks them dirty only if they changed. @return Whether they did.
+
     bool write(std::uint64_t offset, const void* data, std::uint64_t size) {
         reserve(offset + size);
         if (std::memcmp(mirror.data() + offset, data, size) == 0) {
@@ -138,17 +122,17 @@ struct GpuPool {
         dirty.emplace_back(offset, offset + size);
         return true;
     }
-    /// Marks every byte dirty.
+
     void markAllDirty() {
         dirty.clear();
         if (!mirror.empty()) {
             dirty.emplace_back(0, mirror.size());
         }
     }
-    /// Sorts and merges the dirty ranges (gaps under 256 bytes are uploaded too, for fewer copies).
+
     void coalesce() {
         if (buffer_size < mirror.size()) {
-            markAllDirty(); // the buffer will be recreated: upload everything
+            markAllDirty();
             return;
         }
         std::ranges::sort(dirty);
@@ -164,7 +148,6 @@ struct GpuPool {
     }
 };
 
-/// Key of a content pipeline.
 struct PipelineKey {
     bool lines = false;
     bool textured = false;
@@ -174,22 +157,20 @@ struct PipelineKey {
 
 struct Target;
 
-/// What the renderer keeps for each GeometryNode and LayerNode it draws.
 struct DrawItem {
     Node* node = nullptr;
-    Target* target = nullptr; // where it is drawn
+    Target* target = nullptr;
     std::uint32_t slot = 0;
     std::uint32_t vertex_offset = 0;
     std::uint32_t vertex_count = 0;
-    std::vector<std::uint32_t> indices; // list indices, local to the node's vertices
+    std::vector<std::uint32_t> indices;
     bool lines = false;
-    rhi::BindGroupRef texture_group; // null: colour pipeline
+    rhi::BindGroupRef texture_group;
     const ClipContext* clip = nullptr;
-    IntRect bounds; // last drawn pixels in the target; empty when invisible
+    IntRect bounds;
     std::uint32_t index_pos = 0;
 };
 
-/// A run of consecutive items drawn with one indexed draw.
 struct Batch {
     bool lines = false;
     rhi::BindGroupRef texture_group;
@@ -201,10 +182,9 @@ struct Batch {
     IntRect bounds;
 };
 
-/// A render target: the window canvas, or a LayerNode's texture.
 struct Target {
-    LayerNode* layer = nullptr; // null for the canvas
-    int depth = 0;              // layers nested above this one
+    LayerNode* layer = nullptr;
+    int depth = 0;
     std::vector<DrawItem*> items;
     std::vector<Batch> batches;
     bool order_dirty = true;
@@ -219,21 +199,19 @@ struct Target {
     rhi::BindGroupRef group0;
     std::uint64_t group0_generation = ~0ull;
 
-    // Pixels: the canvas covers [0, extent); a layer covers `bounds` of its own pixel space.
     rhi::Extent2D extent;
     IntRect bounds;
     rhi::TextureRef color;
     rhi::TextureRef depth_stencil;
     rhi::RenderTargetRef render_target;
-    rhi::BindGroupRef sample_group; // layers: the texture as a TextureMaterial bind group
+    rhi::BindGroupRef sample_group;
     rhi::ResourceState color_state = rhi::ResourceState::Undefined;
 
-    bool content_dirty = true; // layers: re-render the texture
-    bool quad_dirty = true;    // layers: the quad in the parent target needs refreshing
-    DamageRegion damage;       // canvas only
+    bool content_dirty = true;
+    bool quad_dirty = true;
+    DamageRegion damage;
 };
 
-/// A stencil clip's GPU data: its rectangle as 6 vertices, and a slot with its world transform.
 struct ClipItem {
     std::uint32_t slot = 0;
     std::uint32_t vertex_offset = 0;
@@ -242,7 +220,6 @@ struct ClipItem {
     Target* target = nullptr;
 };
 
-/// A sg::Texture's GPU copy.
 struct GpuTexture {
     std::weak_ptr<Texture> source;
     rhi::TextureRef texture;
@@ -250,7 +227,6 @@ struct GpuTexture {
     rhi::BindGroupRef nearest_group;
 };
 
-/// Per-frame-in-flight objects; the fence guards them all.
 struct Frame {
     rhi::CommandBufferRef command_buffer;
     rhi::FenceRef fence;
@@ -259,7 +235,6 @@ struct Frame {
     std::uint64_t staging_size = 0;
 };
 
-/// One copy recorded in the upload pass.
 struct PendingCopy {
     std::uint64_t staging_offset = 0;
     std::uint64_t size = 0;
@@ -269,8 +244,6 @@ struct PendingCopy {
 
 } // namespace
 
-/// @cond INTERNAL
-// The renderer's state; observes the root and receives the update pass's findings. Hidden from the API docs.
 struct Renderer::Impl final : NodeObserver, UpdateVisitor {
     RendererDesc desc;
     rhi::QueueRef queue;
@@ -279,7 +252,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
     FrameStats stats;
     std::uint64_t frame_counter = 0;
 
-    // Size.
     rhi::Extent2D size;
     float dpr = 1.0f;
     bool resize_pending = true;
@@ -287,20 +259,18 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
     float pending_dpr = 1.0f;
     bool force_all = true;
 
-    // Fixed GPU objects.
     rhi::BindGroupLayoutRef group0_layout;
     rhi::BindGroupLayoutRef texture_layout;
     rhi::PipelineLayoutRef content_layout;
     rhi::PipelineLayoutRef composite_layout;
     rhi::ShaderRef node_vert, color_frag, texture_frag, composite_vert, composite_frag;
-    rhi::RenderPassRef canvas_pass; // colour loaded
-    rhi::RenderPassRef layer_pass;  // colour cleared
+    rhi::RenderPassRef canvas_pass;
+    rhi::RenderPassRef layer_pass;
     rhi::RenderPassRef composite_pass;
     std::map<PipelineKey, rhi::PipelineRef> content_pipelines;
     rhi::PipelineRef clear_pipeline, stencil_reset_pipeline, stencil_increment_pipeline, composite_pipeline;
     rhi::SamplerRef smooth_sampler, nearest_sampler;
 
-    // Pools.
     GpuPool vertices{rhi::BufferUsage::Vertex | rhi::BufferUsage::CopyDst, rhi::ResourceState::VertexBuffer,
                      "scenegraph vertices"};
     GpuPool slots{rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst, rhi::ResourceState::ShaderRead,
@@ -308,7 +278,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
     RangeAllocator vertex_ranges;
     RangeAllocator slot_ranges;
 
-    // Scene mirrors.
     Target canvas;
     std::unordered_map<const LayerNode*, std::unique_ptr<Target>> layers;
     std::unordered_map<const Node*, std::unique_ptr<DrawItem>> items;
@@ -316,7 +285,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
     std::unordered_map<std::uint64_t, GpuTexture> textures;
     std::vector<std::uint64_t> pending_texture_uploads;
 
-    // Presentation.
     std::array<Frame, kFramesInFlight> frames;
     std::size_t frame_index = 0;
     rhi::SwapchainRef swapchain;
@@ -324,8 +292,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
     std::vector<rhi::RenderTargetRef> backbuffer_targets;
     std::vector<rhi::SemaphoreRef> render_finished;
     rhi::BindGroupRef composite_group;
-
-    // ---- NodeObserver ----
 
     void nodeDirty() override { requestFrame(); }
 
@@ -338,8 +304,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         root = nullptr;
         resetScene();
     }
-
-    // ---- UpdateVisitor ----
 
     void geometryUpdated(GeometryNode& node, DirtyFlags flags, bool) override {
         Target& target = targetOf(node.layer());
@@ -380,7 +344,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         ClipItem& clip = clips[&node];
         clip.target = &target;
         const IntRect bounds = IntRect::covering(node.context().scissor).intersected(targetPixels(target));
-        // A clip change can reveal or hide pixels of children that did not change themselves.
+
         if (bounds != clip.bounds || node.usesStencil() || clip.has_stencil) {
             damage(target, clip.bounds);
             damage(target, bounds);
@@ -437,8 +401,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         }
     }
 
-    // ---- Scene bookkeeping ----
-
     void requestFrame() const {
         if (desc.request_frame) {
             desc.request_frame();
@@ -458,10 +420,9 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         return *target;
     }
 
-    /// The pixels of a target, in the space its items' bounds use.
     static IntRect targetPixels(const Target& target) {
         if (target.layer != nullptr) {
-            return IntRect{-(1 << 24), -(1 << 24), 1 << 25, 1 << 25}; // layers grow to fit their content
+            return IntRect{-(1 << 24), -(1 << 24), 1 << 25, 1 << 25};
         }
         return {0, 0, static_cast<std::int32_t>(target.extent.width), static_cast<std::int32_t>(target.extent.height)};
     }
@@ -506,7 +467,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         return slots.write(std::uint64_t{slot} * sizeof(NodeData), &data, sizeof(data));
     }
 
-    /// Writes an item's vertices and indices; reallocates when the vertex count changes. @return Changed.
     bool writeGeometry(DrawItem& item, const std::vector<Vertex>& source, std::vector<std::uint32_t> list_indices,
                        bool lines) {
         Target& target = *item.target;
@@ -516,7 +476,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
             vertex_ranges.free(item.vertex_offset, item.vertex_count);
             item.vertex_offset = allocateVertices(count);
             item.vertex_count = count;
-            target.batches_dirty = true; // absolute indices change
+            target.batches_dirty = true;
             changed = true;
         }
         std::vector<GpuVertex> data(count);
@@ -534,7 +494,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         } else if (list_indices != item.indices) {
             changed = true;
             if (!target.batches_dirty) {
-                // Same count: patch this item's slice of the target's index buffer in place.
                 std::vector<std::uint32_t> absolute(list_indices.size());
                 for (std::size_t i = 0; i < absolute.size(); ++i) {
                     absolute[i] = item.vertex_offset + list_indices[i];
@@ -547,7 +506,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         return changed;
     }
 
-    /// Pixels covered by @p local under @p world, grown by one pixel (rasterization) and clipped.
     static IntRect deviceBounds(const Transform2D& world, const RectF& local, const ClipContext* clip) {
         RectF rect = world.mapRect(local).adjusted(1.0f);
         if (clip != nullptr) {
@@ -567,7 +525,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         }
     }
 
-    /// Frees what the renderer holds for @p node and its subtree, damaging where they were drawn.
     void releaseSubtree(Node& node) {
         for (const std::unique_ptr<Node>& child : node.children()) {
             releaseSubtree(*child);
@@ -600,7 +557,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         }
     }
 
-    /// Forgets the whole scene; keeps GPU pools and pipelines.
     void resetScene() {
         items.clear();
         layers.clear();
@@ -617,7 +573,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         requestFrame();
     }
 
-    /// Reserves slot 0 and vertices 0..2 for the background triangle, and writes them.
     void reserveBackground() {
         if (slot_ranges.capacity() == 0) {
             slot_ranges.grow(256);
@@ -629,7 +584,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         [[maybe_unused]] std::optional<std::uint32_t> first = vertex_ranges.allocate(kBackgroundVertexCount);
         slots.reserve(std::uint64_t{slot_ranges.capacity()} * sizeof(NodeData));
         vertices.reserve(std::uint64_t{vertex_ranges.capacity()} * sizeof(GpuVertex));
-        // Larger than any render target (16384 pixels), wherever its origin is.
+
         constexpr float kFar = 1.0e5f;
         const std::array<GpuVertex, kBackgroundVertexCount> triangle = {{
             {-kFar, -kFar, 0.0f, 0.0f, 0xffffffffu, kBackgroundSlot},
@@ -640,7 +595,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         writeSlot(kBackgroundSlot, nodeData({}, 1.0f, desc.clear_color));
     }
 
-    /// The bind group for a material's texture (null without one); uploads the texture on first use.
     rhi::BindGroupRef textureGroup(const Material& material) {
         if (!material.texture) {
             return nullptr;
@@ -677,14 +631,10 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         return group ? *group : nullptr;
     }
 
-    /// Drops GPU copies of textures nobody references any more (in-flight frames keep their own refs).
     void collectTextures() {
         std::erase_if(textures, [](const auto& entry) { return entry.second.source.expired(); });
     }
 
-    // ---- Per-frame CPU work ----
-
-    /// Rebuilds a target's paint-ordered item list.
     void rebuildOrder(Target& target) {
         target.items.clear();
         Node* top = target.layer != nullptr ? static_cast<Node*>(target.layer) : static_cast<Node*>(root);
@@ -704,7 +654,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
                 target.items.push_back(it->second.get());
             }
             if (node.type() == Node::Type::Layer) {
-                return; // drawn into its own target
+                return;
             }
         }
         for (const std::unique_ptr<Node>& child : node.children()) {
@@ -712,7 +662,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         }
     }
 
-    /// Splits a target's items into batches and rewrites its index buffer.
     void rebuildBatches(Target& target) {
         target.batches.clear();
         std::size_t total = 0;
@@ -762,7 +711,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         target.bounds_dirty = false;
     }
 
-    /// Refreshes a layer's bounds, texture and quad, and damages the quad in its parent target when needed.
     rhi::Result<void> updateLayer(Target& layer) {
         DrawItem* item = items.count(layer.layer) != 0 ? items[layer.layer].get() : nullptr;
         if (item == nullptr) {
@@ -793,7 +741,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         }
         if (layer.quad_dirty) {
             const bool visible = !layer.bounds.isEmpty() && layer.layer->worldOpacity() > 0.0f;
-            // The quad, in the layer node's local units (layer pixels / pixel ratio).
+
             const float inv = 1.0f / dpr;
             const RectF local{layer.bounds.x * inv, layer.bounds.y * inv, layer.bounds.width * inv,
                               layer.bounds.height * inv};
@@ -819,12 +767,10 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
             parent.bounds_dirty = true;
             layer.quad_dirty = false;
         } else if (layer.content_dirty) {
-            damage(parent, item->bounds); // same quad, new pixels
+            damage(parent, item->bounds);
         }
         return {};
     }
-
-    // ---- GPU objects ----
 
     rhi::Result<void> createFixedObjects() {
 #if defined(MANGO_SCENEGRAPH_SHADERS)
@@ -857,7 +803,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         SG_ASSIGN(composite_vert, shader(rhi::ShaderStage::Vertex, composite_vert_spv, "composite.vert"));
         SG_ASSIGN(composite_frag, shader(rhi::ShaderStage::Fragment, composite_frag_spv, "composite.frag"));
 
-        // Depth is never used; the stencil buffer only holds rotated clips and starts cleared every pass.
         const auto pass = [&](rhi::LoadOp color_load, const char* name) {
             return device.createRenderPass({
                 .color_attachments = {{
@@ -955,7 +900,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         });
     }
 
-    /// (Re)creates a target's colour and depth-stencil textures at @p extent.
     rhi::Result<void> createTargetTextures(Target& target, rhi::Extent2D extent) {
         rhi::IDevice& device = *desc.device;
         SG_ASSIGN(target.color, device.createTexture({.format = kCanvasFormat,
@@ -981,7 +925,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         return {};
     }
 
-    /// Makes sure a target has its view uniform buffer and an up-to-date bind group 0.
     rhi::Result<void> prepareTargetBindings(Target& target) {
         if (!target.view_buffer) {
             SG_ASSIGN(target.view_buffer,
@@ -1003,12 +946,11 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         return {};
     }
 
-    /// Recreates a pool's GPU buffer when its mirror outgrew it.
     rhi::Result<void> preparePool(GpuPool& pool) {
         if (pool.mirror.empty() || pool.buffer_size >= pool.mirror.size()) {
             return {};
         }
-        // Grown in powers of two, so a slowly growing scene does not recreate the buffer every frame.
+
         const std::uint64_t buffer_size = growTo(pool.mirror.size(), 256);
         SG_ASSIGN(pool.buffer, desc.device->createBuffer({.size = buffer_size,
                                                           .usage = pool.usage,
@@ -1021,7 +963,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         return {};
     }
 
-    /// Applies a pending resize: new canvas, swapchain size, full redraw.
     rhi::Result<void> applyResize() {
         resize_pending = false;
         if (pending_dpr != dpr) {
@@ -1052,14 +993,11 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
             }
             swapchain_needs_resize = false;
         }
-        // Clips are clipped to the canvas, so their bounds depend on its size.
+
         force_all = true;
         return {};
     }
 
-    // ---- Recording ----
-
-    /// Uploads dirty pool ranges, view uniforms and new textures through the frame's staging buffer.
     rhi::Result<void> recordUploads(Frame& frame, rhi::ICommandBuffer& cmd) {
         SG_TRY(preparePool(vertices));
         SG_TRY(preparePool(slots));
@@ -1072,7 +1010,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
             SG_TRY(prepareTargetBindings(*target));
         }
 
-        // Plan every copy, then size the staging buffer once.
         std::vector<PendingCopy> copies;
         std::vector<std::pair<const std::byte*, std::uint64_t>> sources;
         std::uint64_t staging_size = 0;
@@ -1122,7 +1059,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
                 target->view_used = true;
             }
         }
-        // Textures: premultiplied on the way into the staging buffer.
+
         struct TextureCopy {
             std::uint64_t staging_offset;
             rhi::TextureRef texture;
@@ -1202,7 +1139,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         return {};
     }
 
-    /// Draws a target's batches that intersect @p rects (in the target's item pixel space).
     void recordTarget(rhi::ICommandBuffer& cmd, Target& target, const std::vector<IntRect>& rects) {
         cmd.barrier(
             {.textures = {
@@ -1257,8 +1193,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
                 }
                 const bool stencil = batch.clip != nullptr && !batch.clip->stencil_clips.empty();
                 if (stencil && (stencil_ready != batch.clip || stencil_rect != area)) {
-                    // Rebuild the clip mask in this area: zero it, then each clip increments where the previous ones
-                    // passed, so the pixels inside all N clips end at N.
                     scissor(area);
                     use(stencil_reset_pipeline);
                     pass->draw({.vertex_count = kBackgroundVertexCount});
@@ -1327,15 +1261,12 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         return render_finished[index];
     }
 
-    /// Waits until no frame is in flight.
     rhi::Result<void> waitIdle() {
         for (Frame& frame : frames) {
             SG_TRY(frame.fence->wait(rhi::kWaitForever));
         }
         return {};
     }
-
-    // ---- The frame ----
 
     rhi::Result<FrameStats> render() {
         stats = {};
@@ -1367,7 +1298,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
             }
             layer_list.push_back(layer.get());
         }
-        // Deepest first: a nested layer's quad is part of its parent's content.
+
         std::ranges::sort(layer_list, [](const Target* a, const Target* b) { return a->depth > b->depth; });
         std::vector<Target*> layers_to_render;
         for (Target* layer : layer_list) {
@@ -1395,7 +1326,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
         stats.batches += static_cast<std::uint32_t>(canvas.batches.size());
 
         if (canvas.damage.isEmpty() && layers_to_render.empty()) {
-            stats.skipped = true; // pending uploads (e.g. invisible nodes) wait for a frame that draws
+            stats.skipped = true;
             return stats;
         }
 
@@ -1414,7 +1345,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
                 return rhi::Error{rhi::ErrorCode::SurfaceLost, "sg::Renderer: swapchain acquire failed"};
             }
             if (acquired.status == rhi::AcquireStatus::Suboptimal) {
-                swapchain_needs_resize = true; // this image is still presented; resize before the next one
+                swapchain_needs_resize = true;
                 requestFrame();
             }
         }
@@ -1477,7 +1408,7 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
                 return presented.error();
             }
             swapchain_needs_resize = true;
-            canvas.damage.addAll(); // presented nothing; the canvas itself is fine, but redraw to be safe
+            canvas.damage.addAll();
             requestFrame();
         }
         frame_index = (frame_index + 1) % kFramesInFlight;
@@ -1531,8 +1462,6 @@ struct Renderer::Impl final : NodeObserver, UpdateVisitor {
     }
 };
 
-/// @endcond
-
 rhi::Result<std::unique_ptr<Renderer>> Renderer::create(RendererDesc desc) {
     if (!desc.device) {
         return rhi::Error{rhi::ErrorCode::InvalidArgument, "sg::Renderer::create: no device"};
@@ -1545,7 +1474,7 @@ rhi::Result<std::unique_ptr<Renderer>> Renderer::create(RendererDesc desc) {
     impl->queue = impl->desc.device->getQueue(rhi::QueueType::Graphics);
     impl->canvas.indices = {rhi::BufferUsage::Index | rhi::BufferUsage::CopyDst, rhi::ResourceState::IndexBuffer,
                             "scenegraph canvas indices"};
-    // Not every GPU has a D32 + S8 format (e.g. some Vulkan drivers only offer D24 + S8).
+
     if (!impl->desc.device->createTexture(
             {.format = rhi::Format::D32FloatS8Uint, .extent = {1, 1}, .usage = rhi::TextureUsage::DepthStencil})) {
         impl->depth_format = rhi::Format::D24UnormS8Uint;

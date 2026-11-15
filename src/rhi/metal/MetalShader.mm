@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief MetalShader: SPIR-V validation and SPIR-V -> MSL -> MTLFunction compilation with SPIRV-Cross.
- */
-
 #include "MetalShader.h"
 
 #include <exception>
@@ -17,10 +12,8 @@ namespace rhi::metal {
 
 namespace {
 
-/// First word of every SPIR-V module.
 constexpr std::uint32_t kSpirvMagic = 0x07230203;
 
-/// The SPIR-V execution model of a single stage, or nothing for None, a combination, or an unsupported stage.
 std::optional<spv::ExecutionModel> executionModel(ShaderStage stage) {
     switch (stage) {
     case ShaderStage::Vertex:
@@ -45,7 +38,7 @@ Result<ShaderRef> MetalShader::create(std::shared_ptr<MetalDeviceContext> contex
         return Error{ErrorCode::InvalidArgument,
                      "createShader: stage must be exactly one of Vertex, Fragment, Compute"};
     }
-    // Parse once now, so malformed SPIR-V or a wrong entry point fails here rather than at pipeline creation.
+
     try {
         spirv_cross::CompilerMSL compiler(desc.spirv);
         bool found = false;
@@ -81,10 +74,10 @@ Result<MetalFunction> MetalShader::compile(const MetalPipelineLayout& layout) co
 
         spirv_cross::CompilerMSL::Options options;
         options.platform = spirv_cross::CompilerMSL::Options::macOS;
-        options.set_msl_version(3, 0); // macOS 13, the oldest the backend supports
+        options.set_msl_version(3, 0);
         compiler.set_msl_options(options);
         spirv_cross::CompilerGLSL::Options common = compiler.get_common_options();
-        // Vulkan clip space has +Y down, Metal's +Y up; flipping keeps both backends' images identical.
+
         common.vertex.flip_vert_y = model == spv::ExecutionModelVertex;
         compiler.set_common_options(common);
 

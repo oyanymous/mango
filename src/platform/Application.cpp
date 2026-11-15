@@ -1,12 +1,6 @@
-/**
- * @file
- * @brief Application, the facade over PrivateApplication.
- */
-
 #include "Application.h"
 
 Application::Application() {
-    // Force NSApplication setup before any window is created.
     PrivateApplication::instance();
 }
 

@@ -1,10 +1,4 @@
-/**
- * @file
- * @brief Small Win32 helpers used by the Windows platform backend.
- */
-
 #include "win32_helpers.h"
-
 
 WNDCLASSW createWindowClass(const HINSTANCE& hInstance, const WNDPROC& wndProc, const LPCWSTR& className) {
     WNDCLASSW wc = {};
@@ -18,19 +12,11 @@ WNDCLASSW createWindowClass(const HINSTANCE& hInstance, const WNDPROC& wndProc, 
 }
 
 HWND createWindow(const HINSTANCE& hInstance, const LPCWSTR& className, const LPCWSTR& windowTitle) {
-    HWND hwnd = CreateWindowExW(0,                   // Optional window styles.
-                                className,           // Window class
-                                windowTitle,         // Window text
-                                WS_OVERLAPPEDWINDOW, // Window style
+    HWND hwnd = CreateWindowExW(0, className, windowTitle, WS_OVERLAPPEDWINDOW,
 
-                                // Size and position
                                 CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
 
-                                NULL,      // Parent window
-                                NULL,      // Menu
-                                hInstance, // Instance handle
-                                NULL       // Additional application data
-    );
+                                NULL, NULL, hInstance, NULL);
     return hwnd;
 }
 
@@ -38,10 +24,8 @@ std::wstring toWide(const std::string& str) {
     if (str.empty())
         return {};
 
-    // First call: ask how many wchar_t's are needed
     const int size = MultiByteToWideChar(CP_UTF8, 0, str.data(), static_cast<int>(str.size()), nullptr, 0);
 
-    // Second call: do the actual conversion into a buffer of that size
     std::wstring result(size, L'\0');
     MultiByteToWideChar(CP_UTF8, 0, str.data(), static_cast<int>(str.size()), result.data(), size);
     return result;

@@ -1,17 +1,3 @@
-/**
- * @file
- * @brief rhi_triangle: a window rendered with the RHI: a rotating textured quad over an animated clear colour.
- *
- * The quad is an indexed draw; its rotation comes from a per-frame uniform buffer, its texture is a checkerboard
- * uploaded through a staging buffer, and both reach the shaders through one bind group per frame in flight.
- *
- * Validation is on; every validation warning or error is printed, and the program exits non-zero if there was
- * any. Resizing and minimizing the window recreate the swapchain.
- *
- * Usage: `rhi_triangle [--backend vulkan|metal] [--frames N]`. Without `--backend` it uses the first available
- * backend; `--frames N` quits after N frames (for unattended runs), otherwise it runs until the window is closed.
- */
-
 #include <array>
 #include <cctype>
 #include <chrono>
@@ -39,10 +25,9 @@ namespace {
 constexpr std::size_t kFramesInFlight = 2;
 constexpr rhi::Format kBackbufferFormat = rhi::Format::BGRA8Unorm;
 
-/// One interleaved vertex: clip-space position (+y points down, on every backend) and texture coordinate.
 struct Vertex {
-    float x, y; /**< Position. */
-    float u, v; /**< Texture coordinate. */
+    float x, y;
+    float u, v;
 };
 
 constexpr std::array<Vertex, 4> kVertices = {{
@@ -52,29 +37,24 @@ constexpr std::array<Vertex, 4> kVertices = {{
     {-0.6f, 0.6f, 0.0f, 1.0f},
 }};
 
-/// The quad's two triangles.
 constexpr std::array<std::uint16_t, 6> kIndices = {0, 1, 2, 2, 3, 0};
 
-/// The vertex shader's uniform block (std140: one vec4).
 struct Transform {
-    float cos_angle, sin_angle; /**< Rotation. */
-    float x_scale;              /**< Height / width, so the quad stays square. */
-    float padding;              /**< Fills the vec4. */
+    float cos_angle, sin_angle;
+    float x_scale;
+    float padding;
 };
 
-/// Initial uniform contents: no rotation, no scale.
 constexpr Transform kNoTransform = {1.0f, 0.0f, 1.0f, 0.0f};
 
-/// Per-frame-in-flight objects; a frame's fence guards all of them.
 struct Frame {
     rhi::CommandBufferRef command_buffer;
-    rhi::FenceRef fence;           /**< Signaled when the frame's submit finished; created signaled. */
-    rhi::SemaphoreRef image_ready; /**< Signaled by acquire, waited by the submit. */
-    rhi::BufferRef uniforms;       /**< This frame's Transform; rewritten once the fence says the GPU is done. */
-    rhi::BindGroupRef bind_group;  /**< uniforms, the texture and the sampler. */
+    rhi::FenceRef fence;
+    rhi::SemaphoreRef image_ready;
+    rhi::BufferRef uniforms;
+    rhi::BindGroupRef bind_group;
 };
 
-/// The renderer's state: device objects plus everything that depends on the swapchain images.
 struct Renderer {
     rhi::DeviceRef device;
     rhi::QueueRef queue;
@@ -88,15 +68,13 @@ struct Renderer {
     rhi::BufferRef indices;
     std::array<Frame, kFramesInFlight> frames;
     std::size_t frame_index = 0;
-    // Indexed by swapchain image. A present's wait semaphore may only be reused once that image is acquired
-    // again, so "render finished" semaphores belong to images, not to frames.
+
     std::vector<rhi::SemaphoreRef> render_finished;
     std::vector<rhi::RenderTargetRef> targets;
     bool needs_resize = false;
     std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 };
 
-/// Unwraps a Result or exits with its error message.
 template <typename T>
 T orExit(rhi::Result<T> result, const char* what) {
     if (!result) {
@@ -108,7 +86,6 @@ T orExit(rhi::Result<T> result, const char* what) {
     }
 }
 
-/// A host-visible buffer holding @p bytes.
 rhi::BufferRef createFilledBuffer(rhi::IDevice& device, std::span<const std::byte> bytes, rhi::BufferUsage usage) {
     rhi::BufferRef buffer =
         orExit(device.createBuffer({.size = bytes.size(), .usage = usage, .memory = rhi::MemoryLocation::CpuToGpu}),
@@ -119,7 +96,6 @@ rhi::BufferRef createFilledBuffer(rhi::IDevice& device, std::span<const std::byt
     return buffer;
 }
 
-/// The pipeline drawing Vertex data with the sample's shaders into @p render_pass.
 rhi::PipelineRef createPipeline(rhi::IDevice& device, const rhi::RenderPassRef& render_pass,
                                 const rhi::BindGroupLayoutRef& bind_group_layout) {
     auto vertex_shader =
@@ -144,7 +120,6 @@ rhi::PipelineRef createPipeline(rhi::IDevice& device, const rhi::RenderPassRef& 
                   "createGraphicsPipeline");
 }
 
-/// A 64x64 checkerboard with a red/green gradient, uploaded and left in ResourceState::ShaderRead.
 rhi::TextureRef createCheckerTexture(rhi::IDevice& device, rhi::IQueue& queue) {
     constexpr std::uint32_t kSize = 64;
     std::vector<std::uint8_t> texels(kSize * kSize * 4);
@@ -185,7 +160,6 @@ rhi::TextureRef createCheckerTexture(rhi::IDevice& device, rhi::IQueue& queue) {
     return texture;
 }
 
-/// Recreates the swapchain at the window's size and drops everything built on the old images.
 void resize(Renderer& r, const Window& window) {
     const WindowSize size = window.clientSize();
     r.targets.clear();
@@ -198,7 +172,6 @@ void resize(Renderer& r, const Window& window) {
     r.needs_resize = false;
 }
 
-/// The render target for a backbuffer, created on first use after each resize.
 rhi::RenderTargetRef targetFor(Renderer& r, std::uint32_t image_index, const rhi::TextureRef& backbuffer) {
     if (r.targets.size() <= image_index) {
         r.targets.resize(image_index + 1);
@@ -215,7 +188,6 @@ rhi::RenderTargetRef targetFor(Renderer& r, std::uint32_t image_index, const rhi
     return r.targets[image_index];
 }
 
-/// The binary semaphore a present of @p image_index waits on.
 rhi::SemaphoreRef renderFinishedFor(Renderer& r, std::uint32_t image_index) {
     if (r.render_finished.size() <= image_index) {
         r.render_finished.resize(image_index + 1);
@@ -226,11 +198,9 @@ rhi::SemaphoreRef renderFinishedFor(Renderer& r, std::uint32_t image_index) {
     return r.render_finished[image_index];
 }
 
-/// Records, submits and presents one frame.
 void renderFrame(Renderer& r, const Window& window) {
     const WindowSize size = window.clientSize();
     if (size.width == 0 || size.height == 0) {
-        // Minimized: nothing to present; don't spin.
         std::this_thread::sleep_for(std::chrono::milliseconds(16));
         r.needs_resize = true;
         return;
@@ -252,15 +222,13 @@ void renderFrame(Renderer& r, const Window& window) {
         std::exit(EXIT_FAILURE);
     }
     if (acquired.status == rhi::AcquireStatus::Suboptimal) {
-        r.needs_resize = true; // still render this image; its semaphore is already pending
+        r.needs_resize = true;
     }
 
-    // Cycle the hue slowly so a stuck frame is obvious.
     const float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - r.start).count();
     const std::array<float, 4> color = {0.2f + 0.2f * std::sin(t), 0.2f + 0.2f * std::sin(t + 2.094f),
                                         0.2f + 0.2f * std::sin(t + 4.189f), 1.0f};
 
-    // The fence wait above means the GPU no longer reads this frame's uniforms.
     const Transform transform{std::cos(t * 0.8f), std::sin(t * 0.8f),
                               static_cast<float>(size.height) / static_cast<float>(size.width), 0.0f};
     std::span<std::byte> mapped = orExit(frame.uniforms->map({}), "map uniforms");
@@ -310,7 +278,6 @@ void renderFrame(Renderer& r, const Window& window) {
     r.frame_index = (r.frame_index + 1) % kFramesInFlight;
 }
 
-/// The backend named by `--backend`, or the first available one. Exits on an unknown or unavailable name.
 rhi::Backend chooseBackend(int argc, char** argv, const rhi::RHIFactory& factory) {
     const rhi::BackendList available = factory.availableBackends();
     for (int i = 1; i + 1 < argc; ++i) {
@@ -337,7 +304,6 @@ rhi::Backend chooseBackend(int argc, char** argv, const rhi::RHIFactory& factory
     return available[0];
 }
 
-/// The value of `--frames`, or 0 (run until the window is closed).
 std::uint64_t frameLimit(int argc, char** argv) {
     for (int i = 1; i + 1 < argc; ++i) {
         if (std::string_view(argv[i]) == "--frames") {
@@ -355,7 +321,6 @@ int main(int argc, char** argv) {
     const rhi::Backend backend = chooseBackend(argc, argv, factory);
     std::printf("Backend: %s\n", std::string(rhi::toString(backend)).c_str());
 
-    // Before the window: on macOS creating a window initializes Metal, after which validation cannot be turned on.
     int problems = 0;
     auto instance = orExit(factory.createInstance(backend,
                                                   {
@@ -446,7 +411,7 @@ int main(int argc, char** argv) {
 
         Application::setFrameCallback({});
         window.setResizeCallback({});
-        // Renderer is destroyed in any order: the queue keeps in-flight objects alive and waits for idle last.
+
         std::printf("Rendered %llu frames\n", static_cast<unsigned long long>(frames));
     }
 

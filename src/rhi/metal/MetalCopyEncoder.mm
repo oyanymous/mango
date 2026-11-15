@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief MetalCopyEncoder: buffer copies on a blit encoder.
- */
-
 #include "MetalCopyEncoder.h"
 
 #include <utility>
@@ -15,13 +10,11 @@ namespace rhi::metal {
 
 namespace {
 
-/// A texel offset as an `MTLOrigin`.
 MTLOrigin toMTLOrigin(const Offset3D& offset) {
     return MTLOriginMake(static_cast<NSUInteger>(offset.x), static_cast<NSUInteger>(offset.y),
                          static_cast<NSUInteger>(offset.z));
 }
 
-/// An extent as an `MTLSize`.
 MTLSize toMTLSize(const Extent3D& extent) {
     return MTLSizeMake(extent.width, extent.height, extent.depth);
 }
@@ -82,12 +75,11 @@ void MetalCopyEncoder::copyBufferTexture(BufferTextureCopyDesc desc) {
     const auto& texture = static_cast<const MetalTexture&>(*desc.texture.texture);
     const TextureDesc texture_desc = texture.getDesc();
 
-    // 0 means tightly packed in the RHI, as in Vulkan; Metal wants the pitches in bytes.
     const std::uint32_t row_texels = desc.buffer.row_length != 0 ? desc.buffer.row_length : desc.extent.width;
     const std::uint32_t image_rows = desc.buffer.image_height != 0 ? desc.buffer.image_height : desc.extent.height;
     const NSUInteger bytes_per_row = static_cast<NSUInteger>(row_texels) * bytesPerTexel(texture_desc.format);
     const NSUInteger bytes_per_image = bytes_per_row * image_rows;
-    // Buffer copies take one plane; for depth/stencil formats that is depth, as in the Vulkan backend.
+
     const MTLBlitOption options =
         hasStencil(texture_desc.format) ? MTLBlitOptionDepthFromDepthStencil : MTLBlitOptionNone;
 

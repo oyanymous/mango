@@ -8,27 +8,22 @@
 
 namespace sg {
 
-/**
- * Draws a Geometry with a Material, in its parent's coordinates.
- *
- * The only node that produces draw calls. Children are drawn on top of it.
- */
 class GeometryNode : public Node {
 public:
     GeometryNode() : Node(Type::Geometry) {}
-    /// A node drawing @p geometry with @p material.
+
     GeometryNode(Geometry geometry, Material material)
         : Node(Type::Geometry), m_geometry(std::move(geometry)), m_material(std::move(material)) {}
 
     [[nodiscard]] const Geometry& geometry() const { return m_geometry; }
-    /// Replaces the geometry. Same vertex and index counts update in place; other sizes rebuild batches.
+
     void setGeometry(Geometry geometry) {
         m_geometry = std::move(geometry);
         markDirty(DirtyFlags::Geometry);
     }
 
     [[nodiscard]] const Material& material() const { return m_material; }
-    /// Replaces the material; see Material for what each change costs. No effect if it is equal.
+
     void setMaterial(Material material) {
         const bool same_batch = material.batchesWith(m_material);
         if (same_batch && material.color == m_material.color) {
@@ -42,15 +37,13 @@ private:
     Material m_material;
 };
 
-/// A solid-colour rectangle.
 class RectangleNode : public GeometryNode {
 public:
-    /// A rectangle at @p rect (local coordinates) filled with @p color.
     explicit RectangleNode(const RectF& rect = {}, ColorF color = ColorF::white())
         : GeometryNode(Geometry::rectangle(rect), Material::flatColor(color)), m_rect(rect) {}
 
     [[nodiscard]] const RectF& rect() const { return m_rect; }
-    /// Moves or resizes the rectangle (updates four vertices in place).
+
     void setRect(const RectF& rect) {
         if (rect != m_rect) {
             m_rect = rect;
@@ -58,28 +51,26 @@ public:
         }
     }
     [[nodiscard]] ColorF color() const { return material().color; }
-    /// Changes the fill colour (updates one GPU slot).
+
     void setColor(ColorF color) { setMaterial(Material::flatColor(color)); }
 private:
     RectF m_rect;
 };
 
-/// A rectangle showing a texture, stretched to fit.
 class ImageNode : public GeometryNode {
 public:
-    /// An image of @p texture at @p rect (local coordinates).
     ImageNode(const RectF& rect, std::shared_ptr<Texture> texture, bool smooth = true)
         : GeometryNode(Geometry::rectangle(rect), Material::textured(std::move(texture), smooth)), m_rect(rect) {}
 
     [[nodiscard]] const RectF& rect() const { return m_rect; }
-    /// Moves or resizes the image (updates four vertices in place).
+
     void setRect(const RectF& rect) {
         if (rect != m_rect) {
             m_rect = rect;
             setGeometry(Geometry::rectangle(rect));
         }
     }
-    /// Shows another texture (rebuilds batches).
+
     void setTexture(std::shared_ptr<Texture> texture, bool smooth = true) {
         setMaterial(Material::textured(std::move(texture), smooth, material().color));
     }

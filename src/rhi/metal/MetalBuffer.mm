@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief MetalBuffer: buffer creation and mapping.
- */
-
 #include "MetalBuffer.h"
 
 #include <utility>
@@ -17,7 +12,6 @@ Result<BufferRef> MetalBuffer::create(std::shared_ptr<MetalDeviceContext> contex
         return Error{ErrorCode::OutOfDeviceMemory, "createBuffer: size exceeds the device's maxBufferLength"};
     }
 
-    // Shared memory is CPU-visible and coherent; Private is GPU-only (and faster on discrete GPUs).
     const MTLResourceOptions options =
         desc.memory == MemoryLocation::GpuOnly ? MTLResourceStorageModePrivate : MTLResourceStorageModeShared;
     id<MTLBuffer> buffer = [context->device newBufferWithLength:desc.size options:options];
@@ -57,7 +51,6 @@ MapResult MetalBuffer::map(MapDesc desc) {
 }
 
 void MetalBuffer::unmap() {
-    // Shared storage is coherent: nothing to flush.
     m_mapped = false;
 }
 

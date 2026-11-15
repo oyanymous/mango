@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief sg::Geometry: bounds, list conversion and shape helpers.
- */
-
 #include "Geometry.h"
 
 #include <algorithm>
@@ -25,7 +20,7 @@ Geometry::Geometry(DrawMode mode, std::vector<Vertex> vertices, std::vector<std:
         x1 = std::max(x1, vertex.x);
         y1 = std::max(y1, vertex.y);
     }
-    // Lines along an axis have no area; give them a hairline so they still produce damage and draw.
+
     if (isLines()) {
         x1 = std::max(x1, x0 + 1.0f);
         y1 = std::max(y1, y0 + 1.0f);
@@ -73,7 +68,7 @@ Geometry Geometry::polyline(std::span<const PointF> points, float width, bool cl
         if (length <= 0.0f) {
             continue;
         }
-        // Normal and direction scaled to half the width; extending along the direction squares the joints.
+
         const float nx = -dy / length * half;
         const float ny = dx / length * half;
         const float ex = dx / length * half;
@@ -96,7 +91,7 @@ std::vector<std::uint32_t> Geometry::listIndices() const {
             source[i] = static_cast<std::uint32_t>(i);
         }
     }
-    // Indices past the end would read other nodes' vertices from the shared pool; drop such primitives.
+
     const auto valid = [this](std::uint32_t index) { return index < m_vertices.size(); };
     std::vector<std::uint32_t> out;
     switch (m_mode) {
@@ -109,7 +104,6 @@ std::vector<std::uint32_t> Geometry::listIndices() const {
         break;
     case DrawMode::TriangleStrip:
         for (std::size_t i = 0; i + 2 < source.size(); ++i) {
-            // Every other triangle swaps two vertices to keep a consistent winding.
             const std::uint32_t a = source[i];
             const std::uint32_t b = source[i + (i % 2 == 0 ? 1 : 2)];
             const std::uint32_t c = source[i + (i % 2 == 0 ? 2 : 1)];

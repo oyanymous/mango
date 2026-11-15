@@ -1,6 +1,6 @@
 #version 450
 
-layout(set = 1, binding = 0) uniform texture2D u_texture; // premultiplied alpha
+layout(set = 1, binding = 0) uniform texture2D u_texture;
 layout(set = 1, binding = 1) uniform sampler u_sampler;
 
 layout(location = 0) in vec2 in_uv;

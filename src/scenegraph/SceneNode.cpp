@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief sg::Node and sg::RootNode: tree operations and dirty propagation.
- */
-
 #include "SceneNode.h"
 
 #include <algorithm>
@@ -34,7 +29,7 @@ Node* Node::insertChildBefore(std::unique_ptr<Node> child, Node* before) {
     Node* raw = child.get();
     raw->m_parent = this;
     m_children.insert(position, std::move(child));
-    // The new subtree's world state is unknown: NodeAdded makes the update pass recompute all of it.
+
     raw->markDirty(DirtyFlags::NodeAdded);
     return raw;
 }
@@ -44,7 +39,7 @@ std::unique_ptr<Node> Node::removeChild(Node* child) {
     if (position == m_children.end()) {
         return nullptr;
     }
-    // Tell the renderer while the subtree is still attached, so it can find what it drew.
+
     if (RootNode* top = root(); top != nullptr && top->m_observer != nullptr) {
         top->m_observer->nodeRemoved(*child);
     }
@@ -61,7 +56,7 @@ void Node::markDirty(DirtyFlags flags) {
     while (node->m_parent != nullptr) {
         node = node->m_parent;
         if (hasAny(node->m_dirty, DirtyFlags::Subtree)) {
-            return; // an earlier change already marked the rest of the path, and told the observer
+            return;
         }
         node->m_dirty |= DirtyFlags::Subtree;
     }

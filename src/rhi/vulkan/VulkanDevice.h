@@ -11,49 +11,39 @@
 
 namespace rhi::vulkan {
 
-/**
- * Owns the VkDevice and its VMA allocator.
- *
- * Shared by the device, its queues and every object created from it, so the VkDevice outlives all of them
- * without the device and its queues owning each other. Keeps the instance alive in turn.
- */
+struct VmaAllocatorDeleter {
+    void operator()(VmaAllocator allocator) const { vmaDestroyAllocator(allocator); }
+};
+
+using VmaAllocatorPtr = std::unique_ptr<VmaAllocator_T, VmaAllocatorDeleter>;
+
+struct VmaAllocationDeleter {
+    VmaAllocator allocator = VK_NULL_HANDLE;
+    void operator()(VmaAllocation allocation) const { vmaFreeMemory(allocator, allocation); }
+};
+
+using VmaAllocationPtr = std::unique_ptr<VmaAllocation_T, VmaAllocationDeleter>;
+
 class VulkanDeviceHandle {
 public:
-    /**
-     * Creates an empty handle; VulkanAdapter::createDevice fills in the members.
-     *
-     * @param instance Owner of the VkInstance the device belongs to.
-     */
-    explicit VulkanDeviceHandle(std::shared_ptr<VulkanInstanceHandle> instance);
-    /// Waits for the GPU to go idle, then destroys the allocator and the device.
+    VulkanDeviceHandle(std::shared_ptr<VulkanInstanceHandle> instance, vk::raii::PhysicalDevice physical_device);
+
     ~VulkanDeviceHandle();
 
     VulkanDeviceHandle(const VulkanDeviceHandle&) = delete;
     VulkanDeviceHandle& operator=(const VulkanDeviceHandle&) = delete;
-
-    VkPhysicalDevice m_physical_device = VK_NULL_HANDLE; /**< The adapter's physical device. */
-    VkDevice m_device = VK_NULL_HANDLE;                  /**< The device; destroyed with the handle. */
-    VmaAllocator m_allocator = VK_NULL_HANDLE;           /**< Allocates all buffer and image memory. */
-    std::uint32_t m_graphics_family = 0;                 /**< Queue family of the graphics (present) queue. */
-    bool m_swapchain_enabled = false;                    /**< Whether VK_KHR_swapchain was enabled. */
 private:
     std::shared_ptr<VulkanInstanceHandle> m_instance;
+public:
+    vk::raii::PhysicalDevice m_physical_device;
+    vk::raii::Device m_device = nullptr;
+    VmaAllocatorPtr m_allocator;
+    std::uint32_t m_graphics_family = 0;
+    bool m_swapchain_enabled = false;
 };
 
-/**
- * The Vulkan IDevice. Created by VulkanAdapter::createDevice.
- *
- * The create* methods are filled in by later steps of docs/RHI_VULKAN_PLAN.md; until then they return
- * ErrorCode::Unsupported.
- */
 class VulkanDevice final : public IDevice {
 public:
-    /**
-     * Wraps an already created device.
-     *
-     * @param queues One queue per QueueType, indexed by its value; types without a dedicated family share
-     *               the graphics queue object.
-     */
     VulkanDevice(DeviceDesc desc, std::shared_ptr<VulkanDeviceHandle> handle, std::array<QueueRef, 3> queues);
 
     QueueRef getQueue(QueueType type) override;
@@ -76,7 +66,7 @@ public:
     Result<SemaphoreRef> createSemaphore(SemaphoreDesc desc) override;
 private:
     DeviceDesc m_desc;
-    std::array<QueueRef, 3> m_queues; // indexed by QueueType
+    std::array<QueueRef, 3> m_queues;
     std::shared_ptr<VulkanDeviceHandle> m_device;
 };
 
