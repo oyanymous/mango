@@ -45,9 +45,12 @@ target_include_directories(RHI
 )
 
 if (MANGO_RHI_VULKAN)
-    target_sources(RHI PRIVATE
+    # The Vulkan backend is an OBJECT library of its own so that its precompiled header (Vulkan-Hpp, very large)
+    # applies only to Vulkan sources; its objects are archived into RHI.
+    add_library(RHIVulkan OBJECT
         vulkan/VolkImplementation.cpp
         vulkan/VmaImplementation.cpp
+        vulkan/VulkanHpp.h
         vulkan/VulkanCommon.h
         vulkan/VulkanCommon.cpp
         vulkan/VulkanDeviceFactory.h
@@ -88,25 +91,40 @@ if (MANGO_RHI_VULKAN)
         vulkan/VulkanSwapchain.cpp
     )
 
-    # Backend headers are private to RHI and included bare ("VulkanInstance.h").
-    target_include_directories(RHI PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/vulkan")
+    # Backend headers are private to RHI and included bare ("VulkanInstance.h"); public RHI headers likewise.
+    target_include_directories(RHIVulkan PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/vulkan" "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(RHIVulkan PRIVATE Core mango::volk mango::VulkanMemoryAllocator)
+
+    target_precompile_headers(RHIVulkan PRIVATE vulkan/VulkanHpp.h)
+    if (MSVC)
+        # Vulkan-Hpp exceeds MSVC's default limit on sections per object file.
+        target_compile_options(RHIVulkan PRIVATE /bigobj)
+    endif ()
+    # The volk and VMA implementations do not use Vulkan-Hpp.
+    set_source_files_properties(vulkan/VolkImplementation.cpp vulkan/VmaImplementation.cpp
+                                TARGET_DIRECTORY RHIVulkan PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+
+    # Surface creation needs the platform's WSI declarations, in every backend translation unit (volk included).
+    if (WIN32)
+        target_compile_definitions(RHIVulkan PRIVATE VK_USE_PLATFORM_WIN32_KHR WIN32_LEAN_AND_MEAN NOMINMAX)
+    elseif (APPLE)
+        target_compile_definitions(RHIVulkan PRIVATE VK_USE_PLATFORM_METAL_EXT)
+    endif ()
+    target_compile_definitions(RHIVulkan PRIVATE MANGO_RHI_VULKAN=1)
 
     # Vulkan stays a PRIVATE dependency: no Vulkan type may appear in a public RHI header.
-    target_link_libraries(RHI PRIVATE mango::volk mango::VulkanMemoryAllocator)
+    target_link_libraries(RHI PRIVATE RHIVulkan)
     target_compile_definitions(RHI PUBLIC MANGO_RHI_VULKAN=1)
-    # Surface creation needs the platform's WSI declarations, in every RHI translation unit (volk included).
-    if (WIN32)
-        target_compile_definitions(RHI PRIVATE VK_USE_PLATFORM_WIN32_KHR WIN32_LEAN_AND_MEAN NOMINMAX)
-    elseif (APPLE)
-        target_compile_definitions(RHI PRIVATE VK_USE_PLATFORM_METAL_EXT)
-    endif ()
 
     if (MANGO_VULKAN_VALIDATION)
         # Instances created with enable_validation find the layer built from source here.
-        add_dependencies(RHI mango_vulkan_validation_layers)
-        target_compile_definitions(RHI PRIVATE "MANGO_VULKAN_LAYER_PATH=\"${MANGO_VULKAN_LAYER_PATH}\"")
+        add_dependencies(RHIVulkan mango_vulkan_validation_layers)
+        target_compile_definitions(RHIVulkan PRIVATE "MANGO_VULKAN_LAYER_PATH=\"${MANGO_VULKAN_LAYER_PATH}\""
+                                   MANGO_VULKAN_VALIDATION=1)
         target_compile_definitions(RHI PUBLIC MANGO_VULKAN_VALIDATION=1)
     endif ()
+    # RHIFactory.cpp includes VulkanDeviceFactory.h (plain C++).
+    target_include_directories(RHI PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/vulkan")
 endif ()
 
 if (MANGO_RHI_METAL)

@@ -1,5 +1,7 @@
 #pragma once
 
+// Vulkan-Hpp first: volk.h then reuses its vulkan.h (both with VK_NO_PROTOTYPES).
+#include "VulkanHpp.h"
 #include <volk.h>
 
 #include <cstdint>
