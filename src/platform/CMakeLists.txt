@@ -27,6 +27,8 @@ if (APPLE)
     target_link_libraries(Platform PRIVATE "-framework QuartzCore")
 elseif (WIN32)
     target_link_libraries(Platform PUBLIC user32 Core)
+    # MinGW's headers default to an older Windows; GetDpiForWindow needs Windows 10.
+    target_compile_definitions(Platform PRIVATE _WIN32_WINNT=0x0A00 WINVER=0x0A00)
 endif ()
 
 target_include_directories(Platform
