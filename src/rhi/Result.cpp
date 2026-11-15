@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief rhi::toString(ErrorCode).
- */
-
 #include "Result.h"
 
 namespace rhi {

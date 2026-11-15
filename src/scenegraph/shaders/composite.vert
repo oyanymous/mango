@@ -1,6 +1,5 @@
 #version 450
 
-// A triangle covering the whole target, from gl_VertexIndex alone; uv (0, 0) is the top-left corner.
 layout(location = 0) out vec2 out_uv;
 
 void main() {

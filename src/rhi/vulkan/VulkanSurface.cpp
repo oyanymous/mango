@@ -1,15 +1,10 @@
-/**
- * @file
- * @brief VulkanSurface: platform surface creation.
- */
-
 #include "VulkanSurface.h"
 
 namespace rhi::vulkan {
 
 Result<SurfaceRef> VulkanSurface::create(std::shared_ptr<VulkanInstanceHandle> instance, SurfaceDesc desc) {
     const vk::raii::Instance& vk_instance = instance->m_instance;
-    // A create function is null when the instance was created without its extension.
+
     vk::ResultValue<vk::raii::SurfaceKHR> surface{vk::Result::eErrorExtensionNotPresent, nullptr};
 
     if (const auto* win32 = std::get_if<Win32WindowHandle>(&desc.window)) {
@@ -29,7 +24,7 @@ Result<SurfaceRef> VulkanSurface::create(std::shared_ptr<VulkanInstanceHandle> i
             return Error{ErrorCode::InvalidArgument, "createSurface: layer is null"};
         }
 #if defined(VK_USE_PLATFORM_METAL_EXT)
-        // shortcut: written but never run; verify on the first macOS build with MoltenVK.
+
         if (vk_instance.getDispatcher()->vkCreateMetalSurfaceEXT) {
             surface = vk_instance.createMetalSurfaceEXT(vk::MetalSurfaceCreateInfoEXT{
                 .pLayer = static_cast<const CAMetalLayer*>(metal->layer),

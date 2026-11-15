@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief VulkanRenderPass and VulkanRenderTarget.
- */
-
 #include "VulkanRenderPass.h"
 
 #include <vector>
@@ -30,7 +25,6 @@ vk::AttachmentStoreOp toVkStoreOp(StoreOp op) {
     return op == StoreOp::Store ? vk::AttachmentStoreOp::eStore : vk::AttachmentStoreOp::eDontCare;
 }
 
-/// One attachment description; it stays in @p layout for the whole pass.
 vk::AttachmentDescription toVkAttachment(const AttachmentDesc& desc, vk::ImageLayout layout) {
     return vk::AttachmentDescription{
         .format = toVkFormat(desc.format),
@@ -76,8 +70,6 @@ Result<RenderPassRef> VulkanRenderPass::create(std::shared_ptr<VulkanDeviceHandl
             toVkAttachment(*desc.depth_stencil_attachment, vk::ImageLayout::eDepthStencilAttachmentOptimal));
     }
 
-    // No explicit subpass dependencies: callers transition attachments with ICommandBuffer::barrier into and
-    // out of the attachment states, and those barriers cover the load and store operations.
     const vk::SubpassDescription subpass{
         .pipelineBindPoint = vk::PipelineBindPoint::eGraphics,
         .colorAttachmentCount = static_cast<std::uint32_t>(color_refs.size()),

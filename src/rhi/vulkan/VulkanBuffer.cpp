@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief VulkanBuffer.
- */
-
 #include "VulkanBuffer.h"
 
 #include "VulkanDevice.h"
@@ -11,7 +6,6 @@ namespace rhi::vulkan {
 
 namespace {
 
-/// Maps BufferUsage bits to VkBufferUsageFlags.
 VkBufferUsageFlags toVkBufferUsage(BufferUsage usage) {
     VkBufferUsageFlags flags = 0;
     if (hasFlag(usage, BufferUsage::CopySrc)) {
@@ -51,7 +45,6 @@ Result<BufferRef> VulkanBuffer::create(std::shared_ptr<VulkanDeviceHandle> devic
     buffer_info.usage = toVkBufferUsage(desc.usage);
     buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    // VMA_MEMORY_USAGE_AUTO picks the memory type from the usage and these host-access hints.
     VmaAllocationCreateInfo allocation_info{};
     allocation_info.usage = VMA_MEMORY_USAGE_AUTO;
     if (desc.memory == MemoryLocation::CpuToGpu) {
@@ -67,7 +60,7 @@ Result<BufferRef> VulkanBuffer::create(std::shared_ptr<VulkanDeviceHandle> devic
         result != VK_SUCCESS) {
         return toError(result, "vmaCreateBuffer");
     }
-    // Owned from here on, so an early return cannot leak them.
+
     VmaAllocationPtr owned_allocation(allocation, {device->m_allocator.get()});
     vk::raii::Buffer owned_buffer(device->m_device, buffer, nullptr);
     return BufferRef(std::make_shared<VulkanBuffer>(std::move(device), std::move(desc), std::move(owned_allocation),
@@ -113,7 +106,7 @@ MapResult VulkanBuffer::map(MapDesc desc) {
     if (VkResult result = vmaMapMemory(allocator(), m_allocation.get(), &data); result != VK_SUCCESS) {
         return toError(result, "vmaMapMemory");
     }
-    // A no-op on coherent memory; needed to see GPU writes on non-coherent memory.
+
     if (VkResult result = vmaInvalidateAllocation(allocator(), m_allocation.get(), desc.offset, desc.size);
         result != VK_SUCCESS) {
         vmaUnmapMemory(allocator(), m_allocation.get());

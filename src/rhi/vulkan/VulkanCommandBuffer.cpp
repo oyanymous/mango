@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief VulkanCommandBuffer.
- */
-
 #include "VulkanCommandBuffer.h"
 
 #include "VulkanBuffer.h"
@@ -18,13 +13,11 @@ namespace rhi::vulkan {
 
 namespace {
 
-/// The pipeline stages and memory accesses a resource in a given state is used with.
 struct StageAccess {
     vk::PipelineStageFlags stages;
     vk::AccessFlags access;
 };
 
-/// Maps a ResourceState to the stages and accesses that use it, for barriers.
 StageAccess toStageAccess(ResourceState state) {
     using Stage = vk::PipelineStageFlagBits;
     using Access = vk::AccessFlagBits;
@@ -59,7 +52,6 @@ StageAccess toStageAccess(ResourceState state) {
     return {Stage::eAllCommands, Access::eMemoryRead | Access::eMemoryWrite};
 }
 
-/// The image layout a texture in a given state is in. States only buffers use map to GENERAL.
 vk::ImageLayout toImageLayout(ResourceState state) {
     switch (state) {
     case ResourceState::Undefined:
@@ -127,7 +119,7 @@ Result<void> VulkanCommandBuffer::begin() {
         }
         m_pending_timeline.reset();
     }
-    // The previous submission finished, so its resources can go.
+
     m_retained_resources.clear();
     if (Result<void> reset = check(m_pool.reset({}), "vkResetCommandPool"); !reset) {
         return reset;
@@ -188,8 +180,7 @@ void VulkanCommandBuffer::barrier(BarrierBatch batch) {
             .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
             .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
             .image = texture.handle(),
-            // Barriers cover every aspect, so depth and stencil of one texture always share a layout.
-            // kRemaining equals VK_REMAINING_MIP_LEVELS / VK_REMAINING_ARRAY_LAYERS.
+
             .subresourceRange =
                 {
                     .aspectMask = aspectsOf(texture.getDesc().format),
@@ -215,7 +206,6 @@ RenderEncoderRef VulkanCommandBuffer::beginRender(RenderBeginDesc desc) {
     const RenderPassDesc pass_desc = desc.render_pass->getDesc();
     const Extent2D extent = desc.target->getDesc().extent;
 
-    // Vulkan indexes clear values by attachment; RenderBeginDesc lists colours only for clearing attachments.
     std::vector<vk::ClearValue> clear_values;
     std::size_t next_color = 0;
     for (const AttachmentDesc& attachment : pass_desc.color_attachments) {
@@ -246,14 +236,13 @@ RenderEncoderRef VulkanCommandBuffer::beginRender(RenderBeginDesc desc) {
         },
         vk::SubpassContents::eInline);
 
-    // IRenderEncoder promises a viewport and scissor covering the whole target; pipelines make them dynamic.
     m_command_buffer.setViewport(0, vk::Viewport{
                                         .width = static_cast<float>(extent.width),
                                         .height = static_cast<float>(extent.height),
                                         .maxDepth = 1.0f,
                                     });
     m_command_buffer.setScissor(0, area);
-    // Every pipeline makes the stencil reference dynamic too; IRenderEncoder promises it starts at 0.
+
     m_command_buffer.setStencilReference(vk::StencilFaceFlagBits::eFrontAndBack, 0);
 
     retain(std::move(desc.render_pass));
@@ -282,7 +271,7 @@ Result<void> VulkanCommandBuffer::end() {
     if (m_state != RecordingState::Recording) {
         return Error{ErrorCode::InvalidArgument, "ICommandBuffer::end: not recording, or an encoder is still open"};
     }
-    // A fence wait alone does not make device writes visible to the host; this barrier does.
+
     const vk::MemoryBarrier to_host{
         .srcAccessMask = vk::AccessFlagBits::eMemoryWrite,
         .dstAccessMask = vk::AccessFlagBits::eHostRead,

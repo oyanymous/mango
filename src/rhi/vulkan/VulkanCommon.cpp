@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief vk::Result naming and mapping to RHI errors, and RHI-to-Vulkan enum mappings.
- */
-
 #include "VulkanCommon.h"
 
 namespace rhi::vulkan {
@@ -175,7 +170,6 @@ vk::ImageAspectFlags aspectsOf(Format format) {
 }
 
 vk::CompareOp toVkCompareOp(CompareOp op) {
-    // The enumerators are declared in Vulkan's order.
     static_assert(static_cast<int>(CompareOp::Never) == VK_COMPARE_OP_NEVER &&
                   static_cast<int>(CompareOp::GreaterOrEqual) == VK_COMPARE_OP_GREATER_OR_EQUAL &&
                   static_cast<int>(CompareOp::Always) == VK_COMPARE_OP_ALWAYS);

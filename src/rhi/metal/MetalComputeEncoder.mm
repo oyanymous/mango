@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief MetalComputeEncoder: compute recording.
- */
-
 #include "MetalComputeEncoder.h"
 
 #include <utility>

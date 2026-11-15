@@ -9,22 +9,10 @@
 
 namespace rhi::vulkan {
 
-/**
- * The Vulkan ISurface. Created by VulkanInstance::createSurface.
- *
- * Keeps the instance alive, so it may outlive the InstanceRef. The window must outlive the surface.
- */
 class VulkanSurface final : public ISurface {
 public:
-    /**
-     * Creates a surface for a Win32 window or a CAMetalLayer.
-     *
-     * @return The surface; InvalidArgument for an empty handle, or Unsupported when the instance lacks the
-     *         platform's surface extension.
-     */
     static Result<SurfaceRef> create(std::shared_ptr<VulkanInstanceHandle> instance, SurfaceDesc desc);
 
-    /// Takes ownership of a created surface. Use create().
     VulkanSurface(std::shared_ptr<VulkanInstanceHandle> instance, SurfaceDesc desc, vk::raii::SurfaceKHR surface);
 
     VulkanSurface(const VulkanSurface&) = delete;
@@ -34,7 +22,7 @@ public:
 
     vk::SurfaceKHR handle() const { return *m_surface; }
 private:
-    std::shared_ptr<VulkanInstanceHandle> m_instance; // first: destroyed after the surface
+    std::shared_ptr<VulkanInstanceHandle> m_instance;
     SurfaceDesc m_desc;
     vk::raii::SurfaceKHR m_surface;
 };

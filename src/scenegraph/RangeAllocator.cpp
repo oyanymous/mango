@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief sg::RangeAllocator.
- */
-
 #include "RangeAllocator.h"
 
 #include <iterator>
@@ -35,12 +30,12 @@ void RangeAllocator::free(std::uint32_t offset, std::uint32_t size) {
     }
     m_used -= size;
     auto next = m_free.lower_bound(offset);
-    // Merge with the following free range.
+
     if (next != m_free.end() && offset + size == next->first) {
         size += next->second;
         next = m_free.erase(next);
     }
-    // Merge with the preceding free range.
+
     if (next != m_free.begin()) {
         auto previous = std::prev(next);
         if (previous->first + previous->second == offset) {
@@ -57,7 +52,7 @@ void RangeAllocator::grow(std::uint32_t capacity) {
     }
     const std::uint32_t old_capacity = m_capacity;
     m_capacity = capacity;
-    m_used += capacity - old_capacity; // free() subtracts it again
+    m_used += capacity - old_capacity;
     free(old_capacity, capacity - old_capacity);
 }
 

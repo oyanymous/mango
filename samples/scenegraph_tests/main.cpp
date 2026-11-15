@@ -1,13 +1,3 @@
-/**
- * @file
- * @brief scenegraph_tests: headless checks of the scene graph and its renderer, run by CTest.
- *
- * Runs every check, prints `[ OK ]` / `[FAIL]` per check, and exits non-zero if any failed. The CPU checks (math,
- * tree operations, dirty tracking, geometry, damage, allocation) always run; the renderer checks run offscreen once
- * per available RHI backend, with validation on, read the canvas back and compare pixels. Any validation warning
- * fails the run.
- */
-
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -30,9 +20,8 @@
 
 namespace {
 
-int g_failures = 0; // failed checks so far
+int g_failures = 0;
 
-/// Prints the outcome of one check and counts failures.
 void check(bool condition, const std::string& what) {
     std::printf("%s %s\n", condition ? "[ OK ]" : "[FAIL]", what.c_str());
     if (!condition) {
@@ -43,10 +32,6 @@ void check(bool condition, const std::string& what) {
 bool near(float a, float b, float epsilon = 1.0e-4f) {
     return std::abs(a - b) <= epsilon;
 }
-
-// ---------------------------------------------------------------------------------------------------------------
-// CPU checks
-// ---------------------------------------------------------------------------------------------------------------
 
 void testMath() {
     using sg::RectF;
@@ -88,7 +73,6 @@ void testTree() {
     check(root.removeChild(a) == nullptr, "removeChild of a non-child returns null");
 }
 
-/// Counts observer notifications and what the update pass reports.
 struct Recorder : sg::NodeObserver, sg::UpdateVisitor {
     int dirty_notifications = 0;
     int removed_notifications = 0;
@@ -108,7 +92,7 @@ void testDirtyTracking() {
     sg::RootNode root;
     Recorder recorder;
     root.setObserver(&recorder);
-    // root -> left (transform) -> 10 rectangles; root -> right (transform) -> chain of 3 nodes -> leaf rectangle.
+
     auto* left = root.emplaceChild<sg::TransformNode>();
     for (int i = 0; i < 10; ++i) {
         left->emplaceChild<sg::RectangleNode>(sg::RectF{0, 0, 1, 1});
@@ -150,7 +134,6 @@ void testDirtyTracking() {
     check(recorder.dirty_notifications == 0 && left->dirtyFlags() == sg::DirtyFlags::None,
           "setting an unchanged value marks nothing");
 
-    // Layers: moving the layer updates its quad only, not the content.
     auto* layer = root.emplaceChild<sg::TransformNode>()->emplaceChild<sg::LayerNode>();
     for (int i = 0; i < 5; ++i) {
         layer->emplaceChild<sg::RectangleNode>(sg::RectF{0, 0, 1, 1});
@@ -223,13 +206,8 @@ void testRangeAllocator() {
     check(ranges.allocate(10) == 10u && ranges.capacity() == 20, "grow adds free space at the end");
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// Renderer checks (offscreen, per backend)
-// ---------------------------------------------------------------------------------------------------------------
-
 constexpr std::uint32_t kSize = 64;
 
-/// One RGBA8 pixel of a read-back canvas.
 struct Pixel {
     int r, g, b, a;
 };
@@ -251,7 +229,6 @@ constexpr Pixel kRed{255, 0, 0, 255};
 constexpr Pixel kGreen{0, 255, 0, 255};
 constexpr Pixel kBlue{0, 0, 255, 255};
 
-/// An offscreen renderer of kSize x kSize (or @p size) with a white background.
 std::unique_ptr<sg::Renderer> makeRenderer(const rhi::DeviceRef& device, std::uint32_t size = kSize) {
     auto renderer = sg::Renderer::create({.device = device, .size = {size, size}, .label = "test"});
     if (!renderer) {
@@ -261,7 +238,6 @@ std::unique_ptr<sg::Renderer> makeRenderer(const rhi::DeviceRef& device, std::ui
     return std::move(renderer).value();
 }
 
-/// Renders and reads back; empty on failure.
 std::vector<std::uint8_t> renderAndRead(sg::Renderer& renderer) {
     auto stats = renderer.render();
     if (!stats) {
@@ -312,7 +288,7 @@ void testTexturesAndOrder(const rhi::DeviceRef& device) {
     auto texture = sg::Texture::fromRgba8(2, 2, {255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 128});
     sg::RootNode root;
     root.emplaceChild<sg::ImageNode>(sg::RectF{0, 0, 32, 32}, texture, false);
-    // Paint order across batches: red, then the texture, then green on top of both.
+
     root.emplaceChild<sg::RectangleNode>(sg::RectF{40, 0, 16, 16}, sg::ColorF{1, 0, 0, 1});
     root.emplaceChild<sg::ImageNode>(sg::RectF{44, 4, 16, 16}, texture, false);
     root.emplaceChild<sg::RectangleNode>(sg::RectF{48, 8, 16, 16}, sg::ColorF{0, 1, 0, 1});
@@ -336,7 +312,7 @@ void testIncrementalUpdates(const rhi::DeviceRef& device) {
         return;
     }
     sg::RootNode root;
-    // Four clipped quadrants of 50 small rectangles each, and one mover in the first quadrant.
+
     std::vector<sg::RectangleNode*> rects;
     std::array<sg::ClipNode*, 4> quadrants{};
     for (int q = 0; q < 4; ++q) {
@@ -380,7 +356,6 @@ void testIncrementalUpdates(const rhi::DeviceRef& device) {
     check(reshaped && reshaped->bytes_uploaded == 4 * 24 && !reshaped->batches_rebuilt,
           "resizing a rectangle rewrites its 4 vertices in place");
 
-    // Random edits, each rendered incrementally; the result must equal a full redraw of the same scene.
     std::mt19937 random(1234);
     std::uniform_real_distribution<float> offset(-20.0f, 20.0f);
     for (int step = 0; step < 30; ++step) {
@@ -404,13 +379,12 @@ void testIncrementalUpdates(const rhi::DeviceRef& device) {
         }
     }
     auto incremental = renderer->readPixels();
-    renderer->setClearColor(sg::ColorF::white()); // damages everything
+    renderer->setClearColor(sg::ColorF::white());
     auto full = renderer->render();
     auto reference = renderer->readPixels();
     check(full && full->full_redraw && incremental && reference && *incremental == *reference,
           "30 random incremental frames equal a full redraw, pixel for pixel");
 
-    // Removal reveals the background.
     std::unique_ptr<sg::Node> removed = root.removeChild(quadrants[3]);
     const std::vector<std::uint8_t> after_removal = renderAndRead(*renderer);
     check(!after_removal.empty() && pixelIs(after_removal, 256, 130, 130, kWhite) &&
@@ -444,10 +418,10 @@ void testClipping(const rhi::DeviceRef& device) {
         return;
     }
     sg::RootNode root;
-    // Axis-aligned clip on the left half.
+
     auto* clip = root.emplaceChild<sg::ClipNode>(sg::RectF{4, 4, 20, 20});
     clip->emplaceChild<sg::RectangleNode>(sg::RectF{0, 0, 64, 32}, sg::ColorF{1, 0, 0, 1});
-    // A 45-degree rotated clip (a diamond) around (44, 44), nested in a second rotated clip.
+
     auto* rotate = root.emplaceChild<sg::TransformNode>(sg::Transform2D::translation(44, 44) *
                                                         sg::Transform2D::rotation(3.14159265f / 4));
     auto* diamond = rotate->emplaceChild<sg::ClipNode>(sg::RectF{-10, -10, 20, 20});
@@ -465,7 +439,6 @@ void testClipping(const rhi::DeviceRef& device) {
     check(pixelIs(pixels, kSize, 33, 33, kWhite) && pixelIs(pixels, kSize, 55, 55, kWhite),
           "a rotated clip removes the corners of its bounding box (stencil)");
 
-    // Nest an axis-aligned clip inside the diamond, then a second rotated one: the intersection remains.
     std::unique_ptr<sg::Node> content = diamond->removeChild(diamond->children()[0].get());
     auto* inner_rotate = diamond->emplaceChild<sg::TransformNode>(sg::Transform2D::rotation(-3.14159265f / 4));
     auto* inner = inner_rotate->emplaceChild<sg::ClipNode>(sg::RectF{0, -20, 20, 40});
@@ -480,7 +453,6 @@ void testClipping(const rhi::DeviceRef& device) {
 }
 
 void testLayers(const rhi::DeviceRef& device) {
-    // Reference: the same content without a layer.
     auto build = [](sg::Node& parent) {
         for (int i = 0; i < 500; ++i) {
             parent.emplaceChild<sg::RectangleNode>(

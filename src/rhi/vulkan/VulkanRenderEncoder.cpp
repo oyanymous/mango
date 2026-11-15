@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief VulkanRenderEncoder.
- */
-
 #include "VulkanRenderEncoder.h"
 
 #include <algorithm>
@@ -32,7 +27,7 @@ void VulkanRenderEncoder::setPipeline(PipelineRef pipeline) {
 
 void VulkanRenderEncoder::setBindGroup(BindGroupBinding binding) {
     if (!m_pipeline) {
-        return; // Vulkan binds sets through a pipeline layout; see the header.
+        return;
     }
     m_commands.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
                                   static_cast<const VulkanPipeline&>(*m_pipeline).layoutHandle(), binding.index,
@@ -84,7 +79,6 @@ void VulkanRenderEncoder::setViewport(Viewport viewport) {
 }
 
 void VulkanRenderEncoder::setScissor(ScissorRect rect) {
-    // Vulkan requires the scissor inside the framebuffer, so clamp; an empty result skips draws instead.
     const std::int64_t width = m_extent.width;
     const std::int64_t height = m_extent.height;
     const std::int64_t x0 = std::clamp<std::int64_t>(rect.x, 0, width);

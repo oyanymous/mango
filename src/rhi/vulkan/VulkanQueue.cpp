@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief VulkanQueue.
- */
-
 #include "VulkanQueue.h"
 
 #include <vector>
@@ -35,7 +30,6 @@ VulkanQueue::VulkanQueue(std::shared_ptr<VulkanDeviceHandle> device, QueueType t
 }
 
 VulkanQueue::~VulkanQueue() {
-    // Also covers presents, whose semaphore waits no fence or timeline can observe.
     (void)m_queue.waitIdle();
     for (InFlight& submission : m_in_flight) {
         for (const CommandBufferRef& command_buffer : submission.command_buffers) {
@@ -67,7 +61,6 @@ Result<void> VulkanQueue::submit(SubmitDesc desc) {
         command_buffers.emplace_back(vk->handle());
     }
 
-    // Timeline values are per semaphore; Vulkan ignores the entries of binary semaphores.
     std::vector<vk::Semaphore> wait_semaphores;
     std::vector<vk::PipelineStageFlags> wait_stages;
     std::vector<std::uint64_t> wait_values;
@@ -88,7 +81,7 @@ Result<void> VulkanQueue::submit(SubmitDesc desc) {
         signal_semaphores.emplace_back(static_cast<const VulkanSemaphore&>(*signal.semaphore).handle());
         signal_values.push_back(signal.value);
     }
-    // The queue's own timeline marks when this submission, and so everything it holds, is finished.
+
     const std::uint64_t value = m_last_value + 1;
     signal_semaphores.emplace_back(m_timeline->handle());
     signal_values.push_back(value);
@@ -157,9 +150,9 @@ Result<void> VulkanQueue::present(PresentDesc desc) {
     };
 
     const vk::Result result = m_queue.presentKHR(info);
-    // Even a failed present may have consumed the waits; replacing the entry releases this image's last present.
+
     m_presented[{desc.swapchain.get(), desc.image_index}] = std::move(desc.wait_semaphores);
-    // A suboptimal swapchain still presented, but should be resized like an out-of-date one.
+
     if (result == vk::Result::eSuboptimalKHR || result == vk::Result::eErrorOutOfDateKHR) {
         return Error{ErrorCode::OutOfDate, "VulkanQueue::present: the swapchain must be resized"};
     }

@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief VulkanShader, VulkanPipelineLayout and VulkanPipeline.
- */
-
 #include "VulkanPipeline.h"
 
 #include <array>
@@ -44,13 +39,11 @@ vk::CullModeFlags toVkCullMode(CullMode mode) {
     return vk::CullModeFlagBits::eNone;
 }
 
-/// Maps a BlendFactor; the enumerators are declared in Vulkan's order.
 vk::BlendFactor toVkBlendFactor(BlendFactor factor) {
     static_assert(static_cast<int>(BlendFactor::OneMinusDstAlpha) == VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA);
     return static_cast<vk::BlendFactor>(factor);
 }
 
-/// Maps a BlendOp; the enumerators are declared in Vulkan's order.
 vk::BlendOp toVkBlendOp(BlendOp op) {
     static_assert(static_cast<int>(BlendOp::Max) == VK_BLEND_OP_MAX);
     return static_cast<vk::BlendOp>(op);
@@ -65,12 +58,11 @@ vk::PipelineColorBlendAttachmentState toVkBlend(const BlendState& blend) {
         .srcAlphaBlendFactor = toVkBlendFactor(blend.src_alpha),
         .dstAlphaBlendFactor = toVkBlendFactor(blend.dst_alpha),
         .alphaBlendOp = toVkBlendOp(blend.alpha_op),
-        // ColorWriteMask uses Vulkan's R, G, B, A bit positions.
+
         .colorWriteMask = vk::ColorComponentFlags(static_cast<VkColorComponentFlags>(blend.write_mask)),
     };
 }
 
-/// Whether @p format has a stencil plane.
 bool hasStencil(Format format) {
     return format == Format::D24UnormS8Uint || format == Format::D32FloatS8Uint;
 }
@@ -97,7 +89,6 @@ vk::StencilOp toVkStencilOp(StencilOp op) {
     return vk::StencilOp::eKeep;
 }
 
-/// The shader stage create info for @p shader, which must be a VulkanShader.
 vk::PipelineShaderStageCreateInfo toVkStage(const ShaderRef& shader, vk::ShaderStageFlagBits stage,
                                             const std::string& entry_point) {
     return vk::PipelineShaderStageCreateInfo{
@@ -108,8 +99,6 @@ vk::PipelineShaderStageCreateInfo toVkStage(const ShaderRef& shader, vk::ShaderS
 }
 
 } // namespace
-
-// --- VulkanShader ---
 
 Result<ShaderRef> VulkanShader::create(std::shared_ptr<VulkanDeviceHandle> device, ShaderDesc desc) {
     if (desc.spirv.empty()) {
@@ -144,8 +133,6 @@ ShaderReflection VulkanShader::getReflection() const {
     return m_reflection;
 }
 
-// --- VulkanPipelineLayout ---
-
 Result<PipelineLayoutRef> VulkanPipelineLayout::create(std::shared_ptr<VulkanDeviceHandle> device,
                                                        PipelineLayoutDesc desc) {
     std::vector<vk::DescriptorSetLayout> set_layouts;
@@ -177,8 +164,6 @@ VulkanPipelineLayout::VulkanPipelineLayout(std::shared_ptr<VulkanDeviceHandle> d
 PipelineLayoutDesc VulkanPipelineLayout::getDesc() const {
     return m_desc;
 }
-
-// --- VulkanPipeline ---
 
 Result<PipelineRef> VulkanPipeline::createGraphics(std::shared_ptr<VulkanDeviceHandle> device,
                                                    GraphicsPipelineDesc desc, bool wireframe_enabled) {
@@ -234,7 +219,6 @@ Result<PipelineRef> VulkanPipeline::createGraphics(std::shared_ptr<VulkanDeviceH
 
     const vk::PipelineInputAssemblyStateCreateInfo input_assembly{.topology = toVkTopology(desc.topology)};
 
-    // Viewport and scissor are dynamic; only their counts are fixed here.
     const vk::PipelineViewportStateCreateInfo viewport{.viewportCount = 1, .scissorCount = 1};
 
     const vk::PipelineRasterizationStateCreateInfo raster{
@@ -245,7 +229,6 @@ Result<PipelineRef> VulkanPipeline::createGraphics(std::shared_ptr<VulkanDeviceH
         .lineWidth = 1.0f,
     };
 
-    // Every attachment of a pass has the same sample count.
     const std::uint32_t samples = !pass.color_attachments.empty() ? pass.color_attachments[0].sample_count
                                                                   : pass.depth_stencil_attachment->sample_count;
     const vk::PipelineMultisampleStateCreateInfo multisample{

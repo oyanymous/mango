@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief RHIFactory: the compiled registry of backend factories.
- */
-
 #include "RHIFactory.h"
 
 #include <string>
@@ -21,8 +16,6 @@ namespace rhi {
 
 namespace {
 
-/// The compiled registry: returns the IDeviceFactory of a backend built into this binary, or null. Factories are
-/// created once and shared.
 DeviceFactoryRef factoryFor(Backend backend) {
     switch (backend) {
     case Backend::Vulkan:
@@ -49,7 +42,6 @@ DeviceFactoryRef factoryFor(Backend backend) {
     return nullptr;
 }
 
-/// True if a compiled-in backend's driver can be loaded on this machine.
 bool hasDriver(Backend backend) {
     switch (backend) {
     case Backend::Vulkan:

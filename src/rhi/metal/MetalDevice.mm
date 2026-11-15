@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief MetalDevice: queue creation and object factories.
- */
-
 #include "MetalDevice.h"
 
 #include <string>
@@ -24,7 +19,6 @@ namespace rhi::metal {
 
 namespace {
 
-/// Debug name of a queue, e.g. "smoke device graphics queue".
 NSString* queueLabel(const std::string& device_label, const char* type) {
     std::string label = device_label.empty() ? std::string(type) : device_label + " " + type;
     return toNSString(label + " queue");

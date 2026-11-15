@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief MetalInstance: adapter enumeration.
- */
-
 #include "MetalInstance.h"
 
 #include <utility>
@@ -22,7 +17,6 @@ AdapterList MetalInstance::enumerateAdapters() {
     }
     m_adapters_enumerated = true;
 
-    // MTLCopyAllDevices lists every GPU (MTLCreateSystemDefaultDevice only the one driving the main display).
     NSArray<id<MTLDevice>>* devices = MTLCopyAllDevices();
     for (id<MTLDevice> device in devices) {
         if (auto adapter = MetalAdapter::create(m_reporter, device)) {

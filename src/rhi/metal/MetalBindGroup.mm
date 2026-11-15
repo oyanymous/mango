@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief MetalBindGroup: entry validation and binding to render and compute encoders.
- */
-
 #include "MetalBindGroup.h"
 
 #include <algorithm>
@@ -18,7 +13,6 @@ namespace rhi::metal {
 
 namespace {
 
-/// The resource of @p slot at @p element, or null if the group has none.
 const MetalBoundResource* find(const std::vector<MetalBoundResource>& resources, std::uint32_t binding,
                                std::uint32_t element) {
     auto it = std::ranges::find_if(resources, [&](const MetalBoundResource& resource) {
@@ -27,8 +21,6 @@ const MetalBoundResource* find(const std::vector<MetalBoundResource>& resources,
     return it == resources.end() ? nullptr : &*it;
 }
 
-/// Calls @p bind(resource, argument_index) for every resource of set @p set in @p layout that is visible to @p stage
-/// (or to every stage, for visibility None).
 template <typename Bind>
 void forEachBinding(const std::vector<MetalBoundResource>& resources, const MetalPipelineLayout& layout,
                     std::uint32_t set, ShaderStage stage, Bind&& bind) {
@@ -47,7 +39,6 @@ void forEachBinding(const std::vector<MetalBoundResource>& resources, const Meta
     }
 }
 
-/// The texture to bind for a texture resource.
 id<MTLTexture> textureOf(const MetalBoundResource& resource) {
     return static_cast<const MetalTextureView&>(*resource.texture_view).handle();
 }

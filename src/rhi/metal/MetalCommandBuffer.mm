@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief MetalCommandBuffer: recording state, resource retention and encoder creation.
- */
-
 #include "MetalCommandBuffer.h"
 
 #include <array>
@@ -17,7 +12,6 @@ namespace rhi::metal {
 
 namespace {
 
-/// The Metal load action of a LoadOp.
 MTLLoadAction toMTLLoadAction(LoadOp op) {
     switch (op) {
     case LoadOp::Load:
@@ -30,7 +24,6 @@ MTLLoadAction toMTLLoadAction(LoadOp op) {
     return MTLLoadActionDontCare;
 }
 
-/// The Metal store action of a StoreOp.
 MTLStoreAction toMTLStoreAction(StoreOp op) {
     return op == StoreOp::Store ? MTLStoreActionStore : MTLStoreActionDontCare;
 }
@@ -64,7 +57,7 @@ void MetalCommandBuffer::barrier(BarrierBatch batch) {
     if (m_state != RecordingState::Recording) {
         return;
     }
-    // Metal's automatic hazard tracking orders the accesses; keep the resources alive like the Vulkan backend does.
+
     for (BufferBarrier& b : batch.buffers) {
         if (b.buffer) {
             retain(std::move(b.buffer));
@@ -93,7 +86,7 @@ RenderEncoderRef MetalCommandBuffer::beginRender(RenderBeginDesc desc) {
         color.texture = static_cast<const MetalTextureView&>(*target_desc.color_attachments[i]).handle();
         color.loadAction = toMTLLoadAction(attachment.load_op);
         color.storeAction = toMTLStoreAction(attachment.store_op);
-        // Clear colours are given only for attachments that clear, in attachment order (as in the Vulkan backend).
+
         if (attachment.load_op == LoadOp::Clear && next_clear < desc.clear_colors.size()) {
             const std::array<float, 4>& value = desc.clear_colors[next_clear++];
             color.clearColor = MTLClearColorMake(value[0], value[1], value[2], value[3]);
@@ -121,8 +114,6 @@ RenderEncoderRef MetalCommandBuffer::beginRender(RenderBeginDesc desc) {
         return nullptr;
     }
     encoder.label = toNSString(pass_desc.label);
-    // The viewport and scissor (the target's extent, which may be smaller than the attachments) are applied by the
-    // encoder before the first draw: Metal validation rejects a scissor that is replaced before any draw used it.
 
     retain(std::move(desc.render_pass));
     retain(std::move(desc.target));
@@ -158,7 +149,7 @@ Result<void> MetalCommandBuffer::end() {
     if (m_state != RecordingState::Recording) {
         return Error{ErrorCode::InvalidArgument, "ICommandBuffer::end: not recording, or an encoder is still open"};
     }
-    // Shared memory is coherent once the command buffer completes, so CPU reads after the fence need no barrier.
+
     m_state = RecordingState::Executable;
     return {};
 }

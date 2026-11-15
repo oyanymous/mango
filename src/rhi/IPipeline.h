@@ -12,179 +12,147 @@
 
 namespace rhi {
 
-/// Whether a pipeline draws or dispatches.
 enum class PipelineKind {
-    Graphics, /**< Created by IDevice::createGraphicsPipeline; used with IRenderEncoder. */
-    Compute,  /**< Created by IDevice::createComputePipeline; used with IComputeEncoder. */
+    Graphics,
+    Compute,
 };
 
-/// How often a vertex buffer advances.
 enum class VertexStepMode {
-    Vertex,   /**< Once per vertex. */
-    Instance, /**< Once per instance. */
+    Vertex,
+    Instance,
 };
 
-/// One vertex shader input read from a vertex buffer.
 struct VertexAttribute {
-    std::uint32_t location = 0;        /**< Shader input location (`layout(location = N)`). */
-    Format format = Format::Undefined; /**< Data format, e.g. RGB32Float for a vec3. */
-    std::uint32_t offset = 0;          /**< Byte offset within one vertex. */
+    std::uint32_t location = 0;
+    Format format = Format::Undefined;
+    std::uint32_t offset = 0;
 };
 
-/// The layout of one vertex buffer slot. Slot `i` is bound by setVertexBuffers() at index `i`.
 struct VertexBufferLayout {
-    std::uint32_t stride = 0;                          /**< Bytes between consecutive elements. */
-    VertexStepMode step_mode = VertexStepMode::Vertex; /**< Per-vertex or per-instance. */
-    std::vector<VertexAttribute> attributes;           /**< Attributes read from this buffer. */
+    std::uint32_t stride = 0;
+    VertexStepMode step_mode = VertexStepMode::Vertex;
+    std::vector<VertexAttribute> attributes;
 };
 
-/// How vertices are assembled into primitives.
 enum class PrimitiveTopology {
-    PointList,     /**< Each vertex is a point. */
-    LineList,      /**< Each pair of vertices is a line. */
-    LineStrip,     /**< Consecutive vertices form a connected line. */
-    TriangleList,  /**< Each three vertices are a triangle. */
-    TriangleStrip, /**< Each vertex after the first two forms a triangle with the previous two. */
+    PointList,
+    LineList,
+    LineStrip,
+    TriangleList,
+    TriangleStrip,
 };
 
-/// Which triangle faces are discarded.
 enum class CullMode {
-    None,  /**< Draw both faces. */
-    Front, /**< Discard front faces. */
-    Back,  /**< Discard back faces. */
+    None,
+    Front,
+    Back,
 };
 
-/// Which winding order is the front face.
 enum class FrontFace {
-    CounterClockwise, /**< Counter-clockwise triangles face the viewer. */
-    Clockwise,        /**< Clockwise triangles face the viewer. */
+    CounterClockwise,
+    Clockwise,
 };
 
 struct RasterState {
-    CullMode cull_mode = CullMode::None;                /**< Face culling. */
-    FrontFace front_face = FrontFace::CounterClockwise; /**< Front-face winding. */
-    bool wireframe = false; /**< Draw edges only (needs DeviceFeatures::fill_mode_wireframe). */
+    CullMode cull_mode = CullMode::None;
+    FrontFace front_face = FrontFace::CounterClockwise;
+    bool wireframe = false;
 };
 
-/// What a stencil test does to the stored stencil value.
 enum class StencilOp {
-    Keep,           /**< Leave the value. */
-    Zero,           /**< Set it to 0. */
-    Replace,        /**< Set it to the reference value (IRenderEncoder::setStencilReference). */
-    IncrementClamp, /**< Add 1, saturating at the maximum. */
-    DecrementClamp, /**< Subtract 1, saturating at 0. */
-    Invert,         /**< Flip every bit. */
-    IncrementWrap,  /**< Add 1, wrapping to 0. */
-    DecrementWrap,  /**< Subtract 1, wrapping to the maximum. */
+    Keep,
+    Zero,
+    Replace,
+    IncrementClamp,
+    DecrementClamp,
+    Invert,
+    IncrementWrap,
+    DecrementWrap,
 };
 
-/**
- * Stencil test and update for one face (the same state is used for front and back faces).
- *
- * A fragment passes when `(reference & read_mask) compare (stored & read_mask)` holds, with the reference set by
- * IRenderEncoder::setStencilReference (0 at the start of every render pass).
- */
 struct StencilFaceState {
-    CompareOp compare = CompareOp::Always;     /**< Test between the reference and the stored value. */
-    StencilOp fail_op = StencilOp::Keep;       /**< When the stencil test fails. */
-    StencilOp depth_fail_op = StencilOp::Keep; /**< When the stencil test passes but the depth test fails. */
-    StencilOp pass_op = StencilOp::Keep;       /**< When both tests pass. */
+    CompareOp compare = CompareOp::Always;
+    StencilOp fail_op = StencilOp::Keep;
+    StencilOp depth_fail_op = StencilOp::Keep;
+    StencilOp pass_op = StencilOp::Keep;
 };
 
-/**
- * Depth and stencil test state.
- *
- * The stencil test needs a render pass whose depth/stencil attachment has a stencil format
- * (e.g. Format::D32FloatS8Uint); it is ignored otherwise.
- */
 struct DepthStencilState {
-    bool depth_test = false;                   /**< Compare fragment depth against the depth buffer. */
-    bool depth_write = false;                  /**< Write passing fragments' depth. */
-    CompareOp depth_compare = CompareOp::Less; /**< Comparison used by the depth test. */
-    bool stencil_test = false;                 /**< Run the stencil test and updates in `stencil`. */
-    StencilFaceState stencil;                  /**< Stencil test and updates (both faces). */
-    std::uint8_t stencil_read_mask = 0xff;     /**< Bits compared by the stencil test. */
-    std::uint8_t stencil_write_mask = 0xff;    /**< Bits written by stencil updates. */
+    bool depth_test = false;
+    bool depth_write = false;
+    CompareOp depth_compare = CompareOp::Less;
+    bool stencil_test = false;
+    StencilFaceState stencil;
+    std::uint8_t stencil_read_mask = 0xff;
+    std::uint8_t stencil_write_mask = 0xff;
 };
 
-/// A blend factor: what a colour is multiplied by before blending.
 enum class BlendFactor {
-    Zero,             /**< 0. */
-    One,              /**< 1. */
-    SrcColor,         /**< Source (fragment) colour. */
-    OneMinusSrcColor, /**< 1 - source colour. */
-    DstColor,         /**< Destination (attachment) colour. */
-    OneMinusDstColor, /**< 1 - destination colour. */
-    SrcAlpha,         /**< Source alpha. */
-    OneMinusSrcAlpha, /**< 1 - source alpha. */
-    DstAlpha,         /**< Destination alpha. */
-    OneMinusDstAlpha, /**< 1 - destination alpha. */
+    Zero,
+    One,
+    SrcColor,
+    OneMinusSrcColor,
+    DstColor,
+    OneMinusDstColor,
+    SrcAlpha,
+    OneMinusSrcAlpha,
+    DstAlpha,
+    OneMinusDstAlpha,
 };
 
-/// How the weighted source and destination are combined.
 enum class BlendOp {
-    Add,             /**< src + dst. */
-    Subtract,        /**< src - dst. */
-    ReverseSubtract, /**< dst - src. */
-    Min,             /**< min(src, dst). */
-    Max,             /**< max(src, dst). */
+    Add,
+    Subtract,
+    ReverseSubtract,
+    Min,
+    Max,
 };
 
-/// Which colour channels are written, as a bit set.
 enum class ColorWriteMask : std::uint32_t {
-    None = 0, /**< Write nothing. */
+    None = 0,
     Red = 1u << 0,
     Green = 1u << 1,
     Blue = 1u << 2,
     Alpha = 1u << 3,
-    All = Red | Green | Blue | Alpha, /**< Every channel. */
+    All = Red | Green | Blue | Alpha,
 };
 MANGO_RHI_FLAGS(ColorWriteMask)
 
-/**
- * Blending for one colour attachment. The defaults disable blending (result = source).
- *
- * Typical alpha blending: `src_color = SrcAlpha`, `dst_color = OneMinusSrcAlpha`.
- */
 struct BlendState {
-    bool enabled = false;                            /**< Blend; when false the fragment colour is written as is. */
-    BlendFactor src_color = BlendFactor::One;        /**< Source colour factor. */
-    BlendFactor dst_color = BlendFactor::Zero;       /**< Destination colour factor. */
-    BlendOp color_op = BlendOp::Add;                 /**< Colour combine operation. */
-    BlendFactor src_alpha = BlendFactor::One;        /**< Source alpha factor. */
-    BlendFactor dst_alpha = BlendFactor::Zero;       /**< Destination alpha factor. */
-    BlendOp alpha_op = BlendOp::Add;                 /**< Alpha combine operation. */
-    ColorWriteMask write_mask = ColorWriteMask::All; /**< Channels written. */
+    bool enabled = false;
+    BlendFactor src_color = BlendFactor::One;
+    BlendFactor dst_color = BlendFactor::Zero;
+    BlendOp color_op = BlendOp::Add;
+    BlendFactor src_alpha = BlendFactor::One;
+    BlendFactor dst_alpha = BlendFactor::Zero;
+    BlendOp alpha_op = BlendOp::Add;
+    ColorWriteMask write_mask = ColorWriteMask::All;
 };
 
-/// Describes a graphics pipeline to create with IDevice::createGraphicsPipeline.
 struct GraphicsPipelineDesc {
-    PipelineLayoutRef layout;                       /**< Bind group layouts the shaders use; retained. */
-    ShaderRef vertex_shader;                        /**< Vertex stage; retained. */
-    ShaderRef fragment_shader;                      /**< Fragment stage; retained. */
-    std::vector<VertexBufferLayout> vertex_buffers; /**< One layout per vertex buffer slot. */
+    PipelineLayoutRef layout;
+    ShaderRef vertex_shader;
+    ShaderRef fragment_shader;
+    std::vector<VertexBufferLayout> vertex_buffers;
     PrimitiveTopology topology = PrimitiveTopology::TriangleList;
     RasterState raster;
-    DepthStencilState depth_stencil; /**< Depth test state. */
-    std::vector<BlendState> blend;   /**< One per colour attachment of `render_pass`; empty means no blending. */
-    /// The pipeline works with any render target whose pass is compatible with this one.
+    DepthStencilState depth_stencil;
+    std::vector<BlendState> blend;
+
     RenderPassRef render_pass;
     std::string label;
 };
 
-/// Describes a compute pipeline to create with IDevice::createComputePipeline.
 struct ComputePipelineDesc {
-    PipelineLayoutRef layout; /**< Bind group layouts the shader uses; retained. */
-    ShaderRef compute_shader; /**< Compute stage; retained. */
+    PipelineLayoutRef layout;
+    ShaderRef compute_shader;
     std::string label;
 };
 
-/// A compiled graphics or compute pipeline. Retains its layout and shaders.
 class IPipeline {
 public:
     virtual ~IPipeline() = default;
 
-    /// Whether this is a graphics or a compute pipeline.
     virtual PipelineKind getKind() const = 0;
 };
 

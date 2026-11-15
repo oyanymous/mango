@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief MetalSurface and MetalSwapchain: layer configuration, drawable acquisition.
- */
-
 #include "MetalSwapchain.h"
 
 #include <algorithm>
@@ -44,7 +39,7 @@ Result<SwapchainRef> MetalSwapchain::create(std::shared_ptr<MetalDeviceContext> 
     CAMetalLayer* layer = static_cast<const MetalSurface&>(*desc.surface).layer();
     layer.device = context->device;
     layer.pixelFormat = toMTLPixelFormat(desc.format);
-    // framebufferOnly lets Metal optimise the drawables, but forbids every use except as a colour attachment.
+
     layer.framebufferOnly = desc.usage == TextureUsage::RenderTarget;
     layer.maximumDrawableCount = std::clamp<std::uint32_t>(desc.image_count, 2, 3);
     layer.displaySyncEnabled = desc.present_mode != PresentMode::Immediate;
@@ -82,7 +77,6 @@ AcquireResult MetalSwapchain::acquire(AcquireDesc desc) {
     }
     const std::uint32_t index = m_next_image;
     if (m_drawables[index] != nil) {
-        // Acquired but never presented: drop it, as Vulkan would leave the image to the application.
         m_drawables[index] = nil;
     }
     id<CAMetalDrawable> drawable = [m_layer nextDrawable];
@@ -93,7 +87,6 @@ AcquireResult MetalSwapchain::acquire(AcquireDesc desc) {
     m_backbuffers[index]->setHandle(drawable.texture);
     m_next_image = (index + 1) % static_cast<std::uint32_t>(m_backbuffers.size());
 
-    // nextDrawable returned, so the texture is ready for rendering: the acquire semaphore is signaled now.
     if (desc.signal_semaphore) {
         static_cast<MetalSemaphore&>(*desc.signal_semaphore).signalFromHost();
     }
@@ -105,7 +98,7 @@ Result<void> MetalSwapchain::resize(Extent2D extent) {
     if (extent.width != 0 && extent.height != 0) {
         m_layer.drawableSize = CGSizeMake(extent.width, extent.height);
     }
-    // New slots: textures and render targets made from the old ones keep their (old) drawables until released.
+
     createBackbuffers();
     return {};
 }

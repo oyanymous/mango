@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief VulkanInstance and VulkanInstanceHandle.
- */
-
 #include "VulkanInstance.h"
 
 #include <cstdio>
@@ -15,7 +10,6 @@ namespace rhi::vulkan {
 
 namespace {
 
-/// Lower-case name of a severity, for stderr output.
 const char* severityName(DebugSeverity severity) {
     switch (severity) {
     case DebugSeverity::Verbose:
@@ -30,8 +24,6 @@ const char* severityName(DebugSeverity severity) {
     return "?";
 }
 
-/// VK_EXT_debug_utils callback: converts the severity and forwards the message to the VulkanInstanceHandle passed as
-/// user data.
 VKAPI_ATTR vk::Bool32 VKAPI_CALL debugMessengerCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
                                                         vk::DebugUtilsMessageTypeFlagsEXT,
                                                         const vk::DebugUtilsMessengerCallbackDataEXT* data,
@@ -47,7 +39,7 @@ VKAPI_ATTR vk::Bool32 VKAPI_CALL debugMessengerCallback(vk::DebugUtilsMessageSev
     }
     const auto* handle = static_cast<const VulkanInstanceHandle*>(user_data);
     handle->report(rhi_severity, data && data->pMessage ? data->pMessage : "");
-    return VK_FALSE; // never abort the call that triggered the message
+    return VK_FALSE;
 }
 
 } // namespace
@@ -85,7 +77,6 @@ AdapterList VulkanInstance::enumerateAdapters() {
     }
     m_adapters_enumerated = true;
 
-    // On failure (out of memory) the list stays empty, which callers already handle.
     auto physical_devices = m_instance->m_instance.enumeratePhysicalDevices();
     for (const vk::raii::PhysicalDevice& physical_device : physical_devices.value) {
         if (auto adapter = VulkanAdapter::create(m_instance, physical_device)) {

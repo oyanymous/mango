@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief MetalQueue: submission with `MTLSharedEvent` waits/signals and completion-handler fences.
- */
-
 #include "MetalQueue.h"
 
 #include <atomic>
@@ -21,13 +16,11 @@ namespace rhi::metal {
 
 namespace {
 
-/// An event and the value to wait for or signal.
 struct EventValue {
     id<MTLSharedEvent> event = nil;
     std::uint64_t value = 0;
 };
 
-/// Reports @p command_buffer's error, if it failed, as DebugSeverity::Error. Runs in a completion handler.
 void reportFailure(const MetalDebugReporter& reporter, id<MTLCommandBuffer> command_buffer) {
     if (command_buffer.status != MTLCommandBufferStatusError) {
         return;
@@ -45,7 +38,6 @@ MetalQueue::MetalQueue(std::shared_ptr<MetalDeviceContext> context, QueueType ty
 }
 
 MetalQueue::~MetalQueue() {
-    // A queue runs its command buffers in commit order, so an empty one committed last finishes after the others.
     id<MTLCommandBuffer> drain = [m_queue commandBuffer];
     drain.label = @"MetalQueue drain";
     [drain commit];
@@ -77,7 +69,6 @@ Result<void> MetalQueue::submit(SubmitDesc desc) {
         }
     }
 
-    // Claim binary wait numbers first: it is the only step that can fail, so nothing else changes state on error.
     std::vector<EventValue> waits;
     for (const SemaphoreWait& wait : desc.waits) {
         auto& semaphore = static_cast<MetalSemaphore&>(*wait.semaphore);
@@ -99,10 +90,8 @@ Result<void> MetalQueue::submit(SubmitDesc desc) {
         signals.push_back({semaphore.event(), semaphore.nextSignalValue(signal.value)});
     }
 
-    // The queue runs command buffers in commit order: semaphore waits in a leading internal command buffer, then the
-    // caller's, then signals in a trailing one. Without command buffers of the caller's, one internal buffer does both.
     std::vector<id<MTLCommandBuffer>> sequence;
-    std::vector<std::shared_ptr<MetalCommandBuffer>> owners; // parallel to sequence; null for internal ones
+    std::vector<std::shared_ptr<MetalCommandBuffer>> owners;
     const auto addInternal = [&](NSString* label) {
         id<MTLCommandBuffer> internal = [m_queue commandBuffer];
         internal.label = label;
@@ -129,9 +118,6 @@ Result<void> MetalQueue::submit(SubmitDesc desc) {
         return {};
     }
 
-    // Every command buffer reports its own failure and keeps its RHI object alive until it completes. The fence waits
-    // for all of them, so it does not depend on the order completion handlers run in.
-    // The semaphores stay alive until the last command buffer completes, like everything else the submission uses.
     auto remaining = std::make_shared<std::atomic<std::size_t>>(sequence.size());
     auto semaphores = std::make_shared<std::vector<SemaphoreRef>>();
     for (const SemaphoreWait& wait : desc.waits) {
@@ -188,7 +174,6 @@ Result<void> MetalQueue::present(PresentDesc desc) {
         return Error{ErrorCode::OutOfDate, "MetalQueue::present: the image was not acquired, or the swapchain resized"};
     }
 
-    // Presentation is scheduled from a command buffer, after the frame's work it waits on.
     id<MTLCommandBuffer> command_buffer = [m_queue commandBuffer];
     command_buffer.label = @"MetalQueue::present";
     for (const EventValue& wait : waits) {

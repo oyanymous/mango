@@ -1,12 +1,3 @@
-/**
- * @file
- * @brief rhi_smoke: headless checks of the RHI, run by CTest.
- *
- * Runs every check, prints `[ OK ]` / `[FAIL]` per check, and exits non-zero if any failed. For every backend
- * RHIFactory lists as available, it creates a validated instance, lists the adapters, runs the device checks on
- * each, and fails on any validation warning.
- */
-
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -22,8 +13,7 @@
 #include "RHI.h"
 
 #if defined(MANGO_RHI_VULKAN)
-// Only the loader tool is used; the backend's own Vulkan-Hpp configuration stays private to RHI. Without exceptions,
-// as in the backend, a missing library is reported by DynamicLoader::success() instead of a throw.
+
 #define VULKAN_HPP_NO_EXCEPTIONS
 #define VULKAN_HPP_NO_DEFAULT_DISPATCHER
 #include <vulkan/vulkan.hpp>
@@ -36,9 +26,8 @@
 
 namespace {
 
-int g_failures = 0; // failed checks so far
+int g_failures = 0;
 
-// Prints the outcome of one check and counts failures.
 void check(bool condition, const char* what) {
     std::printf("[%s] %s\n", condition ? " OK " : "FAIL", what);
     if (!condition) {
@@ -83,7 +72,6 @@ void testTypes() {
     check(rhi::Extent3D{4, 4}.depth == 1, "Extent3D depth defaults to 1");
 }
 
-// Every RHI interface must be abstract and safe to delete through a base pointer.
 template <typename... Interfaces>
 constexpr bool allAreInterfaces() {
     return ((std::is_abstract_v<Interfaces> && std::has_virtual_destructor_v<Interfaces>) && ...);
@@ -95,7 +83,6 @@ static_assert(
                      rhi::IRenderTarget, rhi::ICommandBuffer, rhi::IRenderEncoder, rhi::IComputeEncoder,
                      rhi::ICopyEncoder, rhi::IFence, rhi::ISemaphore>());
 
-// A minimal backend-free implementation, to prove the interfaces can be implemented and passed around.
 class FakeFence final : public rhi::IFence {
 public:
     rhi::Result<void> wait(rhi::Timeout) override {
@@ -148,7 +135,6 @@ void testBackends() {
     }
     std::printf("\n");
 
-    // In the order compiledBackends() promises.
     std::vector<rhi::Backend> expected;
 #if defined(MANGO_RHI_VULKAN)
     expected.push_back(rhi::Backend::Vulkan);
@@ -162,12 +148,11 @@ void testBackends() {
     std::printf("Vulkan headers: %u.%u.%u\n", VK_API_VERSION_MAJOR(VK_HEADER_VERSION_COMPLETE),
                 VK_API_VERSION_MINOR(VK_HEADER_VERSION_COMPLETE), VK_API_VERSION_PATCH(VK_HEADER_VERSION_COMPLETE));
 
-    // Opens the loader that ships with the GPU driver (vulkan-1.dll / libvulkan), as the backend does.
     const vk::detail::DynamicLoader loader;
     const auto get_instance_proc_addr =
         loader.success() ? loader.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr") : nullptr;
 #if defined(__APPLE__)
-    // macOS has no Vulkan driver unless MoltenVK is installed, which the build does not provide yet.
+
     if (!get_instance_proc_addr) {
         std::printf("Vulkan loader not found (no MoltenVK); skipping the Vulkan checks\n");
         return;
@@ -211,7 +196,6 @@ const char* adapterTypeName(rhi::AdapterType type) {
     return "unknown";
 }
 
-// Fences, semaphores and empty submissions on the graphics queue.
 void testSync(rhi::IDevice& device) {
     const rhi::Timeout timeout = std::chrono::seconds(5);
     rhi::QueueRef queue = device.getQueue(rhi::QueueType::Graphics);
@@ -242,7 +226,6 @@ void testSync(rhi::IDevice& device) {
           "timeline semaphore starts at its initial value");
     check((*binary)->getKind() == rhi::SemaphoreKind::Binary && (*binary)->getValue() == 0, "binary semaphore");
 
-    // Submit 1 signals timeline=6 and the binary semaphore; submit 2 waits on both and signals timeline=7.
     check(static_cast<bool>(queue->submit({.signals = {{*timeline, 6}, {*binary, 0}}})), "submit signaling semaphores");
     check(static_cast<bool>(queue->submit({
               .waits = {{*timeline, 6, rhi::PipelineStage::AllCommands}, {*binary, 0, rhi::PipelineStage::AllCommands}},
@@ -253,7 +236,6 @@ void testSync(rhi::IDevice& device) {
     check(static_cast<bool>((*fence)->wait(timeout)), "fence after the semaphore chain");
     check((*timeline)->getValue() == 7, "timeline value advanced to 7");
 
-    // Across queues: the compute queue waits for a value the graphics queue signals.
     rhi::QueueRef compute = device.getQueue(rhi::QueueType::Compute);
     check((*fence)->reset() && queue->submit({.signals = {{*timeline, 8}}}) &&
               compute->submit({
@@ -265,7 +247,6 @@ void testSync(rhi::IDevice& device) {
     check((*fence)->wait(timeout) && (*timeline)->getValue() == 9, "compute queue ran after the graphics signal");
 }
 
-// Upload -> GPU-only buffer -> readback buffer on the transfer queue, then compare the bytes.
 void testBufferRoundTrip(rhi::IDevice& device) {
     constexpr std::uint64_t kSize = 64 * 1024;
 
@@ -333,14 +314,13 @@ void testBufferRoundTrip(rhi::IDevice& device) {
     (*readback)->unmap();
     (*upload)->unmap();
 
-    // Re-recording after the fence: begin() releases the previous recording's resources.
     check((*cmd)->begin() && (*cmd)->end(), "command buffer can be re-recorded");
 }
 
 #if defined(MANGO_RHI_VULKAN) || defined(MANGO_RHI_METAL)
-// Dispatch fill.comp on the compute queue into a storage buffer, then read it back: values[i] == i * i + 7.
+
 void testCompute(rhi::IDevice& device) {
-    constexpr std::uint32_t kCount = 1024; // 16 workgroups of 64
+    constexpr std::uint32_t kCount = 1024;
     auto shader = device.createShader(
         {.stage = rhi::ShaderStage::Compute, .spirv = {std::begin(fill_comp_spv), std::end(fill_comp_spv)}});
     auto group_layout =
@@ -354,7 +334,6 @@ void testCompute(rhi::IDevice& device) {
     auto pipeline = device.createComputePipeline({.layout = layout ? *layout : nullptr, .compute_shader = *shader});
     check(pipeline && (*pipeline)->getKind() == rhi::PipelineKind::Compute, "compute pipeline created");
 
-    // GpuToCpu storage: ICommandBuffer::end() makes the shader writes visible to the host after the fence.
     auto output = device.createBuffer({.size = kCount * sizeof(std::uint32_t),
                                        .usage = rhi::BufferUsage::Storage,
                                        .memory = rhi::MemoryLocation::GpuToCpu});
@@ -399,9 +378,6 @@ void testCompute(rhi::IDevice& device) {
 }
 #endif
 
-// The queue keeps submitted objects alive, and a pending command buffer refuses begin() and resubmission.
-// A gate semaphore holds the submission back until the host signals it, so the checks are not racy; validation
-// reports it if anything is destroyed while the GPU still uses it.
 void testLifetime(rhi::IDevice& device) {
     auto gate = device.createSemaphore({.kind = rhi::SemaphoreKind::Timeline});
     auto blocked = device.createCommandBuffer({});
@@ -418,7 +394,6 @@ void testLifetime(rhi::IDevice& device) {
     check(!(*blocked)->begin(), "begin() fails while the submission is pending");
     check(!queue->submit({.command_buffers = {*blocked}}), "a pending command buffer cannot be resubmitted");
 
-    // Drop the test's references while the GPU still waits; the queue keeps the submission's objects alive.
     rhi::SemaphoreRef gate_ref = *gate;
     blocked = rhi::Error{};
     gate = rhi::Error{};
@@ -428,13 +403,11 @@ void testLifetime(rhi::IDevice& device) {
     check(static_cast<bool>((*fence)->wait(std::chrono::seconds(5))), "gated submission finished");
 }
 
-// Upload a 64x64 image, copy a 32x32 region of it into a second texture, read that back and compare.
-// Also creates views and samplers.
 void testTextureRoundTrip(rhi::IDevice& device, const rhi::Capabilities& caps) {
     constexpr std::uint32_t kSize = 64;
     constexpr std::uint32_t kRegion = 32;
     constexpr rhi::Offset3D kOrigin{16, 8, 0};
-    constexpr std::uint32_t kTexel = 4; // RGBA8
+    constexpr std::uint32_t kTexel = 4;
 
     auto bad = device.createTexture({.format = rhi::Format::Undefined, .usage = rhi::TextureUsage::Sampled});
     check(!bad && bad.error().code == rhi::ErrorCode::InvalidArgument, "texture without a format is rejected");
@@ -476,7 +449,6 @@ void testTextureRoundTrip(rhi::IDevice& device, const rhi::Capabilities& caps) {
               "anisotropic sampler created");
     }
 
-    // Texel (x, y) of the source holds bytes {x, y, x ^ y, 255}.
     auto mapped = (*upload)->map({});
     if (!mapped) {
         return;
@@ -554,7 +526,6 @@ void testTextureRoundTrip(rhi::IDevice& device, const rhi::Capabilities& caps) {
     (*readback)->unmap();
 }
 
-// Clears an offscreen colour + depth target in a render pass, reads both back and checks every pixel.
 void testOffscreenClear(rhi::IDevice& device) {
     constexpr std::uint32_t kSize = 32;
     constexpr std::array<float, 4> kClear = {0.25f, 0.5f, 0.75f, 1.0f};
@@ -647,7 +618,6 @@ void testOffscreenClear(rhi::IDevice& device) {
               (*fence)->wait(std::chrono::seconds(5)),
           "render pass finished");
 
-    // UNORM conversion may round either way, so allow one step of difference.
     auto pixels = (*color_readback)->map({});
     bool color_ok = static_cast<bool>(pixels);
     for (std::size_t i = 0; color_ok && i < pixels->size(); ++i) {
@@ -669,7 +639,7 @@ void testOffscreenClear(rhi::IDevice& device) {
 }
 
 #if defined(MANGO_RHI_VULKAN) || defined(MANGO_RHI_METAL)
-// Draws full-screen triangles restricted by scissor rectangles and by a stencil mask, reads back and checks pixels.
+
 void testScissorAndStencil(rhi::IDevice& device) {
     constexpr std::uint32_t kSize = 32;
     auto color = device.createTexture({.format = rhi::Format::RGBA8Unorm,
@@ -734,19 +704,19 @@ void testScissorAndStencil(rhi::IDevice& device) {
     {
         rhi::RenderEncoderRef render =
             (*cmd)->beginRender({.render_pass = *pass, .target = *target, .clear_colors = {{0.0f, 0.0f, 0.0f, 1.0f}}});
-        // Top-left 4x4 corner through the scissor alone.
+
         render->setPipeline(*plain);
         render->setScissor({0, 0, 4, 4});
         render->draw({.vertex_count = 3});
-        // Entirely outside the target: clamped to nothing, draws nothing.
+
         render->setScissor({-10, -10, 5, 5});
         render->draw({.vertex_count = 3});
-        // Stencil 1 in the centre 16x16, no colour written.
+
         render->setPipeline(*write_stencil);
         render->setStencilReference(1);
         render->setScissor({8, 8, 16, 16});
         render->draw({.vertex_count = 3});
-        // Colour where the stencil equals 1; the scissor now covers more than the target and is clamped.
+
         render->setPipeline(*test_stencil);
         render->setScissor({0, 0, 1000, 1000});
         render->draw({.vertex_count = 3});
@@ -821,13 +791,11 @@ void testFactory() {
           "RHIFactory rejects a backend that is not compiled in");
 }
 
-// Creates a validated instance of one backend and runs the device checks on every adapter.
 void testBackend(rhi::Backend backend) {
     const std::string name(rhi::toString(backend));
     std::printf("== %s ==\n", name.c_str());
     rhi::RHIFactory factory;
 
-    // Every warning or error from the driver or the validation layer counts as a failure.
     int problems = 0;
     std::string layer_in_use;
     rhi::InstanceDesc desc{
@@ -901,11 +869,9 @@ void testBackend(rhi::Backend backend) {
 #endif
         }
 
-        // Adapters keep the native instance alive on their own; dropping the instance first must be safe.
         instance = rhi::Error{};
         check(adapters.empty() || !adapters[0]->getCapabilities().name.empty(), "adapters outlive their instance");
 
-        // Devices and queues keep the native device and instance alive; validation reports leaks on destruction.
         adapters.clear();
         rhi::QueueRef queue = devices.empty() ? nullptr : devices[0]->getQueue(rhi::QueueType::Graphics);
         devices.clear();
@@ -922,7 +888,7 @@ void testBackend(rhi::Backend backend) {
         return;
     }
 #if defined(MANGO_RHI_VULKAN) && defined(MANGO_VULKAN_VALIDATION)
-    // The layer built from source is on the same pinned SDK tag as the Vulkan headers.
+
     const std::string expected_layer = "using VK_LAYER_KHRONOS_validation " +
                                        std::to_string(VK_API_VERSION_MAJOR(VK_HEADER_VERSION_COMPLETE)) + "." +
                                        std::to_string(VK_API_VERSION_MINOR(VK_HEADER_VERSION_COMPLETE)) + "." +

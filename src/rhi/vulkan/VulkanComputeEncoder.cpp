@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief VulkanComputeEncoder.
- */
-
 #include "VulkanComputeEncoder.h"
 
 #include "VulkanBindGroup.h"
@@ -27,7 +22,7 @@ void VulkanComputeEncoder::setPipeline(PipelineRef pipeline) {
 
 void VulkanComputeEncoder::setBindGroup(BindGroupBinding binding) {
     if (!m_pipeline) {
-        return; // Vulkan binds sets through a pipeline layout; see the header.
+        return;
     }
     m_commands.bindDescriptorSets(vk::PipelineBindPoint::eCompute,
                                   static_cast<const VulkanPipeline&>(*m_pipeline).layoutHandle(), binding.index,

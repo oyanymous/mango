@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief VulkanFence.
- */
-
 #include "VulkanFence.h"
 
 #include <algorithm>
@@ -28,7 +23,6 @@ VulkanFence::VulkanFence(std::shared_ptr<VulkanDeviceHandle> device, vk::raii::F
 }
 
 Result<void> VulkanFence::wait(Timeout timeout) {
-    // Vulkan takes unsigned nanoseconds, with UINT64_MAX meaning forever; negative timeouts poll.
     const std::uint64_t ns = timeout == kWaitForever
                                  ? std::numeric_limits<std::uint64_t>::max()
                                  : static_cast<std::uint64_t>(std::max<Timeout::rep>(0, timeout.count()));

@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief VulkanSwapchain.
- */
-
 #include "VulkanSwapchain.h"
 
 #include <algorithm>
@@ -28,7 +23,6 @@ vk::PresentModeKHR toVkPresentMode(PresentMode mode) {
     return vk::PresentModeKHR::eFifo;
 }
 
-/// Maps the TextureUsage bits a backbuffer can have to image usage flags.
 vk::ImageUsageFlags toVkSwapchainUsage(TextureUsage usage) {
     using Usage = vk::ImageUsageFlagBits;
     vk::ImageUsageFlags flags;
@@ -92,7 +86,6 @@ Result<void> VulkanSwapchain::recreate() {
     }
     const vk::SurfaceCapabilitiesKHR& caps = caps_result.value();
 
-    // Windows reports the window's size as currentExtent; 0xFFFFFFFF means "whatever the swapchain says".
     Extent2D extent = m_desc.extent;
     if (caps.currentExtent.width != 0xFFFFFFFFu) {
         extent = {caps.currentExtent.width, caps.currentExtent.height};
@@ -101,12 +94,9 @@ Result<void> VulkanSwapchain::recreate() {
         extent.height = std::clamp(extent.height, caps.minImageExtent.height, caps.maxImageExtent.height);
     }
 
-    // The new swapchain is created from the old one; the old one is destroyed when m_swapchain is replaced, on
-    // every path below.
     m_backbuffers.clear();
     m_desc.extent = extent;
     if (extent.width == 0 || extent.height == 0) {
-        // Minimized: no images until the next non-zero resize.
         m_swapchain = nullptr;
         return {};
     }
@@ -124,7 +114,7 @@ Result<void> VulkanSwapchain::recreate() {
     const std::vector<vk::PresentModeKHR> modes = physical.getSurfacePresentModesKHR(surface).value;
     vk::PresentModeKHR present_mode = toVkPresentMode(m_desc.present_mode);
     if (std::find(modes.begin(), modes.end(), present_mode) == modes.end()) {
-        present_mode = vk::PresentModeKHR::eFifo; // the only mode every implementation supports
+        present_mode = vk::PresentModeKHR::eFifo;
     }
 
     std::uint32_t image_count = std::max(m_desc.image_count, caps.minImageCount);
@@ -134,7 +124,6 @@ Result<void> VulkanSwapchain::recreate() {
 
     vk::CompositeAlphaFlagBitsKHR alpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
     if (!(caps.supportedCompositeAlpha & alpha)) {
-        // Take any supported mode; the lowest set bit is a valid single flag.
         const auto bits = static_cast<VkCompositeAlphaFlagsKHR>(caps.supportedCompositeAlpha);
         alpha = static_cast<vk::CompositeAlphaFlagBitsKHR>(bits & (~bits + 1));
     }
@@ -209,7 +198,6 @@ AcquireResult VulkanSwapchain::acquire(AcquireDesc desc) {
 }
 
 Result<void> VulkanSwapchain::resize(Extent2D extent) {
-    // The old images may still be in flight or queued for presentation.
     (void)m_device->m_device.waitIdle();
     m_desc.extent = extent;
     return recreate();

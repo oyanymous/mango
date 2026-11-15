@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief VulkanBindGroupLayout and VulkanBindGroup.
- */
-
 #include "VulkanBindGroup.h"
 
 #include <map>
@@ -49,8 +44,6 @@ vk::ShaderStageFlags toVkShaderStages(ShaderStage stages) {
 
 } // namespace
 
-// --- VulkanBindGroupLayout ---
-
 Result<BindGroupLayoutRef> VulkanBindGroupLayout::create(std::shared_ptr<VulkanDeviceHandle> device,
                                                          BindGroupLayoutDesc desc) {
     std::set<std::uint32_t> seen;
@@ -93,15 +86,12 @@ BindGroupLayoutDesc VulkanBindGroupLayout::getDesc() const {
     return m_desc;
 }
 
-// --- VulkanBindGroup ---
-
 Result<BindGroupRef> VulkanBindGroup::create(std::shared_ptr<VulkanDeviceHandle> device, BindGroupDesc desc) {
     if (!desc.layout) {
         return Error{ErrorCode::InvalidArgument, "createBindGroup: layout is null"};
     }
     const BindGroupLayoutDesc layout_desc = desc.layout->getDesc();
 
-    // Resolve every entry against the layout before touching Vulkan.
     std::map<std::uint32_t, const BindGroupLayoutEntry*> slots;
     for (const BindGroupLayoutEntry& slot : layout_desc.entries) {
         slots[slot.binding] = &slot;
@@ -120,7 +110,6 @@ Result<BindGroupRef> VulkanBindGroup::create(std::shared_ptr<VulkanDeviceHandle>
         }
     }
 
-    // shortcut: one pool per group, sized for its layout; switch to shared pools if groups get created per frame.
     std::map<vk::DescriptorType, std::uint32_t> counts;
     for (const BindGroupLayoutEntry& slot : layout_desc.entries) {
         counts[toVkDescriptorType(slot.type)] += slot.count;
@@ -151,10 +140,9 @@ Result<BindGroupRef> VulkanBindGroup::create(std::shared_ptr<VulkanDeviceHandle>
     if (!sets) {
         return sets.error();
     }
-    // release(): a vk::raii::DescriptorSet would free the set itself, which this pool does not allow.
+
     const vk::DescriptorSet set = sets.value().front().release();
 
-    // Reserved up front: the writes point into these vectors.
     std::vector<vk::DescriptorBufferInfo> buffer_infos;
     std::vector<vk::DescriptorImageInfo> image_infos;
     buffer_infos.reserve(desc.entries.size());
@@ -172,7 +160,7 @@ Result<BindGroupRef> VulkanBindGroup::create(std::shared_ptr<VulkanDeviceHandle>
         switch (type) {
         case BindingType::UniformBuffer:
         case BindingType::StorageBuffer:
-            // kWholeSize is VK_WHOLE_SIZE.
+
             buffer_infos.push_back({
                 .buffer = static_cast<const VulkanBuffer&>(*entry.buffer).handle(),
                 .offset = entry.offset,
@@ -182,7 +170,7 @@ Result<BindGroupRef> VulkanBindGroup::create(std::shared_ptr<VulkanDeviceHandle>
             break;
         case BindingType::SampledTexture:
         case BindingType::StorageTexture:
-            // The layouts ResourceState::ShaderRead and ShaderWrite transition to.
+
             image_infos.push_back({
                 .imageView = static_cast<const VulkanTextureView&>(*entry.texture_view).handle(),
                 .imageLayout = type == BindingType::SampledTexture ? vk::ImageLayout::eShaderReadOnlyOptimal

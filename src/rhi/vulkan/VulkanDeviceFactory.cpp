@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief VulkanDeviceFactory: Vulkan instance creation.
- */
-
 #include "VulkanDeviceFactory.h"
 
 #include <algorithm>
@@ -27,19 +22,15 @@ namespace rhi::vulkan {
 
 namespace {
 
-/// Name of the Khronos validation layer.
 constexpr const char* kValidationLayer = "VK_LAYER_KHRONOS_validation";
 
-/// Makes the loader use only the validation layer built by cmake/VulkanValidationLayers.cmake, so the pinned version is
-/// used even when a Vulkan SDK registers its own. VK_LAYER_PATH replaces the system's explicit-layer search; if the
-/// developer already set VK_LAYER_PATH or VK_ADD_LAYER_PATH, theirs wins.
 void useBuiltLayerPath() {
 #if defined(MANGO_VULKAN_LAYER_PATH)
     if (std::getenv("VK_LAYER_PATH") != nullptr || std::getenv("VK_ADD_LAYER_PATH") != nullptr) {
         return;
     }
 #if defined(_WIN32)
-    // SetEnvironmentVariable updates the process environment the (MSVC-built) loader reads.
+
     SetEnvironmentVariableA("VK_LAYER_PATH", MANGO_VULKAN_LAYER_PATH);
 #else
     setenv("VK_LAYER_PATH", MANGO_VULKAN_LAYER_PATH, 0);
@@ -47,22 +38,18 @@ void useBuiltLayerPath() {
 #endif
 }
 
-/// Returns the layer called @p name from @p layers, or null.
 const vk::LayerProperties* findLayer(const std::vector<vk::LayerProperties>& layers, std::string_view name) {
     auto it = std::find_if(layers.begin(), layers.end(),
                            [&](const vk::LayerProperties& layer) { return std::string_view(layer.layerName) == name; });
     return it == layers.end() ? nullptr : &*it;
 }
 
-/// True if @p extensions contains an extension called @p name.
 bool hasExtension(const std::vector<vk::ExtensionProperties>& extensions, std::string_view name) {
     return std::any_of(extensions.begin(), extensions.end(), [&](const vk::ExtensionProperties& extension) {
         return std::string_view(extension.extensionName) == name;
     });
 }
 
-
-/// The loader's instance-level API version; Vulkan 1.0 loaders lack vkEnumerateInstanceVersion.
 std::uint32_t instanceVersion(const vk::raii::Context& context) {
     if (!context.getDispatcher()->vkEnumerateInstanceVersion) {
         return VK_API_VERSION_1_0;
@@ -74,7 +61,6 @@ std::uint32_t instanceVersion(const vk::raii::Context& context) {
 } // namespace
 
 bool VulkanDeviceFactory::isLoaderAvailable() {
-    // Opened once and kept open, so later checks and vk::raii::Context's own open of the same library are cheap.
     static const vk::detail::DynamicLoader loader;
     return loader.success() && loader.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr") != nullptr;
 }
@@ -115,7 +101,6 @@ Result<InstanceRef> VulkanDeviceFactory::createInstance(InstanceDesc desc) {
         extensions.push_back(vk::EXTDebugUtilsExtensionName);
     }
 
-    // Surface extensions, so the instance can present. Missing ones only disable presentation.
     const char* surface_extensions[] = {
         vk::KHRSurfaceExtensionName,
 #if defined(_WIN32)
@@ -130,7 +115,6 @@ Result<InstanceRef> VulkanDeviceFactory::createInstance(InstanceDesc desc) {
         }
     }
 
-    // MoltenVK is a "portability" implementation; it is only listed when the instance opts in.
     if (hasExtension(available, vk::KHRPortabilityEnumerationExtensionName)) {
         extensions.push_back(vk::KHRPortabilityEnumerationExtensionName);
         flags |= vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR;

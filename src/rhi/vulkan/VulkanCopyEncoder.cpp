@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief VulkanCopyEncoder.
- */
-
 #include "VulkanCopyEncoder.h"
 
 #include "VulkanBuffer.h"
@@ -13,7 +8,6 @@ namespace rhi::vulkan {
 
 namespace {
 
-/// The one mip level and array layer a TextureLocation names.
 vk::ImageSubresourceLayers toSubresourceLayers(const TextureLocation& location, vk::ImageAspectFlags aspect) {
     return {
         .aspectMask = aspect, .mipLevel = location.mip_level, .baseArrayLayer = location.array_layer, .layerCount = 1};
@@ -79,7 +73,6 @@ void VulkanCopyEncoder::copyBufferTexture(BufferTextureCopyDesc desc) {
     const auto& buffer = static_cast<const VulkanBuffer&>(*desc.buffer.buffer);
     const auto& texture = static_cast<const VulkanTexture&>(*desc.texture.texture);
 
-    // Buffer <-> image copies take exactly one aspect; for depth/stencil formats that is depth.
     vk::ImageAspectFlags aspect = aspectsOf(texture.getDesc().format);
     if (aspect & vk::ImageAspectFlagBits::eDepth) {
         aspect = vk::ImageAspectFlagBits::eDepth;
@@ -87,7 +80,7 @@ void VulkanCopyEncoder::copyBufferTexture(BufferTextureCopyDesc desc) {
 
     const vk::BufferImageCopy region{
         .bufferOffset = desc.buffer.offset,
-        .bufferRowLength = desc.buffer.row_length, // 0 means tightly packed in both APIs
+        .bufferRowLength = desc.buffer.row_length,
         .bufferImageHeight = desc.buffer.image_height,
         .imageSubresource = toSubresourceLayers(desc.texture, aspect),
         .imageOffset = toOffset(desc.texture),

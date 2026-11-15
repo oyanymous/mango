@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief MetalRenderPass and MetalRenderTarget validation.
- */
-
 #include "MetalRenderPass.h"
 
 #include <utility>

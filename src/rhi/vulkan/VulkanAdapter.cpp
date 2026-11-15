@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief VulkanAdapter: physical-device queries.
- */
-
 #include "VulkanAdapter.h"
 
 #include <algorithm>
@@ -19,7 +14,6 @@ namespace rhi::vulkan {
 
 namespace {
 
-/// Maps a Vulkan device type to AdapterType.
 AdapterType toAdapterType(vk::PhysicalDeviceType type) {
     switch (type) {
     case vk::PhysicalDeviceType::eDiscreteGpu:
@@ -35,7 +29,6 @@ AdapterType toAdapterType(vk::PhysicalDeviceType type) {
     }
 }
 
-/// Copies the Vulkan limits the RHI exposes into Limits.
 Limits toLimits(const vk::PhysicalDeviceLimits& vk) {
     Limits limits;
     limits.max_texture_dimension_2d = vk.maxImageDimension2D;
@@ -66,7 +59,7 @@ std::optional<AdapterRef> VulkanAdapter::create(std::shared_ptr<VulkanInstanceHa
         physical_device.getFeatures2<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan12Features>();
     const vk::PhysicalDeviceFeatures& features10 = features.get<vk::PhysicalDeviceFeatures2>().features;
     if (!features.get<vk::PhysicalDeviceVulkan12Features>().timelineSemaphore) {
-        return std::nullopt; // ISemaphore's Timeline kind and fence bookkeeping rely on it
+        return std::nullopt;
     }
 
     Capabilities capabilities;
@@ -97,7 +90,6 @@ Capabilities VulkanAdapter::getCapabilities() const {
 
 namespace {
 
-/// Index of the first queue family that has all of @p required and none of @p excluded, or -1.
 int findQueueFamily(const std::vector<vk::QueueFamilyProperties>& families, vk::QueueFlags required,
                     vk::QueueFlags excluded) {
     for (std::size_t i = 0; i < families.size(); ++i) {
@@ -109,7 +101,6 @@ int findQueueFamily(const std::vector<vk::QueueFamilyProperties>& families, vk::
     return -1;
 }
 
-/// Whether the physical device exposes a device extension.
 bool hasDeviceExtension(const std::vector<vk::ExtensionProperties>& extensions, std::string_view name) {
     return std::any_of(extensions.begin(), extensions.end(),
                        [name](const vk::ExtensionProperties& e) { return std::string_view(e.extensionName) == name; });
@@ -127,8 +118,6 @@ Result<DeviceRef> VulkanAdapter::createDevice(DeviceDesc desc) {
 
     const std::vector<vk::QueueFamilyProperties> families = m_physical_device.getQueueFamilyProperties();
 
-    // Vulkan guarantees a graphics+compute family on any device with graphics. Compute and transfer prefer
-    // dedicated families (async work) and fall back to the graphics family, as IDevice::getQueue documents.
     using Queue = vk::QueueFlagBits;
     const int graphics = findQueueFamily(families, Queue::eGraphics | Queue::eCompute, {});
     if (graphics < 0) {
@@ -138,7 +127,7 @@ Result<DeviceRef> VulkanAdapter::createDevice(DeviceDesc desc) {
     int transfer = findQueueFamily(families, Queue::eTransfer, Queue::eGraphics | Queue::eCompute);
     compute = compute < 0 ? graphics : compute;
     transfer = transfer < 0 ? graphics : transfer;
-    const std::array<int, 3> family_of = {graphics, compute, transfer}; // indexed by QueueType
+    const std::array<int, 3> family_of = {graphics, compute, transfer};
 
     const float priority = 1.0f;
     std::vector<vk::DeviceQueueCreateInfo> queue_infos;
@@ -150,22 +139,21 @@ Result<DeviceRef> VulkanAdapter::createDevice(DeviceDesc desc) {
         });
     }
 
-    // On failure the list is empty: the device is still created, without the optional extensions.
     const std::vector<vk::ExtensionProperties> available =
         m_physical_device.enumerateDeviceExtensionProperties(nullptr).value;
 
     std::vector<const char*> extensions;
-    // Without the extension only presentation is unavailable (createSwapchain returns Unsupported).
+
     const bool swapchain = hasDeviceExtension(available, vk::KHRSwapchainExtensionName);
     if (swapchain) {
         extensions.push_back(vk::KHRSwapchainExtensionName);
     }
-    // The spec requires enabling it on portability implementations (MoltenVK) whenever it is exposed.
+
     if (hasDeviceExtension(available, "VK_KHR_portability_subset")) {
         extensions.push_back("VK_KHR_portability_subset");
     }
 
-    vk::PhysicalDeviceVulkan12Features features12{.timelineSemaphore = vk::True}; // checked in create()
+    vk::PhysicalDeviceVulkan12Features features12{.timelineSemaphore = vk::True};
     const vk::PhysicalDeviceFeatures2 features{
         .pNext = &features12,
         .features =
@@ -190,10 +178,9 @@ Result<DeviceRef> VulkanAdapter::createDevice(DeviceDesc desc) {
     if (!device) {
         return device.error();
     }
-    // The device loads its own function pointers, so any number of devices can coexist.
+
     handle->m_device = std::move(device).value();
 
-    // VMA loads the rest of the functions it needs through these two.
     VmaVulkanFunctions vma_functions{};
     vma_functions.vkGetInstanceProcAddr = m_instance->m_context.getDispatcher()->vkGetInstanceProcAddr;
     vma_functions.vkGetDeviceProcAddr = handle->m_device.getDispatcher()->vkGetDeviceProcAddr;
@@ -209,7 +196,6 @@ Result<DeviceRef> VulkanAdapter::createDevice(DeviceDesc desc) {
     }
     handle->m_allocator.reset(allocator);
 
-    // One queue object per family, shared by the types that fall back to it.
     std::array<QueueRef, 3> queues;
     for (std::size_t type = 0; type < queues.size(); ++type) {
         for (std::size_t earlier = 0; earlier < type; ++earlier) {

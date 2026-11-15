@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief VulkanDevice and VulkanDeviceHandle.
- */
-
 #include "VulkanDevice.h"
 
 #include <string>
@@ -26,7 +21,6 @@ VulkanDeviceHandle::VulkanDeviceHandle(std::shared_ptr<VulkanInstanceHandle> ins
 }
 
 VulkanDeviceHandle::~VulkanDeviceHandle() {
-    // Nothing may still be running on the GPU when the device goes away.
     if (*m_device) {
         (void)m_device.waitIdle();
     }

@@ -45,8 +45,7 @@ target_include_directories(RHI
 )
 
 if (MANGO_RHI_VULKAN)
-    # The Vulkan backend is an OBJECT library of its own so that its precompiled header (Vulkan-Hpp, very large)
-    # applies only to Vulkan sources; its objects are archived into RHI.
+
     add_library(RHIVulkan OBJECT
         vulkan/VmaImplementation.cpp
         vulkan/VulkanHpp.h
@@ -90,21 +89,19 @@ if (MANGO_RHI_VULKAN)
         vulkan/VulkanSwapchain.cpp
     )
 
-    # Backend headers are private to RHI and included bare ("VulkanInstance.h"); public RHI headers likewise.
     target_include_directories(RHIVulkan PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/vulkan" "${CMAKE_CURRENT_SOURCE_DIR}")
-    # No loader library: Vulkan-Hpp opens it at runtime (dlopen / LoadLibrary).
+
     target_link_libraries(RHIVulkan PRIVATE Core mango::VulkanMemoryAllocator ${CMAKE_DL_LIBS})
 
     target_precompile_headers(RHIVulkan PRIVATE vulkan/VulkanHpp.h)
     if (MSVC)
-        # Vulkan-Hpp exceeds MSVC's default limit on sections per object file.
+
         target_compile_options(RHIVulkan PRIVATE /bigobj)
     endif ()
-    # The VMA implementation does not use Vulkan-Hpp.
+
     set_source_files_properties(vulkan/VmaImplementation.cpp TARGET_DIRECTORY RHIVulkan
                                 PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 
-    # Surface creation needs the platform's WSI declarations, in every backend translation unit.
     if (WIN32)
         target_compile_definitions(RHIVulkan PRIVATE VK_USE_PLATFORM_WIN32_KHR WIN32_LEAN_AND_MEAN NOMINMAX)
     elseif (APPLE)
@@ -112,18 +109,17 @@ if (MANGO_RHI_VULKAN)
     endif ()
     target_compile_definitions(RHIVulkan PRIVATE VK_NO_PROTOTYPES MANGO_RHI_VULKAN=1)
 
-    # Vulkan stays a PRIVATE dependency: no Vulkan type may appear in a public RHI header.
     target_link_libraries(RHI PRIVATE RHIVulkan)
     target_compile_definitions(RHI PUBLIC MANGO_RHI_VULKAN=1)
 
     if (MANGO_VULKAN_VALIDATION)
-        # Instances created with enable_validation find the layer built from source here.
+
         add_dependencies(RHIVulkan mango_vulkan_validation_layers)
         target_compile_definitions(RHIVulkan PRIVATE "MANGO_VULKAN_LAYER_PATH=\"${MANGO_VULKAN_LAYER_PATH}\""
                                    MANGO_VULKAN_VALIDATION=1)
         target_compile_definitions(RHI PUBLIC MANGO_VULKAN_VALIDATION=1)
     endif ()
-    # RHIFactory.cpp includes VulkanDeviceFactory.h (plain C++).
+
     target_include_directories(RHI PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/vulkan")
 endif ()
 
@@ -170,21 +166,15 @@ if (MANGO_RHI_METAL)
     )
     target_sources(RHI PRIVATE ${RHI_METAL_SOURCES})
 
-    # Backend headers are private to RHI and included bare ("MetalDeviceFactory.h").
     target_include_directories(RHI PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/metal")
 
-    # ARC for the Metal backend only; the rest of the project uses manual reference counting.
     set_source_files_properties(${RHI_METAL_SOURCES} PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
 
-    # Metal stays a PRIVATE dependency: no Metal or Objective-C type may appear in a public RHI header.
     target_link_libraries(RHI PRIVATE "-framework Metal" "-framework QuartzCore" "-framework Foundation"
                           spirv-cross-msl)
     target_compile_definitions(RHI PUBLIC MANGO_RHI_METAL=1)
 endif ()
 
-# Compiles every public header on its own (twice, to check #pragma once), so a header that misses
-# an include fails the build. Only RHI's own include path is visible, which also proves that no
-# public header needs Vulkan.
 set(rhi_header_check_sources)
 foreach (header IN LISTS RHI_PUBLIC_HEADERS)
     get_filename_component(header_name "${header}" NAME_WE)

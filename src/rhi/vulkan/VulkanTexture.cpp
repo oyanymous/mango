@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief VulkanTexture, VulkanTextureView and VulkanSampler.
- */
-
 #include "VulkanTexture.h"
 
 #include "VulkanDevice.h"
@@ -11,7 +6,6 @@ namespace rhi::vulkan {
 
 namespace {
 
-/// Maps TextureUsage bits to VkImageUsageFlags.
 VkImageUsageFlags toVkImageUsage(TextureUsage usage) {
     VkImageUsageFlags flags = 0;
     if (hasFlag(usage, TextureUsage::CopySrc)) {
@@ -35,7 +29,6 @@ VkImageUsageFlags toVkImageUsage(TextureUsage usage) {
     return flags;
 }
 
-/// The view type for a view of @p texture with an optional explicit dimension.
 vk::ImageViewType toVkViewType(const TextureDesc& texture, std::optional<TextureViewDimension> dimension,
                                std::uint32_t layer_count) {
     if (!dimension) {
@@ -113,7 +106,7 @@ Result<TextureRef> VulkanTexture::create(std::shared_ptr<VulkanDeviceHandle> dev
         result != VK_SUCCESS) {
         return toError(result, "vmaCreateImage");
     }
-    // Owned from here on, so an early return cannot leak them.
+
     VmaAllocationPtr owned_allocation(allocation, {device->m_allocator.get()});
     vk::raii::Image owned_image(device->m_device, image, nullptr);
     return TextureRef(std::make_shared<VulkanTexture>(std::move(device), std::move(desc), std::move(owned_allocation),
@@ -159,7 +152,7 @@ Result<TextureViewRef> VulkanTextureView::create(std::shared_ptr<VulkanDeviceHan
         .image = texture.handle(),
         .viewType = toVkViewType(texture_desc, desc.dimension, layer_count),
         .format = toVkFormat(desc.format.value_or(texture_desc.format)),
-        // kRemaining equals VK_REMAINING_MIP_LEVELS / VK_REMAINING_ARRAY_LAYERS (~0u), so the range maps directly.
+
         .subresourceRange =
             {
                 .aspectMask = aspect,

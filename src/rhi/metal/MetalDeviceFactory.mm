@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief MetalDeviceFactory: Metal instance creation and API validation setup.
- */
-
 #include "MetalDeviceFactory.h"
 
 #include <cstdlib>
@@ -12,7 +7,6 @@
 #include "MetalCommon.h"
 #include "MetalInstance.h"
 
-// The backend relies on ARC for every Metal object it holds; src/rhi/CMakeLists.txt sets -fobjc-arc.
 #if !__has_feature(objc_arc)
 #error "The Metal backend must be compiled with ARC (-fobjc-arc)"
 #endif
@@ -21,9 +15,6 @@ namespace rhi::metal {
 
 namespace {
 
-/// Turns on Metal API and shader validation for this process. Metal reads these variables when it creates its first
-/// device, so they only work if nothing in the process has used Metal yet. Values the developer already set win.
-/// Warnings assert like errors, so any validation message stops the program (as it fails the Vulkan smoke test).
 void enableValidationLayer() {
     setenv("MTL_DEBUG_LAYER", "1", 0);
     setenv("MTL_DEBUG_LAYER_ERROR_MODE", "assert", 0);
@@ -31,7 +22,6 @@ void enableValidationLayer() {
     setenv("MTL_SHADER_VALIDATION", "1", 0);
 }
 
-/// True if @p device is wrapped by the API validation layer (its class is then `MTLDebugDevice`).
 bool isValidated(id<MTLDevice> device) {
     return [NSStringFromClass([device class]) containsString:@"Debug"];
 }
@@ -39,9 +29,6 @@ bool isValidated(id<MTLDevice> device) {
 } // namespace
 
 bool MetalDeviceFactory::isAvailable() {
-    // Metal ships with every macOS the build targets (13+). Checking for GPUs here would create a Metal device and
-    // lock in the validation settings before createInstance() can set them; a GPU-less machine (a VM) instead gets an
-    // instance with no adapters.
     return true;
 }
 

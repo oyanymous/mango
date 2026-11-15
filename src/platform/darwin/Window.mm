@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief macOS (AppKit) implementation of Window.
- */
-
 #include "Window.h"
 
 #include <AppKit/AppKit.h>
@@ -14,7 +9,6 @@
 
 namespace {
 
-/// The client-area size of @p window in pixels; 0 x 0 while it is minimized (as on Win32).
 WindowSize pixelSize(NSWindow* window) {
     if ([window isMiniaturized]) {
         return {0, 0};
@@ -26,18 +20,15 @@ WindowSize pixelSize(NSWindow* window) {
 
 } // namespace
 
-/// The NSWindow delegate: forwards size changes to the resize callback and quits the loop when the window closes.
 @interface WindowDelegate : NSObject <NSWindowDelegate> {
 @public
-    std::function<void(WindowSize)>*
-        m_resize_callback;       /**< The owning Window's callback; may hold an empty function. */
-    CAMetalLayer* m_metal_layer; /**< The content view's layer; its scale follows the screen. */
+    std::function<void(WindowSize)>* m_resize_callback;
+    CAMetalLayer* m_metal_layer;
 }
 @end
 
 @implementation WindowDelegate
 
-/// Calls the resize callback with the window's current pixel size.
 - (void)notifyResize:(NSWindow*)window {
     if (m_resize_callback && *m_resize_callback) {
         (*m_resize_callback)(pixelSize(window));
@@ -57,7 +48,6 @@ WindowSize pixelSize(NSWindow* window) {
 }
 
 - (void)windowDidChangeBackingProperties:(NSNotification*)notification {
-    // Moving to a screen with another scale changes the pixel size without changing the window frame.
     NSWindow* window = [notification object];
     m_metal_layer.contentsScale = [window backingScaleFactor];
     [self notifyResize:window];
@@ -69,12 +59,11 @@ WindowSize pixelSize(NSWindow* window) {
 
 @end
 
-/// Native AppKit state of a Window.
 struct Window::Impl {
-    NSWindow* m_window = nil;                          /**< The window; retained (manual reference counting). */
-    WindowDelegate* m_window_delegate = nil;           /**< Its delegate; retained. */
-    CAMetalLayer* m_metal_layer = nil;                 /**< The content view's backing layer; retained by the view. */
-    std::function<void(WindowSize)> m_resize_callback; /**< Called on size changes; may be empty. */
+    NSWindow* m_window = nil;
+    WindowDelegate* m_window_delegate = nil;
+    CAMetalLayer* m_metal_layer = nil;
+    std::function<void(WindowSize)> m_resize_callback;
 };
 
 Window::Window(const std::string& title) : m_impl(std::make_unique<Impl>()), m_window_title(title) {
@@ -85,13 +74,12 @@ Window::Window(const std::string& title) : m_impl(std::make_unique<Impl>()), m_w
                                                    styleMask:style_mask
                                                      backing:NSBackingStoreBuffered
                                                        defer:NO];
-    // Window owns the NSWindow and releases it in its destructor, also after the user closed it.
+
     [m_impl->m_window setReleasedWhenClosed:NO];
     if (!title.empty()) {
         setWindowTitle(title);
     }
 
-    // A layer-hosting content view: set the layer before wantsLayer so AppKit uses it instead of making its own.
     m_impl->m_metal_layer = [CAMetalLayer layer];
     m_impl->m_metal_layer.contentsScale = [m_impl->m_window backingScaleFactor];
     NSView* content = [m_impl->m_window contentView];

@@ -1,18 +1,3 @@
-/**
- * @file
- * @brief scenegraph_demo: a window drawn by sg::Renderer, with a few hundred nodes, some of them animated.
- *
- * The scene has a static grid of rectangles, a spinning rotated clip with content, a layer of 400 rectangles that
- * drifts across the window (moved as one cached texture), a textured image and a polyline. Only the animated parts are
- * redrawn each frame; the frame callback runs on demand, so with `--static` (no animation) the application sleeps
- * between events.
- *
- * Validation is on; the program exits non-zero if validation reported anything.
- *
- * Usage: `scenegraph_demo [--backend vulkan|metal] [--frames N] [--static] [--screenshot FILE.ppm]`. `--frames N`
- * quits after N frames; `--screenshot` then saves the last frame's canvas as a binary PPM image.
- */
-
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -35,7 +20,6 @@
 
 namespace {
 
-/// Whether @p flag appears among the arguments.
 bool hasFlag(int argc, char** argv, std::string_view flag) {
     for (int i = 1; i < argc; ++i) {
         if (argv[i] == flag) {
@@ -45,7 +29,6 @@ bool hasFlag(int argc, char** argv, std::string_view flag) {
     return false;
 }
 
-/// The value after @p flag, or null.
 const char* flagValue(int argc, char** argv, std::string_view flag) {
     for (int i = 1; i + 1 < argc; ++i) {
         if (argv[i] == flag) {
@@ -55,7 +38,6 @@ const char* flagValue(int argc, char** argv, std::string_view flag) {
     return nullptr;
 }
 
-/// The backend named by `--backend`, or the first available one. Exits on an unknown or unavailable name.
 rhi::Backend chooseBackend(int argc, char** argv, const rhi::RHIFactory& factory) {
     const rhi::BackendList available = factory.availableBackends();
     if (const char* name = flagValue(argc, argv, "--backend")) {
@@ -78,7 +60,6 @@ rhi::Backend chooseBackend(int argc, char** argv, const rhi::RHIFactory& factory
     return available[0];
 }
 
-/// Writes premultiplied RGBA8 pixels (opaque here, so premultiplication does not matter) as a binary PPM.
 bool writePpm(const char* path, const std::vector<std::uint8_t>& rgba, std::uint32_t width, std::uint32_t height) {
     std::FILE* file = std::fopen(path, "wb");
     if (file == nullptr) {
@@ -91,7 +72,6 @@ bool writePpm(const char* path, const std::vector<std::uint8_t>& rgba, std::uint
     return std::fclose(file) == 0;
 }
 
-/// A 64x64 checkerboard texture.
 std::shared_ptr<sg::Texture> checkerboard() {
     constexpr std::uint32_t kSize = 64;
     std::vector<std::uint8_t> pixels(kSize * kSize * 4);
@@ -108,20 +88,18 @@ std::shared_ptr<sg::Texture> checkerboard() {
     return sg::Texture::fromRgba8(kSize, kSize, std::move(pixels));
 }
 
-/// The animated parts of the scene.
 struct Scene {
     sg::RootNode root;
-    sg::TransformNode* fit = nullptr;     // scales the 900 x 600 design to the window
-    sg::TransformNode* spinner = nullptr; // rotates a clip
-    sg::TransformNode* drifter = nullptr; // moves the layer
-    sg::OpacityNode* pulse = nullptr;     // fades a rectangle
+    sg::TransformNode* fit = nullptr;
+    sg::TransformNode* spinner = nullptr;
+    sg::TransformNode* drifter = nullptr;
+    sg::OpacityNode* pulse = nullptr;
 };
 
-/// Builds the demo scene, in logical units (the window starts at 900 x 600).
 void buildScene(Scene& scene) {
     scene.fit = scene.root.emplaceChild<sg::TransformNode>();
     sg::Node& top = *scene.fit;
-    // Static background grid: 300 rectangles in one batch.
+
     for (int i = 0; i < 300; ++i) {
         const float x = 20.0f + (i % 20) * 22.0f;
         const float y = 20.0f + (i / 20) * 22.0f;
@@ -129,7 +107,6 @@ void buildScene(Scene& scene) {
             sg::RectF{x, y, 18, 18}, sg::ColorF{0.85f - (i % 20) * 0.02f, 0.88f, 0.95f - (i / 20) * 0.03f, 1.0f});
     }
 
-    // A rotating clip (stencil) around a striped square.
     scene.spinner = top.emplaceChild<sg::TransformNode>(sg::Transform2D::translation(640, 160));
     auto* clip = scene.spinner->emplaceChild<sg::ClipNode>(sg::RectF{-80, -80, 160, 160});
     auto* counter_rotation = clip->emplaceChild<sg::TransformNode>();
@@ -138,7 +115,6 @@ void buildScene(Scene& scene) {
                                                           sg::ColorF{0.9f, 0.4f + i * 0.04f, 0.1f, 1.0f});
     }
 
-    // A layer of 400 small rectangles that drifts as one texture.
     scene.drifter = top.emplaceChild<sg::TransformNode>(sg::Transform2D::translation(40, 380));
     auto* layer = scene.drifter->emplaceChild<sg::LayerNode>();
     for (int i = 0; i < 400; ++i) {
@@ -146,7 +122,6 @@ void buildScene(Scene& scene) {
                                                sg::ColorF{(i % 40) / 40.0f, 0.3f, 1.0f - (i / 40) / 10.0f, 1.0f});
     }
 
-    // An image, a fading rectangle on top of it, and a polyline.
     top.emplaceChild<sg::ImageNode>(sg::RectF{560, 360, 128, 128}, checkerboard());
     scene.pulse = top.emplaceChild<sg::OpacityNode>(1.0f);
     scene.pulse->emplaceChild<sg::RectangleNode>(sg::RectF{620, 420, 120, 120}, sg::ColorF{0.1f, 0.6f, 0.3f, 1.0f});
@@ -158,7 +133,6 @@ void buildScene(Scene& scene) {
                                        sg::Material::flatColor({0.2f, 0.2f, 0.8f, 1.0f}));
 }
 
-/// Scales the 900 x 600 design to fit a window of @p size pixels at @p dpr pixels per unit.
 void fitToWindow(Scene& scene, WindowSize size, float dpr) {
     const float scale = std::min(size.width / dpr / 900.0f, size.height / dpr / 600.0f);
     if (scale > 0.0f) {
@@ -166,7 +140,6 @@ void fitToWindow(Scene& scene, WindowSize size, float dpr) {
     }
 }
 
-/// Moves the animated nodes to their state at frame @p frame.
 void animate(Scene& scene, std::uint64_t frame) {
     const float t = static_cast<float>(frame) / 60.0f;
     scene.spinner->setMatrix(sg::Transform2D::translation(640, 160) * sg::Transform2D::rotation(t * 0.8f));
@@ -184,7 +157,6 @@ int main(int argc, char** argv) {
     const rhi::Backend backend = chooseBackend(argc, argv, factory);
     std::printf("Backend: %s\n", std::string(rhi::toString(backend)).c_str());
 
-    // Before the window: on macOS creating a window initializes Metal, after which validation cannot be turned on.
     int problems = 0;
     auto instance = factory.createInstance(
         backend,
@@ -257,7 +229,7 @@ int main(int argc, char** argv) {
             [&] {
                 if (animated) {
                     animate(scene, frames);
-                    Application::requestFrame(); // keep animating
+                    Application::requestFrame();
                 }
                 rhi::Result<sg::FrameStats> stats = (*renderer)->render();
                 if (!stats) {

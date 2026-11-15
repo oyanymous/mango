@@ -1,8 +1,3 @@
-/**
- * @file
- * @brief MetalRenderEncoder: render pass recording.
- */
-
 #include "MetalRenderEncoder.h"
 
 #include <algorithm>
@@ -63,7 +58,6 @@ void MetalRenderState::setBuffer(ShaderStage which, id<MTLBuffer> buffer, NSUInt
         return;
     }
     if (state.buffers[index] == buffer) {
-        // Same buffer, new offset: the cheaper offset-only call.
         if (which == ShaderStage::Vertex) {
             [m_encoder setVertexBufferOffset:offset atIndex:index];
         } else {
@@ -140,7 +134,7 @@ void MetalRenderEncoder::setPipeline(PipelineRef pipeline) {
     }
     m_state.setPipelineState(metal.m_render_state);
     m_state.setDepthStencilState(metal.m_depth_stencil_state);
-    // Metal sets the raster state on the encoder rather than in the pipeline state.
+
     m_state.setRaster(metal.m_cull_mode, metal.m_front_face, metal.m_fill_mode);
     m_pipeline = std::static_pointer_cast<const MetalPipeline>(pipeline);
     m_command_buffer->retain(std::move(pipeline));
@@ -179,7 +173,7 @@ void MetalRenderEncoder::setIndexBuffer(IndexBufferBinding binding) {
     if (m_ended || !binding.buffer) {
         return;
     }
-    // Metal takes the index buffer with each indexed draw; remember it until then.
+
     m_index_buffer = static_cast<const MetalBuffer&>(*binding.buffer).handle();
     m_index_offset = binding.offset;
     m_index_type = binding.format == IndexFormat::Uint16 ? MTLIndexTypeUInt16 : MTLIndexTypeUInt32;
@@ -227,7 +221,7 @@ void MetalRenderEncoder::setScissor(ScissorRect rect) {
     if (m_ended) {
         return;
     }
-    // Metal validation rejects scissors outside the target or without area: clamp, and skip draws when empty.
+
     const std::int64_t width = m_extent.width;
     const std::int64_t height = m_extent.height;
     const std::int64_t x0 = std::clamp<std::int64_t>(rect.x, 0, width);
